@@ -98,7 +98,7 @@ def main():
     selected_tickers = input_col.multiselect("Select stock symbols:", list(ticker_company_dict.keys()), format_func=lambda ticker: f"{ticker}: {ticker_company_dict[ticker]}")
 
     # Portfolio amount
-    portfolio_amount = input_col.number_input("Enter the investment amount:", min_value=1.0, step=1000.0, value=100000.0, format="%.2f")
+    portfolio_amount = input_col.number_input("Enter the investment amount:", min_value=1000.0, step=1000.0, value=100000.0, format="%.2f")
 
     # Optimization button
     if input_col.button("Optimize Portfolio"):
