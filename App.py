@@ -109,7 +109,7 @@ def main():
             
             # Create a DataFrame to display the optimized portfolio allocation with cost and latest stock price
             df_allocation = pd.DataFrame.from_dict(allocation, orient='index', columns=['Shares'])
-            df_allocation['Recent Stock Price'] = '$' + latest_price.round(2).astype(str)
+            df_allocation['Stock Price'] = '$' + latest_price.round(2).astype(str)
             df_allocation['Cost'] = '$' + (df_allocation['Shares'] * latest_price).round(2).astype(str)
     
            # Create two columns for layout
