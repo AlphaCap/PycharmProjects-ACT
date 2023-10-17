@@ -102,8 +102,8 @@ def main():
 
     # Optimization button
     if input_col.button("Optimize Portfolio"):
-        if not selected_tickers:
-            st.warning("Please select at least one stock symbol.")
+        if len(selected_tickers) < 2:
+            st.warning("Please select multiple stock symbols.")
         else:
             my_portfolio_returns, cleaned_weights, latest_price, allocation, leftover = optimize_portfolio(selected_tickers, start_date, end_date, portfolio_amount)
             
