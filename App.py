@@ -150,10 +150,6 @@ def main():
             # Calculate portfolio returns using numpy dot product
             portfolio_returns = np.dot(my_portfolio_returns_array, cleaned_weights_array)
 
-            # Flatten data to 1D for compatibility
-            sp500_returns = sp500_returns.squeeze()
-            portfolio_returns = pd.Series(portfolio_returns, index=my_portfolio_returns.index)
-
             # Calculate expected returns and volatility
             sp500_expected_returns = sp500_returns.mean() * 252  # Assuming 252 trading days in a year
             sp500_volatility = sp500_returns.std() * np.sqrt(252)
