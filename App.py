@@ -142,6 +142,8 @@ def main():
 
             # Calculate daily returns of S&P 500
             sp500_returns = sp500_prices.pct_change().dropna()
+            sp500_returns = sp500_returns.values
+
 
             # Convert DataFrame to numpy array for dot product
             my_portfolio_returns_array = my_portfolio_returns.values
@@ -149,9 +151,6 @@ def main():
 
             # Calculate portfolio returns using numpy dot product
             portfolio_returns = np.dot(my_portfolio_returns_array, cleaned_weights_array)
-
-            # Convert portfolio returns to pandas Series and ensure it has the same index as sp500_returns
-            portfolio_returns = pd.Series(portfolio_returns, index=my_portfolio_returns.index)
 
             # Calculate expected returns and volatility
             sp500_expected_returns = sp500_returns.mean() * 252  # Assuming 252 trading days in a year
