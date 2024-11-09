@@ -142,8 +142,6 @@ def main():
 
             # Calculate daily returns of S&P 500
             sp500_returns = sp500_prices.pct_change().dropna()
-            sp500_returns = sp500_returns.values
-
 
             # Convert DataFrame to numpy array for dot product
             my_portfolio_returns_array = my_portfolio_returns.values
@@ -158,8 +156,12 @@ def main():
             portfolio_expected_returns = portfolio_returns.mean() * 252
             portfolio_volatility = portfolio_returns.std() * np.sqrt(252)
 
+            # Convert both to 1D numpy arrays
+            sp500_returns_array = sp500_returns.values.flatten()
+            portfolio_returns_array = portfolio_returns.flatten()
+            
             # Combine the S&P 500 and portfolio returns into a DataFrame
-            combined_returns = pd.DataFrame({'S&P 500': sp500_returns, 'Portfolio': portfolio_returns}, index=my_portfolio_returns.index)
+            combined_returns = pd.DataFrame({'S&P 500': sp500_returns_array, 'Portfolio': portfolio_returns_array}, index=my_portfolio_returns.index)
 
             # Plot the time series chart of S&P 500 and the portfolio
             plt.figure(figsize=(12, 6))
