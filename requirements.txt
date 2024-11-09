@@ -1,7 +1,7 @@
 streamlit==1.40.0
 pandas==1.5.3
 numpy==1.23.5
-yfinance==0.2.30
+yfinance==0.2.48
 matplotlib==3.7.2
 seaborn==0.12.2
 pyportfolioopt==1.5.4
