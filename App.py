@@ -147,6 +147,10 @@ def main():
             my_portfolio_returns_array = my_portfolio_returns.values
             cleaned_weights_array = np.array(list(cleaned_weights.values()))
 
+             # Ensure my_portfolio_returns_array is 2D and cleaned_weights_array is 1D
+            if my_portfolio_returns_array.ndim == 2 and my_portfolio_returns_array.shape[1] == 1:
+                my_portfolio_returns_array = my_portfolio_returns_array.ravel()  # Flatten if necessary
+
             # Calculate portfolio returns using numpy dot product
             portfolio_returns = np.dot(my_portfolio_returns_array, cleaned_weights_array)
 
