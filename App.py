@@ -176,10 +176,18 @@ def main():
             # Display the chart
             st.pyplot(plt)
 
+            # Return numeric values, not objects
+            sp500_expected_returns = float(sp500_expected_returns) if hasattr(sp500_expected_returns, 'item') else sp500_expected_returns
+            sp500_volatility = float(sp500_volatility) if hasattr(sp500_volatility, 'item') else sp500_volatility
+            portfolio_expected_returns = float(portfolio_expected_returns) if hasattr(portfolio_expected_returns, 'item') else portfolio_expected_returns
+            portfolio_volatility = float(portfolio_volatility) if hasattr(portfolio_volatility, 'item') else portfolio_volatility
+            
+            # Create the DataFrame with the formatted values
             df_info = pd.DataFrame({
                 'S&P 500': ['{:.2f}%'.format(100 * sp500_expected_returns), '{:.2f}%'.format(100 * sp500_volatility)],
                 'Portfolio': ['{:.2f}%'.format(100 * portfolio_expected_returns), '{:.2f}%'.format(100 * portfolio_volatility)]
             }, index=['Expected Return', 'Volatility'])
+
 
             st.dataframe(df_info)
 
