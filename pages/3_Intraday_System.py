@@ -6,6 +6,9 @@ import os
 import datetime
 import sys
 
+# Import API key from config
+from config import POLYGON_API_KEY
+
 # Add the utils directory to the path to import polygon_api
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 try:
@@ -20,40 +23,35 @@ st.set_page_config(page_title="Intraday Trading System", layout="wide")
 st.title("Intraday Trading System (Polygon.io)")
 st.caption("1-Minute Bar Trading Strategy")
 
-# Placeholder for API key input and testing
-st.markdown("## Polygon.io API Setup")
+# Use API key from config instead of user input
+os.environ['POLYGON_API_KEY'] = POLYGON_API_KEY
 
-api_key = st.text_input("Polygon.io API Key", type="password", help="Enter your Polygon.io API key")
+st.markdown("## Polygon.io API Status")
+st.success("API Key loaded from config.py")
 
-if api_key:
-    os.environ['POLYGON_API_KEY'] = api_key
-    st.success("API Key set! You can now test the connection.")
-    
-    if st.button("Test Connection"):
-        try:
-            # Create client instance
-            client = PolygonClient(api_key)
+if st.button("Test Connection"):
+    try:
+        # Create client instance
+        client = PolygonClient(POLYGON_API_KEY)
+        
+        # Test with a simple API call
+        test_symbol = "AAPL"
+        from_date = (datetime.datetime.now() - datetime.timedelta(days=5)).strftime('%Y-%m-%d')
+        to_date = datetime.datetime.now().strftime('%Y-%m-%d')
+        
+        with st.spinner(f"Testing API connection with {test_symbol} data..."):
+            test_data = client.get_bars(test_symbol, from_date=from_date, to_date=to_date)
             
-            # Test with a simple API call
-            test_symbol = "AAPL"
-            from_date = (datetime.datetime.now() - datetime.timedelta(days=5)).strftime('%Y-%m-%d')
-            to_date = datetime.datetime.now().strftime('%Y-%m-%d')
-            
-            with st.spinner(f"Testing API connection with {test_symbol} data..."):
-                test_data = client.get_bars(test_symbol, from_date=from_date, to_date=to_date)
+            if not test_data.empty:
+                st.success(f"Connection successful! Retrieved {len(test_data)} bars for {test_symbol}.")
                 
-                if not test_data.empty:
-                    st.success(f"Connection successful! Retrieved {len(test_data)} bars for {test_symbol}.")
-                    
-                    # Show sample of the data
-                    st.subheader("Sample Data")
-                    st.dataframe(test_data.head(5))
-                else:
-                    st.warning("Connection successful but no data returned. Try a different date range.")
-        except Exception as e:
-            st.error(f"Connection failed: {e}")
-else:
-    st.info("Please enter your Polygon.io API key to use this system.")
+                # Show sample of the data
+                st.subheader("Sample Data")
+                st.dataframe(test_data.head(5))
+            else:
+                st.warning("Connection successful but no data returned. Try a different date range.")
+    except Exception as e:
+        st.error(f"Connection failed: {e}")
 
 # System placeholder
 st.markdown("## Intraday System")
