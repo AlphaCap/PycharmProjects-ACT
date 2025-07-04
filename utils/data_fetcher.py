@@ -6,6 +6,7 @@ import schedule
 from utils.polygon_api import PolygonClient
 import logging
 import json
+from config import POLYGON_API_KEY  # Import API key from config
 
 # Set up logging
 logging.basicConfig(
@@ -21,12 +22,14 @@ logger = logging.getLogger(__name__)
 class DataFetcher:
     def __init__(self, api_key=None):
         """Initialize with API key and create Polygon client."""
-        self.api_key = api_key or os.environ.get('POLYGON_API_KEY')
+        self.api_key = api_key or POLYGON_API_KEY  # Use config API key instead of environment variable
         if not self.api_key:
             raise ValueError("Polygon API key is required")
         
         self.client = PolygonClient(self.api_key)
         self.sp500_symbols = self._get_sp500_symbols()
+        
+        # Rest of the code remains the same
         
         # Ensure data directories exist
         os.makedirs(os.path.join("data", "daily"), exist_ok=True)
