@@ -5,7 +5,7 @@ import datetime
 
 # Set page config for wide layout
 st.set_page_config(
-    page_title="Alpha Trading Systems Dashboard",
+    page_title="Alpha Capture Technology AI",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -31,7 +31,7 @@ with st.sidebar:
     st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
 
 # Page header with branding
-st.title("Alpha Trading Systems Dashboard")
+st.title("Alpha Capture Technology AI")
 st.caption("S&P 500 Component Trading")
 
 # Summary metrics
