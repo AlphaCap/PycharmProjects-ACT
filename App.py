@@ -1,201 +1,197 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import yfinance as yf
-import datetime as dt
-import matplotlib.pyplot as plt
-import seaborn as sns
-from pypfopt.efficient_frontier import EfficientFrontier
-from pypfopt import risk_models
-from pypfopt import expected_returns
-from pypfopt import objective_functions
-from pypfopt.discrete_allocation import DiscreteAllocation, get_latest_prices
+import os
+import datetime
 
-# Function to fetch all S&P 500 stock symbols and company names
-def get_sp500_tickers():
-    # Fetch S&P 500 data from Wikipedia
-    url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-    data = pd.read_html(url)
-    
-    # Extract the stock symbols and company names
-    table = data[0]
-    tickers = table['Symbol'].tolist()
-    company_names = table['Security'].tolist()
-    
-    # Create a dictionary with ticker symbols as keys and company names as values
-    ticker_company_dict = dict(zip(tickers, company_names))
-    return ticker_company_dict
+# Set page config for wide layout
+st.set_page_config(
+    page_title="Alpha Trading Systems Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Fetch historical prices of the S&P 500 index
-def get_sp500_prices(start_date, end_date):
-    sp500_data = yf.download('^GSPC', start=start_date, end=end_date)
-    sp500_prices = sp500_data['Adj Close']
-    return sp500_prices
-
-# Sample function to optimize the portfolio using the Efficient Frontier
-def optimize_portfolio(selected_tickers, start_date, end_date, portfolio_amount):
-    n = len(selected_tickers)
+# Sidebar navigation
+with st.sidebar:
+    st.title("Trading Systems")
     
-    # Get adjusted close prices for the selected stocks
-    my_portfolio = pd.DataFrame()
-    for ticker in selected_tickers:
-        my_portfolio[ticker] = yf.download(ticker, start=start_date, end=end_date)['Adj Close']
+    # System navigation buttons
+    st.subheader("Trading Performance")
+    if st.button("nGS System", use_container_width=True):
+        st.switch_page("pages/1_nGS_System.py")
     
-
-    # Calculate daily returns for my_portfolio
-    my_portfolio_returns = my_portfolio.pct_change().dropna()
-
-    # Calculate expected returns and covariance matrix
-    mu = expected_returns.mean_historical_return(my_portfolio)
-    S = risk_models.sample_cov(my_portfolio)
+    if st.button("Daily System", use_container_width=True):
+        st.switch_page("pages/2_Daily_System.py")
     
-    # Optimize for maximum Sharpe ratio
-    ef = EfficientFrontier(mu, S)
-    ef.add_objective(objective_functions.L2_reg, gamma=2)
-    weights = ef.max_sharpe()
-    cleaned_weights = ef.clean_weights()
+    if st.button("Intraday System (Polygon)", use_container_width=True):
+        st.switch_page("pages/3_Intraday_System.py")
     
-    # Get the latest prices for discrete allocation
-    latest_prices = get_latest_prices(my_portfolio)
-    
-    # Perform discrete allocation
-    da = DiscreteAllocation(cleaned_weights, latest_prices, total_portfolio_value=portfolio_amount)
-    allocation, leftover = da.lp_portfolio()
-    
-    return my_portfolio_returns, cleaned_weights, latest_prices, allocation, leftover
-
-def main():
-    # Page configuration
-    st.set_page_config(page_title="Stock Portfolio Optimizer")
-
-    # Title and description
-    st.title("Stock Portfolio Optimizer")
-    st.write("Backtest your portfolio and get discrete allocation of stocks in the optimized portfolio.")
-    
+    # Additional sidebar info
     st.markdown("---")
-    st.subheader("Description")
-    st.info(
-            "This portfolio optimizer uses the Efficient Frontier method to optimize your portfolio based on historical stock prices from the S&P 500. "
-            "You can select multiple stocks from the S&P 500, specify the time frame for historical data, and enter the amount you want to invest in the portfolio. "
-            "The optimizer will then compute the optimal allocation of your investment across the selected stocks, aiming to maximize the portfolio's Sharpe ratio. "
-            "Additionally, it will display a pie chart showing the allocation of each stock in the portfolio, along with a time series chart comparing the cumulative return of the optimized portfolio with the S&P 500's return."
-        )
-    st.markdown("---")
+    st.caption("Data last updated:")
+    st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
 
-    # Sidebar for user inputs
-    input_col = st.sidebar
-    input_col.header("Input Timeframe")
+# Page header with branding
+st.title("Alpha Trading Systems Dashboard")
+st.caption("S&P 500 Component Trading")
 
-    # User inputs
-    start_date = input_col.date_input("Enter start date:", dt.datetime(2016, 1, 1))
-    end_date = input_col.date_input("Enter end date:", dt.datetime.now())
+# Summary metrics
+st.markdown("## Current Portfolio Status")
 
-    # Fetch all S&P 500 stock symbols and company names
-    ticker_company_dict = get_sp500_tickers()
+# Create tabs for summary view
+tab1, tab2, tab3 = st.tabs(["Portfolio Overview", "Long Positions", "Short Positions"])
 
-    input_col.header("Stock Portfolio")
-    # Stock symbols dropdown with company names
-    selected_tickers = input_col.multiselect("Select stock symbols:", list(ticker_company_dict.keys()), format_func=lambda ticker: f"{ticker}: {ticker_company_dict[ticker]}")
+with tab1:
+    # Portfolio overview section
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(label="Total Portfolio Value", value="$1,250,000", delta="2.5%")
+    with col2:
+        st.metric(label="Daily P&L", value="$12,500", delta="1.0%")
+    with col3:
+        st.metric(label="MTD Return", value="4.2%", delta="0.8%")
+    with col4:
+        st.metric(label="YTD Return", value="15.6%", delta="7.2%")
+    
+    # Strategy allocation and performance table
+    st.subheader("Strategy Performance")
+    
+    # Load portfolio data if available
+    try:
+        # Placeholder for portfolio data - replace with actual data loading
+        portfolio_data = pd.DataFrame({
+            "Strategy": ["nGS", "Daily System", "Intraday System"],
+            "Allocation": ["$600,000", "$400,000", "$250,000"],
+            "Daily Return": ["1.2%", "0.8%", "0.5%"],
+            "MTD Return": ["5.1%", "3.8%", "2.9%"],
+            "YTD Return": ["18.2%", "14.6%", "11.2%"],
+            "Sharpe": ["1.8", "1.6", "1.4"]
+        })
+        
+        st.dataframe(portfolio_data, use_container_width=True, hide_index=True)
+    except Exception as e:
+        st.error(f"Error loading portfolio data: {e}")
 
-    # Portfolio amount
-    portfolio_amount = input_col.number_input("Enter the investment amount:", min_value=1000.0, step=1000.0, value=100000.0, format="%.2f")
+    # Top performing positions
+    st.subheader("Top Performing Positions")
+    
+    # Example top positions data
+    top_positions = pd.DataFrame({
+        "Symbol": ["AAPL", "MSFT", "AMZN", "GOOGL", "NVDA"],
+        "Strategy": ["nGS", "Intraday", "nGS", "Daily", "Intraday"],
+        "Entry Date": ["06/15/25", "07/01/25", "06/22/25", "06/28/25", "07/02/25"],
+        "Entry Price": ["$190.25", "$415.80", "$178.60", "$175.40", "$120.75"],
+        "Current Price": ["$205.50", "$440.20", "$188.30", "$182.60", "$126.40"],
+        "Return": ["8.0%", "5.9%", "5.4%", "4.1%", "4.7%"],
+        "Side": ["Long", "Long", "Long", "Short", "Long"]
+    })
+    
+    st.dataframe(top_positions, use_container_width=True, hide_index=True)
 
-    # Optimization button
-    if input_col.button("Optimize Portfolio"):
-        if len(selected_tickers) < 2:
-            st.warning("Please select multiple stock symbols.")
+with tab2:
+    # Long positions section
+    st.subheader("Active Long Positions")
+    
+    # Load long positions data if available
+    try:
+        # Path to your CSV (replace with actual data loading)
+        csv_path = os.path.join("data", "trades.csv")
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            # Filter for long positions only (assuming 'side' column contains this info)
+            long_df = df[df['side'].str.lower().str.startswith('b')].copy() if 'side' in df.columns else pd.DataFrame()
+            
+            if not long_df.empty:
+                # Display long positions
+                st.dataframe(long_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("No active long positions found.")
         else:
-            my_portfolio_returns, cleaned_weights, latest_price, allocation, leftover = optimize_portfolio(selected_tickers, start_date, end_date, portfolio_amount)
+            # Example long positions data when CSV not available
+            long_positions = pd.DataFrame({
+                "Symbol": ["AAPL", "MSFT", "AMZN", "META", "NVDA", "TSLA", "V", "HD", "PG", "UNH"],
+                "Strategy": ["nGS", "Daily", "Intraday", "nGS", "Intraday", "nGS", "Daily", "nGS", "Intraday", "Daily"],
+                "Entry Date": ["06/15/25", "07/01/25", "06/22/25", "06/25/25", "07/02/25", "06/20/25", "06/28/25", "07/01/25", "06/27/25", "06/15/25"],
+                "Entry Price": ["$190.25", "$415.80", "$178.60", "$490.30", "$120.75", "$240.50", "$275.60", "$345.20", "$165.70", "$540.30"],
+                "Current Price": ["$205.50", "$440.20", "$188.30", "$510.60", "$126.40", "$255.40", "$282.10", "$352.80", "$172.40", "$556.20"],
+                "Return": ["8.0%", "5.9%", "5.4%", "4.1%", "4.7%", "6.2%", "2.4%", "2.2%", "4.0%", "2.9%"],
+                "Status": ["Open", "Open", "Open", "Open", "Open", "Open", "Open", "Open", "Open", "Open"]
+            })
             
-            # Create a DataFrame to display the optimized portfolio allocation with cost and latest stock price
-            df_allocation = pd.DataFrame.from_dict(allocation, orient='index', columns=['Shares'])
-            df_allocation['Stock Price'] = '$' + latest_price.round(2).astype(str)
-            df_allocation['Cost'] = '$' + (df_allocation['Shares'] * latest_price).round(2).astype(str)
+            st.dataframe(long_positions, use_container_width=True, hide_index=True)
+    except Exception as e:
+        st.error(f"Error loading long positions: {e}")
+
+with tab3:
+    # Short positions section
+    st.subheader("Active Short Positions")
     
-           # Create two columns for layout
-            col1, col2 = st.columns([2, 2.5])
-
-            # Display the optimized portfolio allocation table
-            with col1:
-                st.write("Discrete Allocation:")
-                st.dataframe(df_allocation)
-                st.write("Funds Remaining: ${:.2f}".format(leftover))
-
-            # Create a pie chart
-            with col2:
-                st.write("Portfolio Composition:")
-                # Set a custom color palette
-                colors = sns.color_palette('Set3', len(df_allocation))
-
-                # Explode the slice with the highest allocation
-                explode = [0.05 if shares == max(df_allocation['Shares']) else 0 for shares in df_allocation['Shares']]
-
-                # Plot the pie chart with custom styling
-                plt.figure(figsize=(8,8))
-                plt.pie(df_allocation['Shares'], labels=df_allocation.index, autopct='%1.1f%%', startangle=140, explode=explode, colors=colors)
-                plt.axis('equal')
-
-                st.pyplot(plt)
+    # Load short positions data if available
+    try:
+        # Path to your CSV (replace with actual data loading)
+        csv_path = os.path.join("data", "trades.csv")
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            # Filter for short positions only
+            short_df = df[df['side'].str.lower().str.startswith('s')].copy() if 'side' in df.columns else pd.DataFrame()
             
-            # Fetch historical prices of the S&P 500 index
-            sp500_prices = get_sp500_prices(start_date, end_date)
-
-            # Calculate daily returns of S&P 500
-            sp500_returns = sp500_prices.pct_change().dropna()
-
-            # Convert DataFrame to numpy array for dot product
-            my_portfolio_returns_array = my_portfolio_returns.values
-            cleaned_weights_array = np.array(list(cleaned_weights.values()))
-
-            # Calculate portfolio returns using numpy dot product
-            portfolio_returns = np.dot(my_portfolio_returns_array, cleaned_weights_array)
-
-            # Calculate expected returns and volatility
-            sp500_expected_returns = sp500_returns.mean() * 252  # Assuming 252 trading days in a year
-            sp500_volatility = sp500_returns.std() * np.sqrt(252)
-            portfolio_expected_returns = portfolio_returns.mean() * 252
-            portfolio_volatility = portfolio_returns.std() * np.sqrt(252)
-
-            # Convert both to 1D numpy arrays
-            sp500_returns_array = sp500_returns.values.flatten()
-            portfolio_returns_array = portfolio_returns.flatten()
+            if not short_df.empty:
+                # Display short positions
+                st.dataframe(short_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("No active short positions found.")
+        else:
+            # Example short positions data when CSV not available
+            short_positions = pd.DataFrame({
+                "Symbol": ["GOOGL", "IBM", "INTC", "DIS", "KO", "WMT", "JPM", "BA"],
+                "Strategy": ["Daily", "nGS", "nGS", "Intraday", "Daily", "nGS", "Intraday", "Daily"],
+                "Entry Date": ["06/28/25", "06/22/25", "06/15/25", "06/30/25", "07/01/25", "06/25/25", "06/28/25", "07/02/25"],
+                "Entry Price": ["$175.40", "$185.30", "$45.70", "$98.60", "$62.80", "$68.40", "$182.30", "$190.50"],
+                "Current Price": ["$168.20", "$178.80", "$42.40", "$95.30", "$60.90", "$66.20", "$175.60", "$184.80"],
+                "Return": ["4.1%", "3.5%", "7.2%", "3.3%", "3.0%", "3.2%", "3.7%", "3.0%"],
+                "Status": ["Open", "Open", "Open", "Open", "Open", "Open", "Open", "Open"]
+            })
             
-            # Combine the S&P 500 and portfolio returns into a DataFrame
-            combined_returns = pd.DataFrame({'S&P 500': sp500_returns_array, 'Portfolio': portfolio_returns_array}, index=my_portfolio_returns.index)
+            st.dataframe(short_positions, use_container_width=True, hide_index=True)
+    except Exception as e:
+        st.error(f"Error loading short positions: {e}")
 
-            # Plot the time series chart of S&P 500 and the portfolio
-            plt.figure(figsize=(12, 6))
-            plt.plot(combined_returns.index, 100 * (combined_returns + 1).cumprod(), lw=2)
-            plt.legend(combined_returns.columns)
-            plt.xlabel('Date')
-            plt.ylabel('Cumulative Return (%)')
-            plt.title('S&P 500 vs. Optimized Portfolio Performance')
-            plt.grid(True)
-            plt.tight_layout()
+# Recent activity section
+st.markdown("## Recent Activity")
 
-            # Display the chart
-            st.pyplot(plt)
+# Create two columns for recent signals and actions
+col1, col2 = st.columns(2)
 
-            # Return numeric values, not objects
-            sp500_expected_returns = float(sp500_expected_returns) if hasattr(sp500_expected_returns, 'item') else sp500_expected_returns
-            sp500_volatility = float(sp500_volatility) if hasattr(sp500_volatility, 'item') else sp500_volatility
-            portfolio_expected_returns = float(portfolio_expected_returns) if hasattr(portfolio_expected_returns, 'item') else portfolio_expected_returns
-            portfolio_volatility = float(portfolio_volatility) if hasattr(portfolio_volatility, 'item') else portfolio_volatility
-            
-            # Create the DataFrame with the formatted values
-            df_info = pd.DataFrame({
-                'S&P 500': ['{:.2f}%'.format(100 * sp500_expected_returns), '{:.2f}%'.format(100 * sp500_volatility)],
-                'Portfolio': ['{:.2f}%'.format(100 * portfolio_expected_returns), '{:.2f}%'.format(100 * portfolio_volatility)]
-            }, index=['Expected Return', 'Volatility'])
+with col1:
+    st.subheader("Recent Signals")
+    
+    # Example recent signals data
+    signals = [
+        {"date": "07/04/25", "symbol": "AAPL", "signal": "L", "strategy": "nGS", "price": "$205.50"},
+        {"date": "07/03/25", "symbol": "MSFT", "signal": "L", "strategy": "Intraday", "price": "$440.20"},
+        {"date": "07/03/25", "symbol": "IBM", "signal": "S", "strategy": "nGS", "price": "$178.80"},
+        {"date": "07/02/25", "symbol": "NVDA", "signal": "L", "strategy": "Intraday", "price": "$126.40"},
+        {"date": "07/02/25", "symbol": "BA", "signal": "S", "strategy": "Daily", "price": "$184.80"}
+    ]
+    
+    for signal in signals:
+        st.markdown(f"- **{signal['date']}** | **{signal['symbol']}** | **{signal['signal']}** | {signal['strategy']} at `{signal['price']}`")
 
+with col2:
+    st.subheader("System Status")
+    
+    # Example system status data
+    system_status = [
+        {"timestamp": "07/04/25 16:30", "system": "nGS", "message": "Daily signals generated successfully"},
+        {"timestamp": "07/04/25 16:15", "system": "Intraday", "message": "Trading session closed, 8 signals processed"},
+        {"timestamp": "07/04/25 15:45", "system": "Daily", "message": "Portfolio rebalanced, 2 new positions"},
+        {"timestamp": "07/04/25 09:30", "system": "Intraday", "message": "Trading session started"},
+        {"timestamp": "07/03/25 16:30", "system": "nGS", "message": "Daily signals generated successfully"}
+    ]
+    
+    for status in system_status:
+        st.markdown(f"- **{status['timestamp']}** | **{status['system']}** | {status['message']}")
 
-            st.dataframe(df_info)
-
-            # Display a disclaimer at the bottom
-            st.markdown("---")
-            st.markdown("#### Disclaimer")
-            st.info("The stock market involves inherent risks, and the performance of a portfolio is subject to market fluctuations. The information provided by this application is for educational and informational purposes only and does not constitute financial advice. Before making any investment decisions, it is advisable to conduct your own research or consult with a qualified financial advisor. The creator of this application shall not be liable for any losses or damages arising from the use of this application or the information provided herein.")
-            st.markdown("---")
-
-if __name__ == "__main__":
-    main()
+# Footer with additional info
+st.markdown("---")
+st.caption("Alpha Trading Systems Dashboard - For additional support, please contact the trading desk.")
