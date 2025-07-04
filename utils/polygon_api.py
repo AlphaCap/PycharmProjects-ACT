@@ -3,6 +3,13 @@ import pandas as pd
 from datetime import datetime, timedelta
 import time
 import logging
+import os
+
+# Import from config file if available, otherwise use environment variable
+try:
+    from utils.config import POLYGON_API_KEY as DEFAULT_API_KEY
+except ImportError:
+    DEFAULT_API_KEY = None
 
 logger = logging.getLogger(__name__)
 
@@ -11,14 +18,19 @@ class PolygonClient:
     
     BASE_URL = "https://api.polygon.io"
     
-    def __init__(self, api_key):
+    def __init__(self, api_key=None):
         """
         Initialize with API key.
         
         Args:
-            api_key: Polygon.io API key
+            api_key: Polygon.io API key, or None to use default from config
         """
-        self.api_key = api_key
+        # Try to use provided key, then config file, then environment variable
+        self.api_key = api_key or DEFAULT_API_KEY or os.environ.get('POLYGON_API_KEY')
+        
+        if not self.api_key:
+            raise ValueError("No Polygon API key provided")
+            
         self.session = requests.Session()
     
     def _handle_rate_limit(self, response):
