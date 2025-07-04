@@ -1,8 +1,5 @@
-# ACT configuration file
-# IMPORTANT: Add this file to .gitignore to prevent accidental commits!
-
 # Polygon.io API credentials
-POLYGON_API_KEY = zD6icMv08x1kKc5ZJijLH2IAA4_ljB_J  # Replace with your actual key
+POLYGON_API_KEY = "zD6icMv08x1kKc5ZJijLH2IAA4_ljB_J"  # API key in quotes
 
 # Default settings
 DAILY_HISTORY_DAYS = 180  # 6 months
