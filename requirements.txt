@@ -1,7 +1,23 @@
-streamlit==1.40.0
-pandas==2.2.3
-numpy==1.23.5
-yfinance==0.2.48
-matplotlib==3.7.2
-seaborn==0.12.2
-pyportfolioopt==1.5.4
+# Core dependencies
+streamlit>=1.24.0
+numpy==1.26.4
+pandas>=1.5.3  # Uncommented - needed for data processing
+requests==2.31.0
+urllib3==1.26.18
+
+# Data handling and scheduling
+pandas_market_calendars==4.3.3
+schedule==1.2.2
+
+# Visualization
+plotly>=4.14.3
+matplotlib>=3.7.1
+seaborn>=0.12.2
+
+# System dependencies
+cffi==1.17.1
+setuptools==70.0.0
+
+# Optional - uncomment if needed
+#lxml==4.9.4
+#yfinance==0.2.44  # Commented out since we're using Polygon.io instead
