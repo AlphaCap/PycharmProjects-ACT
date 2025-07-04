@@ -1,0 +1,19 @@
+# Sensitive configuration
+utils/config.py
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Data files
+data/
+
+# Logs
+*.log
