@@ -1,4 +1,5 @@
-# main.py - Simplified version without complex exec blocks
+import sys
+sys.path.append('C:/ACT/Python NEW 2025')
 from polygon_api import PolygonClient
 import argparse
 import logging
