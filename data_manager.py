@@ -119,7 +119,6 @@ def update_metadata(key: str, value):
     except Exception as e:
         logger.error(f"Error updating metadata key '{key}': {e}")
         return False
-
 def get_sp500_symbols() -> List[str]:
     """Get list of current SP500 symbols."""
     try:
@@ -193,7 +192,6 @@ def save_price_data(symbol: str, df: pd.DataFrame) -> bool:
     except Exception as e:
         logger.error(f"Error saving price data for {symbol}: {e}")
         return False
-
 def save_indicator_data(symbol: str, df: pd.DataFrame) -> bool:
     """Save indicator data for a symbol to CSV, maintaining the rolling window."""
     try:
@@ -265,7 +263,6 @@ def load_indicator_data(symbol: str) -> Optional[pd.DataFrame]:
     except Exception as e:
         logger.error(f"Error loading indicator data for {symbol}: {e}")
         return None
-
 def load_combined_data(symbol: str) -> Optional[pd.DataFrame]:
     """Load both price and indicator data, combining them if both exist."""
     price_df = load_price_data(symbol)
@@ -339,7 +336,6 @@ def save_trade(trade_dict: Dict) -> bool:
     except Exception as e:
         logger.error(f"Error saving trade: {e}")
         return False
-
 def update_positions(positions_list: List[Dict]) -> bool:
     """Update the current positions file with a list of position dictionaries."""
     try:
@@ -404,7 +400,6 @@ def get_positions() -> List[Dict]:
     except Exception as e:
         logger.error(f"Error getting positions: {e}")
         return []
-
 def get_trades_history(symbol: Optional[str] = None, 
                       start_date: Optional[str] = None, 
                       end_date: Optional[str] = None) -> pd.DataFrame:
@@ -476,7 +471,6 @@ def save_signals(signals_df: pd.DataFrame) -> bool:
     except Exception as e:
         logger.error(f"Error saving signals: {e}")
         return False
-
 def get_signals() -> pd.DataFrame:
     """Get recent signals from signals file."""
     try:
@@ -541,16 +535,13 @@ def clean_old_data() -> bool:
                 continue
         
         # Update metadata
-        try:
-            metadata = init_metadata()
-            metadata["last_update"] = datetime.now().strftime("%Y-%m-%d")
-            metadata["data_stats"]["total_symbols"] = len(all_symbols)
-            metadata["data_stats"]["primary_tier_symbols"] = len(all_symbols) - len(active_symbols)
-            metadata["data_stats"]["secondary_tier_symbols"] = len(active_symbols)
-            with open(METADATA_FILE, "w") as f:
-                json.dump(metadata, f, indent=4)
-        except Exception as e:
-            logger.error(f"Error updating metadata after cleaning old data: {e}")
+        metadata = init_metadata()
+        metadata["last_update"] = datetime.now().strftime("%Y-%m-%d")
+        metadata["data_stats"]["total_symbols"] = len(all_symbols)
+        metadata["data_stats"]["primary_tier_symbols"] = len(all_symbols) - len(active_symbols)
+        metadata["data_stats"]["secondary_tier_symbols"] = len(active_symbols)
+        with open(METADATA_FILE, "w") as f:
+            json.dump(metadata, f, indent=4)
         
         logger.info(f"Cleaned data older than {cutoff_str}")
         return True
