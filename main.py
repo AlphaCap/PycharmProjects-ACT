@@ -1,4 +1,5 @@
 # main.py - Simplified version without complex exec blocks
+from polygon_api import PolygonClient
 import argparse
 import logging
 import os
