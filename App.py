@@ -16,13 +16,13 @@ with st.sidebar:
     
     # System navigation buttons
     st.subheader("Trading Performance")
-    if st.button("nGS System", use_container_width=True):
+    if st.button("nGulfStream Swing Trader", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
-    if st.button("Daily System", use_container_width=True):
+    if st.button("Alpha Capture AI", use_container_width=True):
         st.switch_page("pages/2_Daily_System.py")
     
-    if st.button("Intraday System (Polygon)", use_container_width=True):
+    if st.button("gST DayTrader", use_container_width=True):
         st.switch_page("pages/3_Intraday_System.py")
     
     # Additional sidebar info
@@ -32,7 +32,7 @@ with st.sidebar:
 
 # Page header with branding
 st.title("Alpha Capture Technology AI")
-st.caption("S&P 500 Component Trading")
+st.caption("S&P 500 Long/Short Position Trader")
 
 # Summary metrics
 st.markdown("## Current Portfolio Status")
@@ -45,7 +45,7 @@ with tab1:
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric(label="Total Portfolio Value", value="$1,250,000", delta="2.5%")
+        st.metric(label="Total Portfolio Value", value="$100,000", delta="2.5%")
     with col2:
         st.metric(label="Daily P&L", value="$12,500", delta="1.0%")
     with col3:
