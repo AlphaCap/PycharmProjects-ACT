@@ -534,5 +534,5 @@ if not polygon_api_key and (args.update or args.symbol or args.scheduler):
     return 0
 
     if __name__ == "__main__":
-    print(f"nGS Trading System v{VERSION} - {datetime.now().strftime('%Y-%m-%d')}")
-    sys.exit(main())
+        print(f"nGS Trading System v{VERSION} - {datetime.now().strftime('%Y-%m-%d')}")
+        sys.exit(main())
