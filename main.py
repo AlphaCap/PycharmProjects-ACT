@@ -128,7 +128,7 @@ def download_single_symbol(symbol, days=200):
         return None
 
 def run_daily_update():
-    """Run the daily update process."""
+    """Run the daily update process with API throttling."""
     logger.info("Starting daily update process")
     print("Starting daily update process...")
     
@@ -144,15 +144,21 @@ def run_daily_update():
             
         print(f"Processing {len(update_symbols)} symbols...")
         
-        # Process each symbol
-        for symbol in update_symbols:
-            print(f"Downloading data for {symbol}...")
+        # Process each symbol with throttling
+        for i, symbol in enumerate(update_symbols):
+            print(f"Downloading data for {symbol}... ({i+1}/{len(update_symbols)})")
             df = download_single_symbol(symbol)
             
             if df is not None and not df.empty:
                 # Process with strategy
                 strategy = NGSStrategy()
                 strategy.process_symbol(symbol, df)
+            
+            # Apply throttling - respect Polygon API rate limits
+            # For free tier: 5 calls per minute = 12 seconds between calls
+            if i < len(update_symbols) - 1:  # Don't sleep after the last symbol
+                print(f"Throttling API requests... waiting 12 seconds")
+                time.sleep(12)  # Wait 12 seconds between API calls
         
         # Update metadata with last run time
         update_metadata("daily_update.last_run", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
