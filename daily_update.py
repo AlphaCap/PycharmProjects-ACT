@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Polygon.io API configuration
 POLYGON_API_KEY = os.getenv('POLYGON_API_KEY')  # Set your API key as environment variable
 if not POLYGON_API_KEY:
+    POLYGON_API_KEY = "yTZVrttxzFCK58_gOUGGATWxQzytgAxy"  # Your API key here
     logger.warning("No Polygon API key found. Please set POLYGON_API_KEY environment variable.")
     
 # Polygon API base URL
