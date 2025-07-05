@@ -1,16 +1,18 @@
-# main.py - Complete revised version with simplified import approach
+# main.py - Simplified version without complex exec blocks
 import argparse
 import logging
 import os
 import json
 import sys
+import pandas as pd
+import requests
 from datetime import datetime, timedelta
 import time
 
-# Import our modules that work with direct imports
+# Import from data_manager
 from data_manager import initialize as init_data_manager
 from data_manager import get_positions, get_metadata, get_symbols_count
-from data_manager import load_combined_data, get_sp500_symbols
+from data_manager import load_combined_data, update_metadata
 from nGS_Strategy import NGSStrategy
 
 # Configure logging
@@ -28,31 +30,9 @@ logger = logging.getLogger(__name__)
 VERSION = "1.0.0"
 CONFIG_FILE = "config/system_config.json"
 
-# Helper functions to execute code from other files
-def execute_daily_update_main():
-    """Execute the main function from daily_update.py"""
-    logger.info("Executing daily update")
-    exec(open('daily_update.py').read())
-    
-def execute_daily_update_update_sp500_list():
-    """Execute the update_sp500_list function from daily_update.py"""
-    # Create a namespace to capture the return value
-    namespace = {}
-    exec("""
-from datetime import datetime, timedelta
-import pandas as pd
-import requests
-import logging
-import os
-
-# Simple logger setup if it doesn't exist
-if 'logger' not in locals():
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-
 def update_sp500_list():
+    """Update the S&P 500 symbols list."""
     try:
-        # Fallback to Wikipedia
         logger.info("Getting SP500 list from Wikipedia")
         tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
         sp500 = tables[0]
@@ -75,35 +55,14 @@ def update_sp500_list():
             return symbols
         return []
 
-symbols = update_sp500_list()
-""", namespace)
-    return namespace.get('symbols', [])
-
-def execute_daily_update_download_single_symbol(symbol):
-    """Execute the download_single_symbol function for a given symbol"""
-    namespace = {'target_symbol': symbol}
-    exec("""
-import pandas as pd
-import requests
-import logging
-import os
-import time
-from datetime import datetime, timedelta
-
-# Simple logger setup if it doesn't exist
-if 'logger' not in locals():
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-
-# Get Polygon API key
-POLYGON_API_KEY = os.getenv('POLYGON_API_KEY')
-
-def get_polygon_daily_data(symbol, days=200):
-    """Download historical daily data for a symbol using Polygon API."""
+def download_single_symbol(symbol, days=200):
+    """Download data for a single symbol using Polygon API."""
+    POLYGON_API_KEY = os.getenv('POLYGON_API_KEY')
+    
     if not POLYGON_API_KEY:
         logger.error("Cannot download data: No Polygon API key provided")
-        return pd.DataFrame()
-    
+        return None
+        
     try:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
@@ -115,109 +74,96 @@ def get_polygon_daily_data(symbol, days=200):
         # API endpoint for aggregated daily bars
         endpoint = f"https://api.polygon.io/v2/aggs/ticker/{symbol}/range/1/day/{start_date_str}/{end_date_str}"
         
-        # Make API request with retry logic
-        attempts = 0
-        retry_attempts = 3
-        rate_limit_pause = 12
-        while attempts < retry_attempts:
-            try:
-                response = requests.get(
-                    endpoint,
-                    params={'apiKey': POLYGON_API_KEY, 'adjusted': 'true'},
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    
-                    # Check if results exist
-                    if 'results' in data and data['results']:
-                        # Convert to DataFrame
-                        df = pd.DataFrame(data['results'])
-                        
-                        # Rename columns to match our expected format
-                        column_map = {
-                            't': 'timestamp',  # Unix timestamp in milliseconds
-                            'o': 'Open',
-                            'h': 'High',
-                            'l': 'Low',
-                            'c': 'Close',
-                            'v': 'Volume'
-                        }
-                        df = df.rename(columns=column_map)
-                        
-                        # Convert timestamp to datetime
-                        df['Date'] = pd.to_datetime(df['timestamp'], unit='ms')
-                        
-                        # Select and order columns
-                        df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
-                        
-                        # Sort by date
-                        df = df.sort_values('Date')
-                        
-                        logger.info(f"Downloaded {len(df)} bars for {symbol}")
-                        return df
-                    else:
-                        logger.warning(f"No data returned for {symbol}")
-                        return pd.DataFrame()
-                
-                elif response.status_code == 429:
-                    # Rate limited - pause and retry
-                    logger.warning(f"Rate limited on {symbol}, pausing for {rate_limit_pause} seconds")
-                    attempts += 1
-                    time.sleep(rate_limit_pause)
-                    continue
-                    
-                else:
-                    logger.error(f"Error {response.status_code} for {symbol}: {response.text}")
-                    return pd.DataFrame()
-                    
-            except Exception as e:
-                logger.error(f"Request error for {symbol}: {e}")
-                attempts += 1
-                
-        logger.error(f"Failed to download data for {symbol} after {retry_attempts} attempts")
-        return pd.DataFrame()
+        # Make API request
+        response = requests.get(
+            endpoint,
+            params={'apiKey': POLYGON_API_KEY, 'adjusted': 'true'},
+            timeout=10
+        )
         
+        if response.status_code == 200:
+            data = response.json()
+            
+            # Check if results exist
+            if 'results' in data and data['results']:
+                # Convert to DataFrame
+                df = pd.DataFrame(data['results'])
+                
+                # Rename columns to match our expected format
+                column_map = {
+                    't': 'timestamp',
+                    'o': 'Open',
+                    'h': 'High',
+                    'l': 'Low',
+                    'c': 'Close',
+                    'v': 'Volume'
+                }
+                df = df.rename(columns=column_map)
+                
+                # Convert timestamp to datetime
+                df['Date'] = pd.to_datetime(df['timestamp'], unit='ms')
+                
+                # Select and order columns
+                df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
+                
+                # Sort by date
+                df = df.sort_values('Date')
+                
+                # Save the data
+                os.makedirs("data/daily", exist_ok=True)
+                df.to_csv(f"data/daily/{symbol}.csv", index=False)
+                
+                logger.info(f"Downloaded and saved {len(df)} bars for {symbol}")
+                return df
+            else:
+                logger.warning(f"No data returned for {symbol}")
+                return None
+                
+        else:
+            logger.error(f"Error {response.status_code} for {symbol}: {response.text}")
+            return None
+            
     except Exception as e:
         logger.error(f"Error downloading data for {symbol}: {e}")
-        return pd.DataFrame()
+        return None
 
-def save_price_data(symbol, df):
-    """Save price data to disk"""
-    if df is None or df.empty:
-        return False
-        
-    # Create directory if it doesn't exist
-    os.makedirs("data/daily", exist_ok=True)
+def run_daily_update():
+    """Run the daily update process."""
+    logger.info("Starting daily update process")
+    print("Starting daily update process...")
     
-    # Save the file
-    file_path = f"data/daily/{symbol}.csv"
-    df.to_csv(file_path, index=False)
-    logger.info(f"Saved data for {symbol} to {file_path}")
-    return True
-
-# Download data for the target symbol
-symbol = target_symbol
-df = get_polygon_daily_data(symbol, 200)
-if not df.empty:
-    save_price_data(symbol, df)
-    result_df = df
-else:
-    result_df = None
-""", namespace)
-    return namespace.get('result_df')
-
-def execute_reporting_main(days=30, export_html=True):
-    """Execute the main function from reporting.py with arguments"""
-    namespace = {'args_days': days, 'args_export_html': export_html}
-    exec("""
-# Execute the entire reporting.py file with our parameters
-days = args_days
-export_html = args_export_html
-
-# The rest of reporting.py will be loaded and executed with these variables in scope
-""" + open('reporting.py').read(), namespace)
+    try:
+        # Update the SP500 list
+        symbols = update_sp500_list()
+        
+        # Get a subset of symbols for testing
+        if len(symbols) > 10:
+            update_symbols = symbols[:10]  # Just do 10 for quick testing
+        else:
+            update_symbols = symbols
+            
+        print(f"Processing {len(update_symbols)} symbols...")
+        
+        # Process each symbol
+        for symbol in update_symbols:
+            print(f"Downloading data for {symbol}...")
+            df = download_single_symbol(symbol)
+            
+            if df is not None and not df.empty:
+                # Process with strategy
+                strategy = NGSStrategy()
+                strategy.process_symbol(symbol, df)
+        
+        # Update metadata with last run time
+        update_metadata("daily_update.last_run", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        
+        print("Daily update process complete.")
+        return True
+    
+    except Exception as e:
+        logger.error(f"Error in daily update process: {e}")
+        print(f"Error in daily update process: {e}")
+        return False
 
 def setup_system():
     """Initialize the system and create necessary directories."""
@@ -254,7 +200,7 @@ def setup_system():
         logger.info(f"Created default configuration file: {CONFIG_FILE}")
     
     # Update SP500 list
-    symbols = execute_daily_update_update_sp500_list()
+    symbols = update_sp500_list()
     logger.info(f"Updated SP500 list with {len(symbols)} symbols")
     
     print(f"System setup complete. Created necessary directories and configuration files.")
@@ -271,7 +217,7 @@ def process_single_symbol(symbol):
     # If no data, download it
     if df is None or df.empty:
         print(f"No existing data found for {symbol}, downloading...")
-        df = execute_daily_update_download_single_symbol(symbol)
+        df = download_single_symbol(symbol)
         if df is None or df.empty:
             logger.error(f"Failed to download data for {symbol}")
             print(f"Error: Failed to download data for {symbol}")
@@ -314,6 +260,57 @@ def process_single_symbol(symbol):
         print(f"Error: Failed to process {symbol}")
         return False
 
+def run_reporting(days=30):
+    """Run the basic reporting functionality."""
+    logger.info(f"Running simplified reporting for last {days} days")
+    print(f"Running simplified reporting for last {days} days...")
+    
+    try:
+        from data_manager import get_trades_history
+        
+        # Get trade history
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        start_date_str = start_date.strftime("%Y-%m-%d")
+        trades_df = get_trades_history(start_date=start_date_str)
+        
+        if trades_df.empty:
+            print(f"No trades found in the last {days} days")
+            return True
+            
+        # Calculate basic metrics
+        total_trades = len(trades_df)
+        winning_trades = len(trades_df[trades_df['profit'] > 0])
+        losing_trades = len(trades_df[trades_df['profit'] <= 0])
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0
+        total_profit = trades_df['profit'].sum()
+        
+        # Print summary
+        print("\n" + "="*50)
+        print(f"PERFORMANCE SUMMARY - LAST {days} DAYS")
+        print("="*50)
+        print(f"Total Trades: {total_trades}")
+        print(f"Winning Trades: {winning_trades}")
+        print(f"Losing Trades: {losing_trades}")
+        print(f"Win Rate: {win_rate:.2%}")
+        print(f"Total Profit: ${total_profit:.2f}")
+        
+        # Current positions
+        positions = get_positions()
+        if positions:
+            print("\n" + "="*50)
+            print("CURRENT POSITIONS")
+            print("="*50)
+            for symbol, pos in positions.items():
+                print(f"{symbol}: {pos['shares']} shares, Entry: ${pos['entry_price']:.2f}")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error in reporting: {e}")
+        print(f"Error generating report: {e}")
+        return False
+
 def run_scheduled_tasks():
     """Run scheduled tasks based on configuration."""
     logger.info("Starting scheduled task runner")
@@ -348,14 +345,14 @@ def run_scheduled_tasks():
             if current_time == update_time:
                 logger.info("Running scheduled data update")
                 print(f"\n[{now.strftime('%Y-%m-%d %H:%M:%S')}] Running scheduled data update...")
-                execute_daily_update_main()
+                run_daily_update()
                 time.sleep(60)  # Sleep to avoid multiple runs
             
             # Check for reporting time
             elif current_time == reporting_time:
                 logger.info("Running scheduled reporting")
                 print(f"\n[{now.strftime('%Y-%m-%d %H:%M:%S')}] Running scheduled reporting...")
-                execute_reporting_main()
+                run_reporting()
                 time.sleep(60)  # Sleep to avoid multiple runs
             
             # Sleep for a while before checking again
@@ -394,7 +391,7 @@ def display_system_status():
     total_profit_30d = metadata.get("performance.total_profit_30d", "Unknown")
     
     print("\nPerformance Summary:")
-    print(f"Win Rate: {win_rate}%")
+    print(f"Win Rate: {win_rate}")
     print(f"30-Day Profit: ${total_profit_30d}")
     
     # Configuration
@@ -462,10 +459,10 @@ def main():
         setup_system()
     
     elif args.update:
-        execute_daily_update_main()
+        run_daily_update()
     
     elif args.report:
-        execute_reporting_main(days=args.days)
+        run_reporting(days=args.days)
     
     elif args.symbol:
         process_single_symbol(args.symbol)
