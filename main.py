@@ -11,7 +11,7 @@ import time
 
 # Import from data_manager
 from data_manager import initialize as init_data_manager
-from data_manager import get_positions, init_metadata, get_symbols_count
+from data_manager import get_positions, init_metadata as get_metadata, get_symbols_count
 from data_manager import load_combined_data, update_metadata
 from nGS_Strategy import NGSStrategy
 
