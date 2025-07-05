@@ -80,7 +80,7 @@ def update_sp500_list():
 
 def download_single_symbol(symbol, days=200):
     """Download data for a single symbol using Polygon API."""
-    POLYGON_API_KEY = "yTZVrttxzFCK58_gOUGGATWxQzytgAxy"  # Direct assignment in Python
+    from utils.config import POLYGON_API_KEY  # Import from config file
     
     if not POLYGON_API_KEY:
         logger.error("Cannot download data: No Polygon API key provided")
