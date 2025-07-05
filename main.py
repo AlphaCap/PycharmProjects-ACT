@@ -381,8 +381,8 @@ if os.path.exists("data/sp500_symbols.csv"):
         symbol_count = len(symbols_df)
     except Exception as e:
         logger.error(f"Error counting symbols: {e}")
-positions = get_positions()
-metadata = get_metadata()
+    positions = get_positions()
+    metadata = get_metadata()
     
     print("\nData Statistics:")
     print(f"Total Symbols: {symbol_count}")
