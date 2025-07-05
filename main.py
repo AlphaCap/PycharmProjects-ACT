@@ -159,12 +159,7 @@ def run_daily_update():
         # Update the SP500 list
         symbols = update_sp500_list()
         
-        # Get a subset of symbols for testing
-        if len(symbols) > 10:
-            update_symbols = symbols[:10]  # Just do 10 for quick testing
-        else:
-            update_symbols = symbols
-            
+        update_symbols = symbols
         print(f"Processing {len(update_symbols)} symbols...")
         
         # Process each symbol with throttling
