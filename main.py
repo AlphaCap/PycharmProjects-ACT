@@ -171,7 +171,6 @@ def run_daily_update():
         logger.error(f"Error in daily update process: {e}")
         print(f"Error in daily update process: {e}")
         return False
-
 def setup_system():
     """Initialize the system and create necessary directories."""
     logger.info("Setting up system directories and files")
