@@ -32,23 +32,44 @@ VERSION = "1.0.0"
 CONFIG_FILE = "config/system_config.json"
 
 def update_sp500_list():
-    """Update the S&P 500 symbols list."""
+    """Update the S&P 500 symbols list using Polygon API."""
     try:
-        logger.info("Getting SP500 list from Wikipedia")
-        tables = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
-        sp500 = tables[0]
-        symbols = sp500['Symbol'].tolist()
+        # Create Polygon client
+        client = PolygonClient()
         
-        # Clean symbols
-        symbols = [s.replace('.', '-') for s in symbols]
+        logger.info("Getting stock list from Polygon API")
+        
+        # Query for largest US stocks (approximating S&P 500)
+        endpoint = "/v3/reference/tickers"
+        params = {
+            "market": "stocks", 
+            "active": "true", 
+            "sort": "market_cap", 
+            "order": "desc", 
+            "limit": 500
+        }
+        
+        response_data = client._make_request(endpoint, params)
+        
+        if not response_data or 'results' not in response_data:
+            logger.error("Failed to get stock symbols from Polygon")
+            # If update fails, try to load existing list
+            if os.path.exists("data/sp500_symbols.csv"):
+                symbols = pd.read_csv("data/sp500_symbols.csv")["symbol"].tolist()
+                logger.info(f"Loaded {len(symbols)} symbols from existing SP500 list")
+                return symbols
+            return []
+            
+        symbols = [item['ticker'] for item in response_data['results']]
         
         # Save to CSV
         os.makedirs("data", exist_ok=True)
         pd.DataFrame({"symbol": symbols}).to_csv("data/sp500_symbols.csv", index=False)
-        logger.info(f"Updated SP500 list with {len(symbols)} symbols from Wikipedia")
+        logger.info(f"Updated stock list with {len(symbols)} symbols from Polygon API")
         return symbols
+            
     except Exception as e:
-        logger.error(f"Error updating SP500 list: {e}")
+        logger.error(f"Error updating stock list: {e}")
         # If update fails, try to load existing list
         if os.path.exists("data/sp500_symbols.csv"):
             symbols = pd.read_csv("data/sp500_symbols.csv")["symbol"].tolist()
