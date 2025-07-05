@@ -250,7 +250,6 @@ class NGSStrategy:
                     df.loc[df.index[i], 'TSF5'] = value2
             except Exception as e:
                 logger.warning(f"Linear regression error at index {i}: {e}")
-
     def _calculate_lrv(self, df: pd.DataFrame) -> None:
         """Calculate LRV and related linear regression indicators."""
         # Helper function for linear regression value
@@ -285,6 +284,7 @@ class NGSStrategy:
                     df.loc[df.index[i], 'oLRValue2'] = linear_reg_value(df['LRV'].iloc[max(0, i-5):i+1], 5, -3)
             except Exception as e:
                 logger.warning(f"LRV calculation error at index {i}: {e}")
+
     def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Generate buy/sell signals based on entry conditions.
@@ -338,7 +338,6 @@ class NGSStrategy:
             df.loc[df.index[i], 'Signal'] = 1
             df.loc[df.index[i], 'SignalType'] = 'Engf L'
             df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
-
         # Engulfing Long with New Low pattern
         elif (df['Open'].iloc[i] < df['Close'].iloc[i-1] and
               df['Close'].iloc[i] > df['Open'].iloc[i-1] and
@@ -421,7 +420,6 @@ class NGSStrategy:
             df.loc[df.index[i], 'Signal'] = -1
             df.loc[df.index[i], 'SignalType'] = 'Engf S NuHu3'
             df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
-
         # Semi-Engulfing Short pattern
         elif (df['Open'].iloc[i] >= df['Close'].iloc[i-1] * 0.999 and
               df['Open'].iloc[i] < df['Close'].iloc[i-1] and
@@ -456,6 +454,7 @@ class NGSStrategy:
             df.loc[df.index[i], 'Signal'] = -1
             df.loc[df.index[i], 'SignalType'] = 'SemiEng S NuHi'
             df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
+
     def manage_positions(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
         """
         Manage position exits and update portfolio.
@@ -518,7 +517,6 @@ class NGSStrategy:
         # Ensure position is saved back to the positions dictionary
         self.positions[symbol] = position
         return df
-
     def _check_long_exits(self, df: pd.DataFrame, i: int, position: Dict) -> None:
         """Check for long position exit conditions."""
         # Gap up exit
@@ -733,7 +731,6 @@ class NGSStrategy:
         except Exception as e:
             logger.error(f"Error processing {symbol}: {e}")
             return None
-
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         """
         Run the strategy on provided data and save trades/positions.
