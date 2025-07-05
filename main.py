@@ -374,9 +374,15 @@ def display_system_status():
     print(f"System Directory: {os.getcwd()}")
     
     # Data statistics
-    symbol_count = get_symbols_count()
-    positions = get_positions()
-    metadata = get_metadata()
+symbol_count = 0
+if os.path.exists("data/sp500_symbols.csv"):
+    try:
+        symbols_df = pd.read_csv("data/sp500_symbols.csv")
+        symbol_count = len(symbols_df)
+    except Exception as e:
+        logger.error(f"Error counting symbols: {e}")
+positions = get_positions()
+metadata = get_metadata()
     
     print("\nData Statistics:")
     print(f"Total Symbols: {symbol_count}")
