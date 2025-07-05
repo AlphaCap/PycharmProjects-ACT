@@ -478,10 +478,20 @@ def main():
     args = parse_arguments()
     
     # Check for API key
-    if not os.getenv('POLYGON_API_KEY') and (args.update or args.symbol or args.scheduler):
-        print("ERROR: Polygon API key not set. Please set the POLYGON_API_KEY environment variable.")
-        print("Example: export POLYGON_API_KEY='your_api_key_here'")
-        return 1
+polygon_api_key = os.getenv('POLYGON_API_KEY')
+
+# Use hardcoded key if environment variable not found
+if not polygon_api_key:
+    polygon_api_key = "yTZVrttxzFCK58_gOUGGATWxQzytgAxy"  # Hardcoded API key
+    # Set it for downstream modules that might use the environment variable
+    os.environ['POLYGON_API_KEY'] = polygon_api_key
+    print("Using hardcoded Polygon API key.")
+
+# Final check (should not trigger now that we have a fallback)
+if not polygon_api_key and (args.update or args.symbol or args.scheduler):
+    print("ERROR: Polygon API key not set. Please set the POLYGON_API_KEY environment variable.")
+    print("Example: export POLYGON_API_KEY='your_api_key_here'")
+    return 1
     
     # Process commands
     if args.setup:
