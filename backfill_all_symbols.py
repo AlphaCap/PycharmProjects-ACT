@@ -2,13 +2,18 @@ from data_update import get_sp500_symbols, get_polygon_daily_data, save_price_da
 import time
 import os
 
-# --- POLYGON API KEY (HARDCODED FOR PRIVATE REPO) ---
-POLYGON_API_KEY = "yTZVrttxzFCK58_gOUGGATWxQzytgAxy"  # <-- Your current Polygon API key
-os.environ["POLYGON_API_KEY"] = POLYGON_API_KEY
-
 # --- CONFIGURATION ---
-HISTORY_DAYS = 200           # Number of days of history to fetch (adjust as needed)
+HISTORY_DAYS = 1000           # Number of days of history to fetch (adjust as needed)
 SLEEP_SECONDS = 12            # Polygon free API: 5 requests per min = 12 sec per call
+
+# --- Ensure POLYGON_API_KEY is set in the environment ---
+if not os.getenv("POLYGON_API_KEY"):
+    raise RuntimeError(
+        "POLYGON_API_KEY environment variable is not set. "
+        "Set it before running this script. Example:\n"
+        "  set POLYGON_API_KEY=your_key_here  (Windows CMD)\n"
+        "  export POLYGON_API_KEY=your_key_here  (Linux/macOS/WSL)"
+    )
 
 symbols = get_sp500_symbols()
 print(f"Starting sequential backfill for {len(symbols)} symbols, {HISTORY_DAYS} days each.")
