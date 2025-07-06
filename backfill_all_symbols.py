@@ -36,7 +36,7 @@ def get_polygon_daily_data(symbol, days):
     return pd.DataFrame()
 
 # --- CONFIGURATION ---
-HISTORY_DAYS = 200
+HISTORY_DAYS = 1000
 SLEEP_SECONDS = 12
 
 if not os.getenv("POLYGON_API_KEY"):
