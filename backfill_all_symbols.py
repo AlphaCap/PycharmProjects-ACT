@@ -1,18 +1,48 @@
-from data_update import get_sp500_symbols, get_polygon_daily_data, save_price_data
-import time
 import os
+import time
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
+from data_update import get_sp500_symbols, save_price_data
+
+def get_polygon_daily_data(symbol, days):
+    api_key = os.getenv('POLYGON_API_KEY')
+    if not api_key:
+        raise RuntimeError("POLYGON_API_KEY environment variable is not set.")
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    url = f"https://api.polygon.io/v2/aggs/ticker/{symbol}/range/1/day/{start_date.strftime('%Y-%m-%d')}/{end_date.strftime('%Y-%m-%d')}"
+    params = {
+        "adjusted": "true",
+        "sort": "asc",
+        "limit": 5000,
+        "apiKey": api_key
+    }
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if "results" in data:
+            df = pd.DataFrame(data["results"])
+            if not df.empty:
+                df["Date"] = pd.to_datetime(df["t"], unit="ms")
+                df.rename(columns={
+                    "o": "Open",
+                    "h": "High",
+                    "l": "Low",
+                    "c": "Close",
+                    "v": "Volume"
+                }, inplace=True)
+                return df[["Date", "Open", "High", "Low", "Close", "Volume"]]
+    return pd.DataFrame()
 
 # --- CONFIGURATION ---
-HISTORY_DAYS = 200           # Number of days of history to fetch (adjust as needed)
-SLEEP_SECONDS = 12            # Polygon free API: 5 requests per min = 12 sec per call
+HISTORY_DAYS = 1000
+SLEEP_SECONDS = 12
 
-# --- Ensure POLYGON_API_KEY is set in the environment ---
 if not os.getenv("POLYGON_API_KEY"):
     raise RuntimeError(
-        "POLYGON_API_KEY environment variable is not set. "
-        "Set it before running this script. Example:\n"
-        "  set POLYGON_API_KEY=your_key_here  (Windows CMD)\n"
-        "  export POLYGON_API_KEY=your_key_here  (Linux/macOS/WSL)"
+        "POLYGON_API_KEY environment variable is not set.\n"
+        "Set it in your terminal before running this script."
     )
 
 symbols = get_sp500_symbols()
