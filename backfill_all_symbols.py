@@ -2,7 +2,7 @@ from data_update import download_data_parallel, get_sp500_symbols, CONFIG
 import time
 
 # Set the number of days of history you want (e.g., 1000 for ~4 years, 2000 for ~8 years)
-CONFIG["history_days"] = 1000
+CONFIG["history_days"] = 200
 
 # Optionally adjust batch size and workers for your system's capacity
 CONFIG["batch_size"] = 50    # Number of symbols to process at once
