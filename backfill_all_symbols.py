@@ -3,7 +3,7 @@ import time
 import os
 
 # --- CONFIGURATION ---
-HISTORY_DAYS = 1000           # Number of days of history to fetch (adjust as needed)
+HISTORY_DAYS = 200           # Number of days of history to fetch (adjust as needed)
 SLEEP_SECONDS = 12            # Polygon free API: 5 requests per min = 12 sec per call
 
 # --- Ensure POLYGON_API_KEY is set in the environment ---
