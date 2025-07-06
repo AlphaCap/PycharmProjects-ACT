@@ -1,5 +1,7 @@
 # daily_update.py - Section 1: Imports and Setup
-def get_polygon_daily_data(
+def get_sp500_symbols():
+    with open("data/sp500_symbols.txt") as f:
+        return [line.strip() for line in f if line.strip()]
 import pandas as pd
 import numpy as np
 import requests
