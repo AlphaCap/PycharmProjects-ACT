@@ -1,7 +1,11 @@
 import pandas as pd
+import os
 
-df = pd.read_csv("data/sp500_symbols.csv")
+url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+df = pd.read_html(url, header=0)[0]
+symbols = df["Symbol"].drop_duplicates()
+os.makedirs("data", exist_ok=True)
 with open("data/sp500_symbols.txt", "w") as f:
-    for symbol in df.iloc[:, 0]:
-        f.write(f"{symbol}\n")
-print("sp500_symbols.txt created with one symbol per line.")
+    for s in symbols:
+        f.write(f"{s}\n")
+print("SP500 symbols saved to data/sp500_symbols.txt")
