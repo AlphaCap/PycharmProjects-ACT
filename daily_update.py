@@ -1,4 +1,5 @@
 # daily_update.py - Section 1: Imports and Setup
+def get_polygon_daily_data(
 import pandas as pd
 import numpy as np
 import requests
