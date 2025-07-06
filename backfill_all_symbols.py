@@ -1,22 +1,30 @@
-from data_update import download_data_parallel, get_sp500_symbols, CONFIG
+from data_update import get_sp500_symbols, get_polygon_daily_data, save_price_data
 import time
+import os
 
-# Set the number of days of history you want (e.g., 1000 for ~4 years, 2000 for ~8 years)
-CONFIG["history_days"] = 200
+# --- POLYGON API KEY (HARDCODED FOR PRIVATE REPO) ---
+POLYGON_API_KEY = "yTZVrttxzFCK58_gOUGGATWxQzytgAxy"  # <-- Your current Polygon API key
+os.environ["POLYGON_API_KEY"] = POLYGON_API_KEY
 
-# Optionally adjust batch size and workers for your system's capacity
-CONFIG["batch_size"] = 50    # Number of symbols to process at once
-CONFIG["max_workers"] = 8    # Number of threads (adjust for your hardware)
+# --- CONFIGURATION ---
+HISTORY_DAYS = 200           # Number of days of history to fetch (adjust as needed)
+SLEEP_SECONDS = 12            # Polygon free API: 5 requests per min = 12 sec per call
 
 symbols = get_sp500_symbols()
-print(f"Starting backfill for {len(symbols)} symbols, {CONFIG['history_days']} days each.")
+print(f"Starting sequential backfill for {len(symbols)} symbols, {HISTORY_DAYS} days each.")
+print(f"Respecting Polygon free tier rate limit: 1 request every {SLEEP_SECONDS} seconds.")
 
-# Download in batches to avoid API rate limits and memory issues
-for i in range(0, len(symbols), CONFIG["batch_size"]):
-    batch = symbols[i:i + CONFIG["batch_size"]]
-    print(f"Processing batch {i // CONFIG['batch_size'] + 1} ({len(batch)} symbols)...")
-    download_data_parallel(batch)
-    print(f"Batch {i // CONFIG['batch_size'] + 1} complete.")
-    time.sleep(2)  # Optional: Pause between batches to avoid rate limits
+for idx, symbol in enumerate(symbols):
+    print(f"({idx+1}/{len(symbols)}) Downloading {symbol} ...")
+    try:
+        df = get_polygon_daily_data(symbol, HISTORY_DAYS)
+        if df is not None and not df.empty:
+            save_price_data(symbol, df)
+            print(f"Downloaded and saved {len(df)} rows for {symbol}.")
+        else:
+            print(f"Warning: No data returned for {symbol}.")
+    except Exception as e:
+        print(f"Error downloading {symbol}: {e}")
+    time.sleep(SLEEP_SECONDS)
 
 print("Backfill complete.")
