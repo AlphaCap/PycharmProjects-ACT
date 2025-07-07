@@ -20,4 +20,3 @@ setuptools==70.0.0
 
 # Optional - uncomment if needed
 #lxml==4.9.4
-#yfinance==0.2.44  # Commented out since we're using Polygon.io instead
