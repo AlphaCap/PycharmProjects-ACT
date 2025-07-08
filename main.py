@@ -109,31 +109,19 @@ def update_sp500_list():
             "PARA", "LW", "MTCH", "AES", "TECH", "GNRC", "CRL", "ALB", "APA", "IVZ",
             "MHK", "ENPH", "CZR"
         ]
-             
+        
+        # Save to CSV for future use
+        df = pd.DataFrame({"symbol": symbols})
+        os.makedirs("data", exist_ok=True)
+        df.to_csv("data/sp500_symbols.csv", index=False)
+        logger.info(f"Saved {len(symbols)} S&P 500 symbols to CSV file")
+        
+        return symbols
+        
     except Exception as e:
         logger.error(f"Error updating stock list: {e}")
         # Fallback to minimal list if everything fails
         return ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA"]
-
-        # Save to CSV
-        os.makedirs("data", exist_ok=True)
-        pd.DataFrame({"symbol": symbols}).to_csv(
-            "data/sp500_symbols.csv", index=False)
-        logger.info(
-            f"Updated stock list with {
-                len(symbols)} symbols from Polygon API")
-        return symbols
-
-    except Exception as e:
-        logger.error(f"Error updating stock list: {e}")
-        # If update fails, try to load existing list
-        if os.path.exists("data/sp500_symbols.csv"):
-            symbols = pd.read_csv("data/sp500_symbols.csv")["symbol"].tolist()
-            logger.info(
-                f"Loaded {
-                    len(symbols)} symbols from existing SP500 list")
-            return symbols
-        return []
 
 
 def download_single_symbol(symbol, days=200):
@@ -625,4 +613,4 @@ def main():
 
 if __name__ == "__main__":
     print(f"nGS Trading System v{VERSION} - {datetime.now().strftime('%Y-%m-%d')}")
-    
+    sys.exit(main())
