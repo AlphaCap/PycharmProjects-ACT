@@ -33,37 +33,95 @@ CONFIG_FILE = "config/system_config.json"
 
 
 def update_sp500_list():
-    """Update the S&P 500 symbols list using Polygon API."""
+    """Update the S&P 500 symbols list using real S&P 500 companies."""
     try:
-        # Create Polygon client
-        client = PolygonClient()
-
-        logger.info("Getting stock list from Polygon API")
-
-        # Query for largest US stocks (approximating S&P 500)
-        endpoint = "/v3/reference/tickers"
-        params = {
-            "market": "stocks",
-            "active": "true",
-            "order": "desc",
-            "limit": 500
-        }
-
-        response_data = client._make_request(endpoint, params)
-
-        if not response_data or 'results' not in response_data:
-            logger.error("Failed to get stock symbols from Polygon")
-            # If update fails, try to load existing list
-            if os.path.exists("data/sp500_symbols.csv"):
-                symbols = pd.read_csv(
-                    "data/sp500_symbols.csv")["symbol"].tolist()
-                logger.info(
-                    f"Loaded {
-                        len(symbols)} symbols from existing SP500 list")
-                return symbols
-            return []
-
-        symbols = [item['ticker'] for item in response_data['results']]
+        # Try to load from existing CSV file first
+        if os.path.exists("data/sp500_symbols.csv"):
+            try:
+                df = pd.read_csv("data/sp500_symbols.csv")
+                if 'Symbol' in df.columns:
+                    symbols = df['Symbol'].dropna().tolist()
+                elif 'symbol' in df.columns:
+                    symbols = df['symbol'].dropna().tolist()
+                else:
+                    symbols = df.iloc[:, 0].dropna().tolist()
+                
+                symbols = [str(symbol).strip().upper() for symbol in symbols if str(symbol).strip()]
+                
+                if symbols and len(symbols) > 100:
+                    logger.info(f"Loaded {len(symbols)} symbols from existing SP500 CSV file")
+                    return symbols
+            except Exception as e:
+                logger.warning(f"Could not load S&P 500 symbols from CSV file: {e}")
+        
+        # Real S&P 500 symbols as of July 2025 (503 symbols)
+        logger.info("Using hardcoded real S&P 500 symbols list (503 symbols)")
+        symbols = [
+            "MSFT", "NVDA", "AAPL", "AMZN", "GOOG", "GOOGL", "META", "AVGO", "BRK.B", "TSLA",
+            "WMT", "JPM", "V", "LLY", "MA", "NFLX", "ORCL", "COST", "XOM", "PG",
+            "JNJ", "HD", "BAC", "ABBV", "KO", "PLTR", "PM", "TMUS", "UNH", "GE",
+            "CRM", "CSCO", "WFC", "CVX", "IBM", "ABT", "LIN", "MCD", "INTU", "NOW",
+            "AXP", "MS", "DIS", "T", "ISRG", "ACN", "MRK", "AMD", "RTX", "VZ",
+            "BKNG", "GS", "UBER", "PEP", "ADBE", "TXN", "BX", "CAT", "PGR", "QCOM",
+            "SCHW", "SPGI", "BA", "AMGN", "BLK", "TMO", "BSX", "NEE", "HON", "SYK",
+            "C", "TJX", "DE", "DHR", "GILD", "AMAT", "UNP", "PANW", "PFE", "ADP",
+            "GEV", "ETN", "CMCSA", "LOW", "ANET", "MU", "CB", "CRWD", "VRTX", "MMC",
+            "APH", "LMT", "MDT", "LRCX", "ADI", "COP", "KKR", "KLAC", "PLD", "ICE",
+            "SBUX", "WELL", "MO", "AMT", "CME", "BMY", "SO", "TT", "WM", "CEG",
+            "NKE", "DASH", "HCA", "FI", "CTAS", "DUK", "EQIX", "SHW", "MCK", "ELV",
+            "MCO", "INTC", "ABNB", "PH", "MDLZ", "AJG", "CI", "UPS", "TDG", "CDNS",
+            "CVS", "FTNT", "AON", "RSG", "ORLY", "MMM", "DELL", "APO", "COF", "ZTS",
+            "ECL", "SNPS", "RCL", "GD", "WMB", "CL", "MAR", "ITW", "PYPL", "HWM",
+            "CMG", "PNC", "NOC", "MSI", "USB", "EMR", "JCI", "WDAY", "BK", "COIN",
+            "ADSK", "KMI", "APD", "EOG", "AZO", "TRV", "MNST", "AXON", "ROP", "CHTR",
+            "SPG", "DLR", "CARR", "CSX", "HLT", "FCX", "VST", "NEM", "PAYX", "NSC",
+            "AFL", "COR", "ALL", "AEP", "MET", "PWR", "PSA", "TFC", "FDX", "GWW",
+            "NXPI", "REGN", "OKE", "O", "AIG", "SRE", "BDX", "AMP", "MPC", "NDAQ",
+            "PCAR", "CTVA", "TEL", "CPRT", "FAST", "D", "ROST", "PSX", "SLB", "URI",
+            "LHX", "GM", "EW", "CMI", "VRSK", "KDP", "KMB", "TGT", "KR", "MSCI",
+            "GLW", "FICO", "CCI", "EXC", "FIS", "TTWO", "IDXX", "HES", "OXY", "KVUE",
+            "AME", "FANG", "F", "YUM", "VLO", "PEG", "GRMN", "CTSH", "XEL", "OTIS",
+            "CBRE", "BKR", "EA", "PRU", "DHI", "CAH", "RMD", "HIG", "ED", "ROK",
+            "TRGP", "EBAY", "SYY", "ACGL", "ETR", "WAB", "MCHP", "VMC", "PCG", "DXCM",
+            "ODFL", "EQT", "WEC", "IR", "LYV", "EFX", "DAL", "VICI", "MLM", "EXR",
+            "CSGP", "MPWR", "A", "TKO", "GEHC", "HSY", "IT", "CCL", "LULU", "BRO",
+            "KHC", "XYL", "WTW", "NRG", "STZ", "IRM", "GIS", "ANSS", "RJF", "MTB",
+            "VTR", "AVB", "BR", "LEN", "DD", "K", "LVS", "WRB", "STT", "NUE",
+            "ROL", "EXE", "KEYS", "HUM", "DTE", "UAL", "CNC", "AWK", "TSCO", "STX",
+            "EQR", "VRSN", "IQV", "FITB", "GDDY", "AEE", "TPL", "PPG", "DRI", "PPL",
+            "IP", "DG", "VLTO", "TYL", "FTV", "SMCI", "EL", "MTD", "DOV", "FOXA",
+            "CHD", "WBD", "SBAC", "ATO", "ES", "CNP", "STE", "CPAY", "HPE", "HPQ",
+            "HBAN", "CINF", "CDW", "FE", "TDY", "FOX", "CBOE", "ADM", "SW", "SYF",
+            "EXPE", "PODD", "NTAP", "LH", "NVR", "HUBB", "NTRS", "ON", "CMS", "ULTA",
+            "WAT", "AMCR", "TROW", "DVN", "EIX", "PTC", "INVH", "DOW", "PHM", "MKC",
+            "STLD", "RF", "DLTR", "TSN", "IFF", "LII", "CTRA", "BIIB", "DGX", "ERIE",
+            "WSM", "WY", "WDC", "LUV", "LDOS", "JBL", "GPN", "L", "ESS", "NI",
+            "ZBH", "GEN", "LYB", "MAA", "CFG", "KEY", "FSLR", "HAL", "PKG", "GPC",
+            "PFG", "TRMB", "FFIV", "HRL", "SNA", "RL", "NWS", "FDS", "TPR", "PNR",
+            "DECK", "WST", "MOH", "DPZ", "CLX", "NWSA", "LNT", "BAX", "BBY", "EXPD",
+            "J", "ZBRA", "EVRG", "CF", "BALL", "PAYC", "EG", "UDR", "APTV", "COO",
+            "HOLX", "KIM", "AVY", "OMC", "JBHT", "IEX", "TER", "TXT", "MAS", "INCY",
+            "BF.B", "JKHY", "REG", "BXP", "ALGN", "SOLV", "CPT", "BLDR", "DOC", "UHS",
+            "ARE", "NDSN", "JNPR", "ALLE", "SJM", "BEN", "CHRW", "AKAM", "POOL", "HST",
+            "MOS", "RVTY", "SWKS", "CAG", "PNW", "MRNA", "TAP", "DVA", "AIZ", "CPB",
+            "SWK", "VTRS", "EPAM", "LKQ", "GL", "BG", "KMX", "WBA", "DAY", "HAS",
+            "AOS", "EMN", "HII", "NCLH", "MGM", "WYNN", "HSIC", "IPG", "FRT", "MKTX",
+            "PARA", "LW", "MTCH", "AES", "TECH", "GNRC", "CRL", "ALB", "APA", "IVZ",
+            "MHK", "ENPH", "CZR"
+        ]
+        
+        # Save to CSV for future use
+        df = pd.DataFrame({"symbol": symbols})
+        os.makedirs("data", exist_ok=True)
+        df.to_csv("data/sp500_symbols.csv", index=False)
+        logger.info(f"Saved {len(symbols)} S&P 500 symbols to CSV file")
+        
+        return symbols
+        
+    except Exception as e:
+        logger.error(f"Error updating stock list: {e}")
+        # Fallback to minimal list if everything fails
+        return ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA"]
 
         # Save to CSV
         os.makedirs("data", exist_ok=True)
