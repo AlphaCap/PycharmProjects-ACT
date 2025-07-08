@@ -10,6 +10,7 @@ from data_manager import (
     get_short_positions_formatted,
     get_signals,
     get_system_status
+    get_trades_history
 )
 
 # --- PAGE CONFIG ---
