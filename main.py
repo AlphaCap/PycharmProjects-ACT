@@ -625,4 +625,4 @@ def main():
 
 if __name__ == "__main__":
     print(f"nGS Trading System v{VERSION} - {datetime.now().strftime('%Y-%m-%d')}")
-    sys.exit(main())
+    
