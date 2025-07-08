@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import logging
 from typing import Dict, List, Optional, Tuple, Union
@@ -31,22 +31,29 @@ os.makedirs("reports", exist_ok=True)
 os.makedirs("reports/charts", exist_ok=True)
 
 # Constants for reporting
+DEFAULT_REPORT_DAYS = 30
 CHART_SIZE = (12, 8)
 CHART_DPI = 100
-
 # reporting.py - Section 2: Trade Performance Analysis
-def generate_performance_report() -> pd.DataFrame:
+def generate_performance_report(days: int = DEFAULT_REPORT_DAYS) -> pd.DataFrame:
     """
-    Generate a comprehensive performance report for all trading activity.
-
+    Generate a comprehensive performance report for the recent trading activity.
+    
+    Args:
+        days: Number of days to include in the report
+        
     Returns:
         DataFrame with symbol performance metrics
     """
-    trades_df = get_trades_history()
-        
+    # Get trade history
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    start_date_str = start_date.strftime("%Y-%m-%d")
+    trades_df = get_trades_history(start_date=start_date_str)
+    
     if trades_df.empty:
-        logger.warning("No trades found in trade history")
-        print("No trades in trade history.")
+        logger.warning(f"No trades found in the last {days} days")
+        print(f"No trades in the last {days} days.")
         return pd.DataFrame()
     
     # Calculate performance metrics
@@ -91,15 +98,15 @@ def generate_performance_report() -> pd.DataFrame:
     summary = pd.DataFrame({
         'Metric': ['Total Trades', 'Winning Trades', 'Losing Trades', 'Win Rate', 
                   'Total Profit', 'Average Profit', 'Average Win', 'Average Loss',
-                  'Max Profit', 'Max Loss', 'Profit Factor'],
+                  'Max Profit', 'Max Loss', 'Profit Factor', 'Period (days)'],
         'Value': [total_trades, winning_trades, losing_trades, f"{win_rate:.2%}", 
                  f"${total_profit:.2f}", f"${avg_profit:.2f}", f"${avg_win:.2f}", f"${avg_loss:.2f}",
-                 f"${max_profit:.2f}", f"${max_loss:.2f}", f"{profit_factor:.2f}"]
+                 f"${max_profit:.2f}", f"${max_loss:.2f}", f"{profit_factor:.2f}", days]
     })
     
     # Print summary report
     print("\n" + "="*50)
-    print("PERFORMANCE SUMMARY - ALL TRADES")
+    print(f"PERFORMANCE SUMMARY - LAST {days} DAYS")
     print("="*50)
     print(summary.to_string(index=False))
     
@@ -126,19 +133,25 @@ def generate_performance_report() -> pd.DataFrame:
         print(symbol_performance.head(10).to_string())
     else:
         print("No symbol performance data available")
-
 # reporting.py - Section 3: Visualization Functions
-def create_performance_charts() -> bool:
+def create_performance_charts(days: int = DEFAULT_REPORT_DAYS) -> bool:
     """
-    Create charts visualizing trading performance for all available trades.
-
+    Create charts visualizing trading performance.
+    
+    Args:
+        days: Number of days to include in the charts
+        
     Returns:
         Boolean indicating success/failure
     """
-    trades_df = get_trades_history()
-        
+    # Get trade history
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    start_date_str = start_date.strftime("%Y-%m-%d")
+    trades_df = get_trades_history(start_date=start_date_str)
+    
     if trades_df.empty:
-        logger.warning("No trades found for charting in trade history")
+        logger.warning(f"No trades found for charting in the last {days} days")
         return False
     
     try:
@@ -152,7 +165,7 @@ def create_performance_charts() -> bool:
         plt.figure(figsize=CHART_SIZE)
         sns.histplot(trades_df['profit'], kde=True, bins=20)
         plt.axvline(x=0, color='r', linestyle='--', alpha=0.7)
-        plt.title('Profit Distribution - All Trades', fontsize=16)
+        plt.title(f'Profit Distribution - Last {days} Days', fontsize=16)
         plt.xlabel('Profit ($)', fontsize=12)
         plt.ylabel('Number of Trades', fontsize=12)
         plt.grid(True, alpha=0.3)
@@ -164,7 +177,7 @@ def create_performance_charts() -> bool:
         plt.figure(figsize=CHART_SIZE)
         cumulative_profit = trades_df.sort_values('exit_date').set_index('exit_date')['profit'].cumsum()
         plt.plot(cumulative_profit.index, cumulative_profit.values, linewidth=2)
-        plt.title('Cumulative Profit Over Time - All Trades', fontsize=16)
+        plt.title(f'Cumulative Profit Over Time - Last {days} Days', fontsize=16)
         plt.xlabel('Date', fontsize=12)
         plt.ylabel('Cumulative Profit ($)', fontsize=12)
         plt.grid(True, alpha=0.3)
@@ -221,46 +234,45 @@ def create_performance_charts() -> bool:
         plt.savefig(os.path.join("reports", "charts", "exit_reason_performance.png"), dpi=CHART_DPI)
         plt.close()
         
-        logger.info("Successfully created performance charts for all trades")
+        logger.info(f"Successfully created performance charts for last {days} days")
         return True
     
     except Exception as e:
         logger.error(f"Error creating performance charts: {e}")
         return False
 # reporting.py - Section 4: Current Positions and Main Function
-
 def current_positions_report() -> pd.DataFrame:
     """
     Generate a report on current positions.
-
+    
     Returns:
         DataFrame with current positions
     """
     positions = get_positions()
-
+    
     if not positions:
         logger.warning("No active positions found")
         print("\nNo active positions.")
         return pd.DataFrame()
-
+    
     # Convert to DataFrame for easier analysis
     pos_df = pd.DataFrame(positions)
-
+    
     # Calculate position metrics
     total_value = pos_df['current_value'].sum()
     total_profit = pos_df['profit'].sum()
     profit_pct = 100 * total_profit / (total_value - total_profit) if total_value > total_profit else 0
     avg_days_held = pos_df['days_held'].mean()
-
+    
     # Calculate directional exposure
     long_value = pos_df[pos_df['shares'] > 0]['current_value'].sum()
     short_value = abs(pos_df[pos_df['shares'] < 0]['current_value'].sum())
     net_exposure = long_value - short_value
     gross_exposure = long_value + short_value
-
+    
     # Sort by profit
     pos_df = pos_df.sort_values('profit', ascending=False)
-
+    
     print("\n" + "="*50)
     print("CURRENT POSITIONS SUMMARY")
     print("="*50)
@@ -272,29 +284,29 @@ def current_positions_report() -> pd.DataFrame:
     print(f"Average Days Held: {avg_days_held:.1f}")
     print(f"Net Market Exposure: ${net_exposure:.2f}")
     print(f"Gross Market Exposure: ${gross_exposure:.2f}")
-
+    
     print("\n" + "="*50)
     print("TOP PROFITABLE POSITIONS")
     print("="*50)
     columns_to_show = ['symbol', 'shares', 'entry_price', 'current_price', 'profit', 'profit_pct', 'days_held']
     if not pos_df.empty:
         print(pos_df.head(10)[columns_to_show].to_string())
-
+    
         if len(pos_df) > 10:
             print("\n" + "="*50)
             print("WORST PERFORMING POSITIONS")
             print("="*50)
             print(pos_df.tail(5)[columns_to_show].to_string())
-
+    
     # Create visualization
     try:
         if not pos_df.empty:
             plt.figure(figsize=CHART_SIZE)
-            scatter = plt.scatter(pos_df['days_held'], pos_df['profit_pct'],
-                                  s=pos_df['current_value'].abs() / 100,
-                                  c=pos_df['profit'], cmap='RdYlGn',
-                                  alpha=0.7)
-
+            scatter = plt.scatter(pos_df['days_held'], pos_df['profit_pct'], 
+                       s=pos_df['current_value'].abs() / 100, 
+                       c=pos_df['profit'], cmap='RdYlGn',
+                       alpha=0.7)
+            
             plt.colorbar(scatter, label='Profit ($)')
             plt.title('Current Positions - Profit % vs Days Held', fontsize=16)
             plt.xlabel('Days Held', fontsize=12)
@@ -304,7 +316,7 @@ def current_positions_report() -> pd.DataFrame:
             plt.tight_layout()
             plt.savefig(os.path.join("reports", "charts", "current_positions.png"), dpi=CHART_DPI)
             plt.close()
-
+            
             # Position distribution chart
             plt.figure(figsize=CHART_SIZE)
             labels = pos_df['symbol'].head(15)
@@ -316,30 +328,35 @@ def current_positions_report() -> pd.DataFrame:
             plt.tight_layout()
             plt.savefig(os.path.join("reports", "charts", "position_distribution.png"), dpi=CHART_DPI)
             plt.close()
-
+    
     except Exception as e:
         logger.error(f"Error creating position charts: {e}")
-
+    
     # Update metadata with position stats
     update_metadata("positions.count", len(pos_df))
     update_metadata("positions.total_value", round(float(total_value), 2))
     update_metadata("positions.profit", round(float(total_profit), 2))
-
+    
     return pos_df
 
-
-def export_report_to_html() -> bool:
+def export_report_to_html(days: int = DEFAULT_REPORT_DAYS) -> bool:
     """
-    Export performance report to HTML file for all trades and positions.
-
+    Export performance report to HTML file.
+    
+    Args:
+        days: Number of days to include in the report
+        
     Returns:
         Boolean indicating success/failure
     """
     try:
-        # Get trade history and positions
-        trades_df = get_trades_history()
+        # Get trade history
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        start_date_str = start_date.strftime("%Y-%m-%d")
+        trades_df = get_trades_history(start_date=start_date_str)
         positions = get_positions()
-
+        
         # Create HTML content
         html_content = f"""
         <!DOCTYPE html>
@@ -363,40 +380,40 @@ def export_report_to_html() -> bool:
             <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             
             <div class="summary">
-                <h2>Performance Summary - All Trades</h2>
+                <h2>Performance Summary - Last {days} Days</h2>
         """
-
+        
         # Add trade performance summary
         if not trades_df.empty:
             total_trades = len(trades_df)
             winning_trades = len(trades_df[trades_df['profit'] > 0])
             win_rate = winning_trades / total_trades if total_trades > 0 else 0
             total_profit = trades_df['profit'].sum()
-
+            
             html_content += f"""
                 <p><strong>Total Trades:</strong> {total_trades}</p>
                 <p><strong>Win Rate:</strong> {win_rate:.2%}</p>
                 <p><strong>Total Profit:</strong> ${total_profit:.2f}</p>
             """
         else:
-            html_content += "<p>No trades in the trade history.</p>"
-
+            html_content += "<p>No trades in the specified period.</p>"
+        
         # Add position summary
         if positions:
             pos_df = pd.DataFrame(positions)
             total_value = pos_df['current_value'].sum()
             total_profit = pos_df['profit'].sum()
-
+            
             html_content += f"""
                 <h3>Current Positions Summary</h3>
                 <p><strong>Total Positions:</strong> {len(pos_df)}</p>
                 <p><strong>Total Value:</strong> ${total_value:.2f}</p>
                 <p><strong>Unrealized Profit:</strong> ${total_profit:.2f}</p>
             """
-
+        
         # Close summary div
         html_content += "</div>"
-
+        
         # Add charts
         html_content += """
             <h2>Performance Charts</h2>
@@ -420,12 +437,12 @@ def export_report_to_html() -> bool:
                 <img class="chart" src="charts/current_positions.png" alt="Current Positions">
             </div>
         """
-
+        
         # Add position details
         if positions:
             pos_df = pd.DataFrame(positions)
             pos_df = pos_df.sort_values('profit', ascending=False)
-
+            
             html_content += """
                 <h2>Current Positions</h2>
                 <table>
@@ -439,7 +456,7 @@ def export_report_to_html() -> bool:
                         <th>Days Held</th>
                     </tr>
             """
-
+            
             for _, row in pos_df.iterrows():
                 profit_color = "green" if row['profit'] > 0 else "red"
                 html_content += f"""
@@ -453,13 +470,13 @@ def export_report_to_html() -> bool:
                         <td>{int(row['days_held'])}</td>
                     </tr>
                 """
-
+            
             html_content += "</table>"
-
+        
         # Add recent trades
         if not trades_df.empty:
             trades_df = trades_df.sort_values('exit_date', ascending=False).head(20)
-
+            
             html_content += """
                 <h2>Recent Trades (Last 20)</h2>
                 <table>
@@ -472,7 +489,7 @@ def export_report_to_html() -> bool:
                         <th>Exit Reason</th>
                     </tr>
             """
-
+            
             for _, row in trades_df.iterrows():
                 profit_color = "green" if row['profit'] > 0 else "red"
                 html_content += f"""
@@ -485,9 +502,9 @@ def export_report_to_html() -> bool:
                         <td>{row['exit_reason']}</td>
                     </tr>
                 """
-
+            
             html_content += "</table>"
-
+        
         # Close HTML
         html_content += """
             <footer>
@@ -496,55 +513,56 @@ def export_report_to_html() -> bool:
         </body>
         </html>
         """
-
+        
         # Write to file
         report_path = os.path.join("reports", f"performance_report_{datetime.now().strftime('%Y%m%d')}.html")
         with open(report_path, "w") as f:
             f.write(html_content)
-
+        
         logger.info(f"HTML report exported to {report_path}")
         print(f"\nHTML report saved to: {report_path}")
         return True
-
+    
     except Exception as e:
         logger.error(f"Error exporting HTML report: {e}")
         return False
 
-
-def main(export_html: bool = True):
+def main(days: int = DEFAULT_REPORT_DAYS, export_html: bool = True):
     """
-    Run all reporting functions for all trades.
-
+    Run all reporting functions.
+    
     Args:
+        days: Number of days to include in report
         export_html: Whether to export report to HTML
     """
     print("\n" + "="*80)
     print(f" nGS TRADING SYSTEM PERFORMANCE REPORT - {datetime.now().strftime('%Y-%m-%d')}")
     print("="*80)
-
+    
     # Generate trade performance report
-    generate_performance_report()
-
+    generate_performance_report(days=days)
+    
     # Generate current positions report
     current_positions_report()
-
+    
     # Create charts
-    create_performance_charts()
-
+    create_performance_charts(days=days)
+    
     # Export to HTML if requested
     if export_html:
-        export_report_to_html()
-
+        export_report_to_html(days=days)
+    
     print("\n" + "="*50)
     print("Report generation complete")
     print("="*50)
 
 if __name__ == "__main__":
     import argparse
-
+    
     parser = argparse.ArgumentParser(description="Generate nGS Trading System performance reports")
+    parser.add_argument("--days", type=int, default=DEFAULT_REPORT_DAYS, help="Days to include in report")
     parser.add_argument("--no-html", action="store_true", help="Skip HTML report export")
-
+    
     args = parser.parse_args()
-
-    main(export_html=not args.no_html)
+    
+    main(days=args.days, export_html=not args.no_html)

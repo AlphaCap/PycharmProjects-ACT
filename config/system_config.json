@@ -1,0 +1,12 @@
+{
+    "account_size": 100000,
+    "position_size": 5000,
+    "max_positions": 20,
+    "min_price": 10,
+    "max_price": 500,
+    "update_time": "16:30",
+    "reporting_time": "17:30",
+    "history_days": 200,
+    "max_workers": 8,
+    "batch_size": 100
+}

@@ -1,197 +1,206 @@
 import streamlit as st
 import pandas as pd
-import os
 import datetime
+from data_manager import (
+    get_portfolio_metrics,
+    get_strategy_performance,
+    get_portfolio_performance_stats,
+    get_positions,
+    get_long_positions_formatted,
+    get_short_positions_formatted,
+    get_signals,
+    get_system_status
+)
 
-# Set page config for wide layout
+# --- PAGE CONFIG ---
 st.set_page_config(
     page_title="Alpha Capture Technology AI",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Sidebar navigation
+# --- HIDE STREAMLIT ELEMENTS ---
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    .stDecoration {display:none;}
+    [data-testid="stToolbar"] {display: none;}
+    [data-testid="stHeader"] {display: none;}
+    .stApp > header {display: none;}
+    
+    /* Hide only the auto-generated page navigation, not our custom sidebar */
+    [data-testid="stSidebarNav"] {display: none;}
+    
+    .stAppViewContainer > .main .block-container {
+        padding-top: 1rem;
+    }
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# --- SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.title("Trading Systems")
-    
-    # System navigation buttons
-    st.subheader("Trading Performance")
     if st.button("nGulfStream Swing Trader", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
-    if st.button("Alpha Capture AI", use_container_width=True):
-        st.switch_page("pages/2_Daily_System.py")
+    # Disabled placeholder buttons for future systems
+    st.button("Alpha Capture AI", use_container_width=True, disabled=True, help="Coming Soon")
+    st.button("gST DayTrader", use_container_width=True, disabled=True, help="Coming Soon")
     
-    if st.button("gST DayTrader", use_container_width=True):
-        st.switch_page("pages/3_Intraday_System.py")
-    
-    # Additional sidebar info
     st.markdown("---")
     st.caption("Data last updated:")
     st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
 
-# Page header with branding
+# --- PAGE HEADER ---
 st.title("Alpha Capture Technology AI")
 st.caption("S&P 500 Long/Short Position Trader")
 
-# Summary metrics
+# --- VARIABLE ACCOUNT SIZE ---
 st.markdown("## Current Portfolio Status")
+initial_value = st.number_input(
+    "Set initial portfolio/account size:",
+    min_value=1000,
+    value=100000,
+    step=1000,
+    format="%d"
+)
 
-# Create tabs for summary view
-tab1, tab2, tab3 = st.tabs(["Portfolio Overview", "Long Positions", "Short Positions"])
+# --- PORTFOLIO METRICS ---
+metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
 
-with tab1:
-    # Portfolio overview section
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(label="Total Portfolio Value", value="$100,000", delta="2.5%")
-    with col2:
-        st.metric(label="Daily P&L", value="$12,500", delta="1.0%")
-    with col3:
-        st.metric(label="MTD Return", value="4.2%", delta="0.8%")
-    with col4:
-        st.metric(label="YTD Return", value="15.6%", delta="7.2%")
-    
-    # Strategy allocation and performance table
-    st.subheader("Strategy Performance")
-    
-    # Load portfolio data if available
-    try:
-        # Placeholder for portfolio data - replace with actual data loading
-        portfolio_data = pd.DataFrame({
-            "Strategy": ["nGS", "Daily System", "Intraday System"],
-            "Allocation": ["$600,000", "$400,000", "$250,000"],
-            "Daily Return": ["1.2%", "0.8%", "0.5%"],
-            "MTD Return": ["5.1%", "3.8%", "2.9%"],
-            "YTD Return": ["18.2%", "14.6%", "11.2%"],
-            "Sharpe": ["1.8", "1.6", "1.4"]
-        })
-        
-        st.dataframe(portfolio_data, use_container_width=True, hide_index=True)
-    except Exception as e:
-        st.error(f"Error loading portfolio data: {e}")
+# Portfolio Overview Metrics
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    # Remove cents from total value display
+    total_value_clean = metrics['total_value'].replace('.00', '').replace(',', '')
+    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
+with col2:
+    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
+with col3:
+    st.metric(label="M/E Ratio", value=metrics['me_ratio'])
+with col4:
+    st.metric(label="Long Exposure", value=metrics['long_exposure'])
+with col5:
+    st.metric(label="Short Exposure", value=metrics['short_exposure'])
 
-    # Top performing positions
-    st.subheader("Top Performing Positions")
-    
-    # Example top positions data
-    top_positions = pd.DataFrame({
-        "Symbol": ["AAPL", "MSFT", "AMZN", "GOOGL", "NVDA"],
-        "Strategy": ["nGS", "Intraday", "nGS", "Daily", "Intraday"],
-        "Entry Date": ["06/15/25", "07/01/25", "06/22/25", "06/28/25", "07/02/25"],
-        "Entry Price": ["$190.25", "$415.80", "$178.60", "$175.40", "$120.75"],
-        "Current Price": ["$205.50", "$440.20", "$188.30", "$182.60", "$126.40"],
-        "Return": ["8.0%", "5.9%", "5.4%", "4.1%", "4.7%"],
-        "Side": ["Long", "Long", "Long", "Short", "Long"]
-    })
-    
-    st.dataframe(top_positions, use_container_width=True, hide_index=True)
+# Net Exposure
+col6, col7, col8 = st.columns(3)
+with col6:
+    st.metric(label="Net Exposure", value=metrics['net_exposure'])
+with col7:
+    st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
+with col8:
+    st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
 
-with tab2:
-    # Long positions section
-    st.subheader("Active Long Positions")
+# --- STRATEGY PERFORMANCE TABLE ---
+st.subheader("Strategy Performance")
+strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
+if not strategy_df.empty:
+    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+else:
+    st.info("No strategy performance data available.")
+
+# --- POSITIONS SECTION ---
+st.markdown("## Current Positions")
+
+# Long Positions
+st.subheader("📈 Long Positions")
+long_positions_df = get_long_positions_formatted()
+if not long_positions_df.empty:
+    st.dataframe(long_positions_df, use_container_width=True, hide_index=True)
     
-    # Load long positions data if available
-    try:
-        # Path to your CSV (replace with actual data loading)
-        csv_path = os.path.join("data", "trades.csv")
-        if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path)
-            # Filter for long positions only (assuming 'side' column contains this info)
-            long_df = df[df['side'].str.lower().str.startswith('b')].copy() if 'side' in df.columns else pd.DataFrame()
-            
-            if not long_df.empty:
-                # Display long positions
-                st.dataframe(long_df, use_container_width=True, hide_index=True)
-            else:
-                st.info("No active long positions found.")
-        else:
-            # Example long positions data when CSV not available
-            long_positions = pd.DataFrame({
-                "Symbol": ["AAPL", "MSFT", "AMZN", "META", "NVDA", "TSLA", "V", "HD", "PG", "UNH"],
-                "Strategy": ["nGS", "Daily", "Intraday", "nGS", "Intraday", "nGS", "Daily", "nGS", "Intraday", "Daily"],
-                "Entry Date": ["06/15/25", "07/01/25", "06/22/25", "06/25/25", "07/02/25", "06/20/25", "06/28/25", "07/01/25", "06/27/25", "06/15/25"],
-                "Entry Price": ["$190.25", "$415.80", "$178.60", "$490.30", "$120.75", "$240.50", "$275.60", "$345.20", "$165.70", "$540.30"],
-                "Current Price": ["$205.50", "$440.20", "$188.30", "$510.60", "$126.40", "$255.40", "$282.10", "$352.80", "$172.40", "$556.20"],
-                "Return": ["8.0%", "5.9%", "5.4%", "4.1%", "4.7%", "6.2%", "2.4%", "2.2%", "4.0%", "2.9%"],
-                "Status": ["Open", "Open", "Open", "Open", "Open", "Open", "Open", "Open", "Open", "Open"]
-            })
-            
-            st.dataframe(long_positions, use_container_width=True, hide_index=True)
-    except Exception as e:
-        st.error(f"Error loading long positions: {e}")
+    # Long positions summary
+    long_count = len(long_positions_df)
+    long_total_value = long_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
+    st.caption(f"**Long Summary:** {long_count} positions, Total P&L: ${long_total_value:.2f}")
+else:
+    st.info("No active long positions.")
 
-with tab3:
-    # Short positions section
-    st.subheader("Active Short Positions")
+# Short Positions  
+st.subheader("📉 Short Positions")
+short_positions_df = get_short_positions_formatted()
+if not short_positions_df.empty:
+    st.dataframe(short_positions_df, use_container_width=True, hide_index=True)
     
-    # Load short positions data if available
-    try:
-        # Path to your CSV (replace with actual data loading)
-        csv_path = os.path.join("data", "trades.csv")
-        if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path)
-            # Filter for short positions only
-            short_df = df[df['side'].str.lower().str.startswith('s')].copy() if 'side' in df.columns else pd.DataFrame()
-            
-            if not short_df.empty:
-                # Display short positions
-                st.dataframe(short_df, use_container_width=True, hide_index=True)
-            else:
-                st.info("No active short positions found.")
-        else:
-            # Example short positions data when CSV not available
-            short_positions = pd.DataFrame({
-                "Symbol": ["GOOGL", "IBM", "INTC", "DIS", "KO", "WMT", "JPM", "BA"],
-                "Strategy": ["Daily", "nGS", "nGS", "Intraday", "Daily", "nGS", "Intraday", "Daily"],
-                "Entry Date": ["06/28/25", "06/22/25", "06/15/25", "06/30/25", "07/01/25", "06/25/25", "06/28/25", "07/02/25"],
-                "Entry Price": ["$175.40", "$185.30", "$45.70", "$98.60", "$62.80", "$68.40", "$182.30", "$190.50"],
-                "Current Price": ["$168.20", "$178.80", "$42.40", "$95.30", "$60.90", "$66.20", "$175.60", "$184.80"],
-                "Return": ["4.1%", "3.5%", "7.2%", "3.3%", "3.0%", "3.2%", "3.7%", "3.0%"],
-                "Status": ["Open", "Open", "Open", "Open", "Open", "Open", "Open", "Open"]
-            })
-            
-            st.dataframe(short_positions, use_container_width=True, hide_index=True)
-    except Exception as e:
-        st.error(f"Error loading short positions: {e}")
+    # Short positions summary
+    short_count = len(short_positions_df)
+    short_total_value = short_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
+    st.caption(f"**Short Summary:** {short_count} positions, Total P&L: ${short_total_value:.2f}")
+else:
+    st.info("No active short positions.")
 
-# Recent activity section
-st.markdown("## Recent Activity")
-
-# Create two columns for recent signals and actions
-col1, col2 = st.columns(2)
+# --- SIGNALS AND PERFORMANCE SECTION ---
+col1, col2 = st.columns([1, 2])  # Make signals column narrower
 
 with col1:
-    st.subheader("Recent Signals")
-    
-    # Example recent signals data
-    signals = [
-        {"date": "07/04/25", "symbol": "AAPL", "signal": "L", "strategy": "nGS", "price": "$205.50"},
-        {"date": "07/03/25", "symbol": "MSFT", "signal": "L", "strategy": "Intraday", "price": "$440.20"},
-        {"date": "07/03/25", "symbol": "IBM", "signal": "S", "strategy": "nGS", "price": "$178.80"},
-        {"date": "07/02/25", "symbol": "NVDA", "signal": "L", "strategy": "Intraday", "price": "$126.40"},
-        {"date": "07/02/25", "symbol": "BA", "signal": "S", "strategy": "Daily", "price": "$184.80"}
-    ]
-    
-    for signal in signals:
-        st.markdown(f"- **{signal['date']}** | **{signal['symbol']}** | **{signal['signal']}** | {signal['strategy']} at `{signal['price']}`")
+    st.subheader("Today's Signals")
+    signals_df = get_signals()
+    if not signals_df.empty:
+        # Filter for today's signals if date column exists
+        today = datetime.datetime.now().date()
+        if 'date' in signals_df.columns:
+            signals_df['date'] = pd.to_datetime(signals_df['date']).dt.date
+            todays_signals = signals_df[signals_df['date'] == today]
+        else:
+            todays_signals = signals_df.head(10)  # Show recent signals
+        
+        if not todays_signals.empty:
+            for _, signal in todays_signals.iterrows():
+                st.markdown(
+                    f"- **{signal['date']}** | **{signal['symbol']}** | **{signal['signal_type']}** | {signal['strategy']} at `{signal['price']}`"
+                )
+        else:
+            st.info("No signals generated today.")
+    else:
+        st.info("No recent signals.")
 
 with col2:
-    st.subheader("System Status")
+    # Split this column for performance stats and equity curve
+    subcol1, subcol2 = st.columns(2)
     
-    # Example system status data
-    system_status = [
-        {"timestamp": "07/04/25 16:30", "system": "nGS", "message": "Daily signals generated successfully"},
-        {"timestamp": "07/04/25 16:15", "system": "Intraday", "message": "Trading session closed, 8 signals processed"},
-        {"timestamp": "07/04/25 15:45", "system": "Daily", "message": "Portfolio rebalanced, 2 new positions"},
-        {"timestamp": "07/04/25 09:30", "system": "Intraday", "message": "Trading session started"},
-        {"timestamp": "07/03/25 16:30", "system": "nGS", "message": "Daily signals generated successfully"}
-    ]
+    with subcol1:
+        st.subheader("Portfolio Performance Stats")
+        perf_stats_df = get_portfolio_performance_stats()
+        if not perf_stats_df.empty:
+            st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No performance statistics available.")
     
-    for status in system_status:
-        st.markdown(f"- **{status['timestamp']}** | **{status['system']}** | {status['message']}")
+    with subcol2:
+        st.subheader("Equity Curve")
+        # Create equity curve from trade history
+        trades_df = get_trades_history()
+        if not trades_df.empty:
+            try:
+                # Sort trades by exit date and calculate cumulative profit
+                trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
+                trades_sorted = trades_df.sort_values('exit_date')
+                trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
+                
+                # Create the equity curve chart
+                import matplotlib.pyplot as plt
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], linewidth=2, color='#1f77b4')
+                ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
+                               where=(trades_sorted['cumulative_profit'] > 0), alpha=0.3, color='green')
+                ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
+                               where=(trades_sorted['cumulative_profit'] <= 0), alpha=0.3, color='red')
+                ax.set_title('Cumulative Profit Over Time')
+                ax.set_xlabel('Date')
+                ax.set_ylabel('Cumulative Profit ($)')
+                ax.grid(True, alpha=0.3)
+                ax.tick_params(axis='x', rotation=45)
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close()
+            except Exception as e:
+                st.error(f"Error creating equity curve: {e}")
+        else:
+            st.info("No trade history for equity curve.")
 
-# Footer with additional info
 st.markdown("---")
 st.caption("Alpha Trading Systems Dashboard - For additional support, please contact the trading desk.")

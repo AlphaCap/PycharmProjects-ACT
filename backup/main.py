@@ -1,5 +1,5 @@
 from nGS_Strategy import NGSStrategy
-from data_manager import load_price_data, update_metadata
+from data_manager import load_combined_data, update_metadata
 from data_manager import get_positions, init_metadata as get_metadata
 from data_manager import initialize as init_data_manager
 import time
@@ -45,6 +45,7 @@ def update_sp500_list():
         params = {
             "market": "stocks",
             "active": "true",
+            "sort": "market_cap",
             "order": "desc",
             "limit": 500
         }
@@ -255,7 +256,7 @@ def process_single_symbol(symbol):
     print(f"Processing {symbol}...")
 
     # Try to load existing data
-    df = load_price_data(symbol)
+    df = load_combined_data(symbol)
 
     # If no data, download it
     if df is None or df.empty:
@@ -325,7 +326,7 @@ def run_reporting(days=30):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         start_date_str = start_date.strftime("%Y-%m-%d")
-        trades_df = get_trades_history()
+        trades_df = get_trades_history(start_date=start_date_str)
 
         if trades_df.empty:
             print(f"No trades found in the last {days} days")
