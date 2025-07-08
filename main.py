@@ -109,15 +109,7 @@ def update_sp500_list():
             "PARA", "LW", "MTCH", "AES", "TECH", "GNRC", "CRL", "ALB", "APA", "IVZ",
             "MHK", "ENPH", "CZR"
         ]
-        
-        # Save to CSV for future use
-        df = pd.DataFrame({"symbol": symbols})
-        os.makedirs("data", exist_ok=True)
-        df.to_csv("data/sp500_symbols.csv", index=False)
-        logger.info(f"Saved {len(symbols)} S&P 500 symbols to CSV file")
-        
-        return symbols
-        
+             
     except Exception as e:
         logger.error(f"Error updating stock list: {e}")
         # Fallback to minimal list if everything fails
