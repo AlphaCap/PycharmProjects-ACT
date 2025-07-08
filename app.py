@@ -9,7 +9,7 @@ from data_manager import (
     get_long_positions_formatted,
     get_short_positions_formatted,
     get_signals,
-    get_system_status
+    get_system_status,
     get_trades_history
 )
 
