@@ -113,8 +113,27 @@ SYSTEM_STATUS_COLUMNS = [
 # --- TRADE HISTORY ---
 def get_trades_history():
     if os.path.exists(TRADES_HISTORY_FILE):
-        return pd.read_csv(TRADES_HISTORY_FILE)
-    return pd.DataFrame(columns=TRADE_COLUMNS)
+        try:
+            df = pd.read_csv(TRADES_HISTORY_FILE)
+            # Debug: Print what we actually got
+            print(f"🔍 Trades CSV shape: {df.shape}, columns: {list(df.columns)}")
+            
+            # Handle comma-separated data in single column
+            if len(df.columns) == 1 and not df.empty:
+                first_cell = str(df.iloc[0, 0])
+                if ',' in first_cell:
+                    print("🔧 Splitting comma-separated trades data")
+                    # Split comma-separated data
+                    df = df.iloc[:, 0].str.split(',', expand=True)
+                    df.columns = TRADE_COLUMNS[:len(df.columns)]
+            
+            return df
+        except Exception as e:
+            print(f"❌ Error reading trades CSV: {e}")
+            return pd.DataFrame(columns=TRADE_COLUMNS)
+    else:
+        print("⚠️ Trades history file not found - creating empty DataFrame")
+        return pd.DataFrame(columns=TRADE_COLUMNS)
 
 def save_trades(trades_list: List[Dict]):
     ensure_dir(TRADES_HISTORY_FILE)
@@ -132,8 +151,27 @@ def save_trades(trades_list: List[Dict]):
 # --- POSITIONS ---
 def get_positions_df():
     if os.path.exists(POSITIONS_FILE):
-        return pd.read_csv(POSITIONS_FILE)
-    return pd.DataFrame(columns=POSITION_COLUMNS)
+        try:
+            df = pd.read_csv(POSITIONS_FILE)
+            # Debug: Print what we actually got
+            print(f"🔍 Positions CSV shape: {df.shape}, columns: {list(df.columns)}")
+            
+            # Handle comma-separated data in single column
+            if len(df.columns) == 1 and not df.empty:
+                first_cell = str(df.iloc[0, 0])
+                if ',' in first_cell:
+                    print("🔧 Splitting comma-separated positions data")
+                    # Split comma-separated data
+                    df = df.iloc[:, 0].str.split(',', expand=True)
+                    df.columns = POSITION_COLUMNS[:len(df.columns)]
+            
+            return df
+        except Exception as e:
+            print(f"❌ Error reading positions CSV: {e}")
+            return pd.DataFrame(columns=POSITION_COLUMNS)
+    else:
+        print("⚠️ Positions file not found - creating empty DataFrame")
+        return pd.DataFrame(columns=POSITION_COLUMNS)
 
 def save_positions(positions_list: List[Dict]):
     ensure_dir(POSITIONS_FILE)
@@ -147,8 +185,27 @@ def get_positions():
 # --- SIGNALS ---
 def get_signals():
     if os.path.exists(SIGNALS_FILE):
-        return pd.read_csv(SIGNALS_FILE)
-    return pd.DataFrame(columns=SIGNAL_COLUMNS)
+        try:
+            df = pd.read_csv(SIGNALS_FILE)
+            # Debug: Print what we actually got
+            print(f"🔍 Signals CSV shape: {df.shape}, columns: {list(df.columns)}")
+            
+            # Handle comma-separated data in single column
+            if len(df.columns) == 1 and not df.empty:
+                first_cell = str(df.iloc[0, 0])
+                if ',' in first_cell:
+                    print("🔧 Splitting comma-separated signals data")
+                    # Split comma-separated data
+                    df = df.iloc[:, 0].str.split(',', expand=True)
+                    df.columns = SIGNAL_COLUMNS[:len(df.columns)]
+            
+            return df
+        except Exception as e:
+            print(f"❌ Error reading signals CSV: {e}")
+            return pd.DataFrame(columns=SIGNAL_COLUMNS)
+    else:
+        print("⚠️ Signals file not found - creating empty DataFrame")
+        return pd.DataFrame(columns=SIGNAL_COLUMNS)
 
 def save_signals(signals: List[Dict]):
     ensure_dir(SIGNALS_FILE)
@@ -200,7 +257,6 @@ def update_metadata(key: str, value):
         metadata[key] = value
     with open(METADATA_FILE, "w") as f:
         json.dump(metadata, f, indent=2)
-
 # --- DASHBOARD FUNCTIONS FOR LONG/SHORT SYSTEM ---
 
 def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
@@ -416,13 +472,24 @@ def get_long_positions_formatted() -> pd.DataFrame:
         positions_df = get_positions_df()
         
         if positions_df.empty:
+            print("⚠️ No positions data available")
             return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+        
+        # Convert shares column to numeric if it's string
+        if 'shares' in positions_df.columns:
+            positions_df['shares'] = pd.to_numeric(positions_df['shares'], errors='coerce')
         
         # Filter for long positions
         long_positions = positions_df[positions_df['shares'] > 0].copy()
         
         if long_positions.empty:
+            print("⚠️ No long positions found")
             return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+        
+        # Convert numeric columns
+        for col in ['entry_price', 'current_price', 'profit', 'profit_pct', 'days_held']:
+            if col in long_positions.columns:
+                long_positions[col] = pd.to_numeric(long_positions[col], errors='coerce')
         
         # Format for display
         formatted = pd.DataFrame({
@@ -438,6 +505,7 @@ def get_long_positions_formatted() -> pd.DataFrame:
         return formatted.reset_index(drop=True)
         
     except Exception as e:
+        print(f"❌ Error getting formatted long positions: {e}")
         logger.error(f"Error getting formatted long positions: {e}")
         return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
 
@@ -452,13 +520,24 @@ def get_short_positions_formatted() -> pd.DataFrame:
         positions_df = get_positions_df()
         
         if positions_df.empty:
+            print("⚠️ No positions data available")
             return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+        
+        # Convert shares column to numeric if it's string
+        if 'shares' in positions_df.columns:
+            positions_df['shares'] = pd.to_numeric(positions_df['shares'], errors='coerce')
         
         # Filter for short positions
         short_positions = positions_df[positions_df['shares'] < 0].copy()
         
         if short_positions.empty:
+            print("⚠️ No short positions found")
             return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+        
+        # Convert numeric columns
+        for col in ['entry_price', 'current_price', 'profit', 'profit_pct', 'days_held']:
+            if col in short_positions.columns:
+                short_positions[col] = pd.to_numeric(short_positions[col], errors='coerce')
         
         # Format for display (show absolute shares for shorts)
         formatted = pd.DataFrame({
@@ -474,6 +553,7 @@ def get_short_positions_formatted() -> pd.DataFrame:
         return formatted.reset_index(drop=True)
         
     except Exception as e:
+        print(f"❌ Error getting formatted short positions: {e}")
         logger.error(f"Error getting formatted short positions: {e}")
         return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
 
