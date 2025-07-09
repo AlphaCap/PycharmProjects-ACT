@@ -756,5 +756,5 @@ def main():
     print("   5. Consider live trading integration")
 
     if __name__ == "__main__":
-    main()
+        main()
         print(f
