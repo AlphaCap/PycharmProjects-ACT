@@ -448,4 +448,8 @@ def main():
     print("   - Scale up to 100 symbols for full track record")
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     main()
+=======
+    main()
+>>>>>>> a7bd56370b17a95dfbf443a3253d2f557e159c0e

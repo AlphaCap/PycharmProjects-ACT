@@ -275,4 +275,8 @@ def patch_portfolio_metrics():
     """
     import data_manager
     data_manager.get_portfolio_metrics = calculate_real_portfolio_metrics
+<<<<<<< HEAD
     data_manager.get_strategy_performance = get_enhanced_strategy_performance
+=======
+    data_manager.get_strategy_performance = get_enhanced_strategy_performance
+>>>>>>> a7bd56370b17a95dfbf443a3253d2f557e159c0e

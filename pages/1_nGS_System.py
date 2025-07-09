@@ -271,4 +271,8 @@ except Exception as e:
     st.error(f"Error getting system status: {e}")
 
 st.markdown("---")
+<<<<<<< HEAD
 st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
+=======
+st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
+>>>>>>> a7bd56370b17a95dfbf443a3253d2f557e159c0e

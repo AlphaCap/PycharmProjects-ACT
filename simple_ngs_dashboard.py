@@ -65,4 +65,8 @@ def create_simple_dashboard():
                 st.error(f"Error reading {file}: {e}")
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     create_simple_dashboard()
+=======
+    create_simple_dashboard()
+>>>>>>> a7bd56370b17a95dfbf443a3253d2f557e159c0e

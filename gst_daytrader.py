@@ -598,4 +598,8 @@ if __name__ == "__main__":
         print(f"{key}: {value}")
     
     # Save trades
+<<<<<<< HEAD
     trader.save_trades_to_csv()
+=======
+    trader.save_trades_to_csv()
+>>>>>>> a7bd56370b17a95dfbf443a3253d2f557e159c0e
