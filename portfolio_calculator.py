@@ -59,11 +59,18 @@ def calculate_real_portfolio_metrics(initial_portfolio_value: float = 100000) ->
         ytd_return = (ytd_profit / initial_portfolio_value) * 100
         
         # Position exposure calculations
-        long_exposure, short_exposure, net_exposure = calculate_position_exposure()
+        long_exposure, short_exposure, total_open_equity = calculate_position_exposure()
         
-        # M/E Ratio (Market Exposure)
-        total_exposure = abs(long_exposure) + abs(short_exposure)
-        me_ratio = f"{total_exposure/current_portfolio_value:.2f}" if current_portfolio_value > 0 else "0.00"
+        # L/S Ratio (Long/Short Ratio = Open Longs / Open Shorts)
+        if short_exposure != 0:
+            ls_ratio = f"{abs(long_exposure / short_exposure):.2f}"
+        elif long_exposure > 0:
+            ls_ratio = "∞"  # All long positions
+        else:
+            ls_ratio = "0.00"  # No positions
+        
+        # M/E Ratio (Margin to Equity = Total Open Trade Equity / Account Size)
+        me_ratio = f"{abs(total_open_equity) / current_portfolio_value:.2f}" if current_portfolio_value > 0 else "0.00"
         
         # Performance deltas (vs previous period)
         mtd_delta = calculate_mtd_delta(trades_sorted, initial_portfolio_value)
@@ -74,9 +81,7 @@ def calculate_real_portfolio_metrics(initial_portfolio_value: float = 100000) ->
             'total_return_pct': f"{total_return_pct:+.1f}%",
             'daily_pnl': f"${daily_pnl:+,.2f}",
             'me_ratio': me_ratio,
-            'long_exposure': f"${long_exposure:+,.0f}",
-            'short_exposure': f"${short_exposure:+,.0f}",
-            'net_exposure': f"${net_exposure:+,.0f}",
+            'ls_ratio': ls_ratio,
             'mtd_return': f"{mtd_return:+.1f}%",
             'mtd_delta': mtd_delta,
             'ytd_return': f"{ytd_return:+.1f}%", 
@@ -85,7 +90,10 @@ def calculate_real_portfolio_metrics(initial_portfolio_value: float = 100000) ->
             'total_trades': len(trades_df),
             'total_profit_raw': total_profit,
             'winning_trades': len(trades_df[trades_df['profit'] > 0]),
-            'losing_trades': len(trades_df[trades_df['profit'] <= 0])
+            'losing_trades': len(trades_df[trades_df['profit'] <= 0]),
+            'long_exposure_raw': long_exposure,
+            'short_exposure_raw': short_exposure,
+            'total_open_equity': total_open_equity
         }
         
     except Exception as e:
@@ -95,6 +103,7 @@ def calculate_real_portfolio_metrics(initial_portfolio_value: float = 100000) ->
 def calculate_position_exposure():
     """
     Calculate current position exposure from open positions
+    Returns: long_exposure, short_exposure, total_open_equity
     """
     try:
         from data_manager import get_positions
@@ -103,7 +112,7 @@ def calculate_position_exposure():
         if positions_df.empty:
             return 0.0, 0.0, 0.0
         
-        # Ensure required columns
+        # Ensure required columns exist
         if 'current_value' not in positions_df.columns or 'position_type' not in positions_df.columns:
             return 0.0, 0.0, 0.0
         
@@ -112,10 +121,12 @@ def calculate_position_exposure():
         short_positions = positions_df[positions_df['position_type'] == 'short']
         
         long_exposure = long_positions['current_value'].sum() if not long_positions.empty else 0.0
-        short_exposure = short_positions['current_value'].sum() if not short_positions.empty else 0.0
-        net_exposure = long_exposure - abs(short_exposure)
+        short_exposure = abs(short_positions['current_value'].sum()) if not short_positions.empty else 0.0
         
-        return long_exposure, short_exposure, net_exposure
+        # Total open trade equity (absolute value of all positions)
+        total_open_equity = long_exposure + short_exposure
+        
+        return long_exposure, short_exposure, total_open_equity
         
     except Exception:
         return 0.0, 0.0, 0.0
@@ -186,9 +197,7 @@ def get_placeholder_metrics(initial_value: float) -> Dict[str, Any]:
         'total_return_pct': "+0.0%",
         'daily_pnl': "$0.00",
         'me_ratio': "0.00",
-        'long_exposure': "$0",
-        'short_exposure': "$0", 
-        'net_exposure': "$0",
+        'ls_ratio': "0.00",
         'mtd_return': "+0.0%",
         'mtd_delta': "+0.0%",
         'ytd_return': "+0.0%",
@@ -196,7 +205,10 @@ def get_placeholder_metrics(initial_value: float) -> Dict[str, Any]:
         'total_trades': 0,
         'total_profit_raw': 0.0,
         'winning_trades': 0,
-        'losing_trades': 0
+        'losing_trades': 0,
+        'long_exposure_raw': 0.0,
+        'short_exposure_raw': 0.0,
+        'total_open_equity': 0.0
     }
 
 def get_enhanced_strategy_performance(initial_portfolio_value: float = 100000) -> pd.DataFrame:
