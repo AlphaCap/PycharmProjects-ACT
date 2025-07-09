@@ -112,6 +112,15 @@ SYSTEM_STATUS_COLUMNS = [
 
 # --- TRADE HISTORY ---
 def get_trades_history():
+    import os
+    print(f"🔍 Looking for trades file at: {TRADES_HISTORY_FILE}")
+    print(f"🔍 Current working directory: {os.getcwd()}")
+    print(f"🔍 Files in current directory: {os.listdir('.')}")
+    if os.path.exists("data"):
+        print(f"🔍 Files in data: {os.listdir('data')}")
+        if os.path.exists("data/trades"):
+            print(f"🔍 Files in data/trades: {os.listdir('data/trades')}")
+    
     if os.path.exists(TRADES_HISTORY_FILE):
         try:
             df = pd.read_csv(TRADES_HISTORY_FILE)
