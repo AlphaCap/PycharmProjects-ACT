@@ -416,3 +416,266 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
         }
     
     def process_symbol(self, symbol: str) -> Dict:
+        """Process a single symbol for gap trading opportunities"""
+        self.logger.info(f"Processing symbol: {symbol}")
+        
+        try:
+            # Get previous close first (more efficient)
+            previous_close = self.get_previous_close(symbol)
+            if previous_close is None:
+                return {'success': False, 'reason': 'No previous close data'}
+            
+            # Get intraday data
+            df = self.get_intraday_data(symbol)
+            if df is None:
+                return {'success': False, 'reason': 'No intraday data'}
+            
+            # Identify gap opportunity
+            gap_analysis = self.identify_gap_opportunity(df, previous_close)
+            gap_analysis['symbol'] = symbol
+            
+            # Generate trade signal
+            trade_signal = self.generate_trade_signal(gap_analysis, df)
+            
+            # Execute trade if signal is valid
+            execution_result = self.execute_trade(symbol, trade_signal, gap_analysis)
+            
+            result = {
+                'success': True,
+                'symbol': symbol,
+                'gap_analysis': gap_analysis,
+                'trade_signal': trade_signal,
+                'execution_result': execution_result
+            }
+            
+            # Add delay to avoid API rate limits
+            time.sleep(1.0)  # Increased delay
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error processing {symbol}: {e}")
+            return {'success': False, 'reason': str(e)}
+    
+    def run_strategy(self, symbols: List[str]) -> Dict:
+        """Run gap trading strategy on multiple symbols"""
+        self.logger.info(f"Starting gap trading strategy on {len(symbols)} symbols")
+        
+        results = {
+            'start_time': datetime.now(),
+            'symbols_processed': 0,
+            'symbols_with_data': 0,
+            'gaps_found': 0,
+            'total_trades': 0,
+            'successful_trades': 0,
+            'failed_trades': 0,
+            'api_errors': 0
+        }
+        
+        for i, symbol in enumerate(symbols, 1):
+            self.logger.info(f"Processing {i}/{len(symbols)}: {symbol}")
+            
+            try:
+                result = self.process_symbol(symbol)
+                results['symbols_processed'] += 1
+                
+                if result['success']:
+                    results['symbols_with_data'] += 1
+                    
+                    if result['gap_analysis']['has_gap']:
+                        results['gaps_found'] += 1
+                    
+                    if result['execution_result']['executed']:
+                        results['total_trades'] += 1
+                        
+                        # Track trade success
+                        trade = result['execution_result']['trade']
+                        if trade['pnl'] > 0:
+                            results['successful_trades'] += 1
+                        else:
+                            results['failed_trades'] += 1
+                else:
+                    if 'API' in result['reason'] or 'Error' in result['reason']:
+                        results['api_errors'] += 1
+                
+                # Stop if daily loss limit reached
+                if self.daily_pnl <= self.max_daily_loss:
+                    self.logger.warning(f"Daily loss limit reached: ${self.daily_pnl:.2f}, stopping strategy")
+                    break
+                    
+            except Exception as e:
+                self.logger.error(f"Error in strategy loop for {symbol}: {e}")
+                results['api_errors'] += 1
+                continue
+        
+        results['end_time'] = datetime.now()
+        results['duration'] = results['end_time'] - results['start_time']
+        
+        self.logger.info(f"Strategy completed: {results['total_trades']} trades executed, {results['gaps_found']} gaps found")
+        
+        return results
+    
+    def get_performance_summary(self) -> Dict:
+        """Get comprehensive performance summary"""
+        if not self.trades:
+            return {
+                'total_trades': 0,
+                'winning_trades': 0,
+                'losing_trades': 0,
+                'win_rate': '0.0%',
+                'total_pnl': '$0.00',
+                'avg_profit_per_trade': '$0.00',
+                'max_drawdown': '$0.00',
+                'sharpe_ratio': '0.00',
+                'best_trade': '$0.00',
+                'worst_trade': '$0.00'
+            }
+        
+        trades_df = pd.DataFrame(self.trades)
+        closed_trades = trades_df[trades_df['status'] == 'closed']
+        
+        if len(closed_trades) == 0:
+            return {
+                'total_trades': len(trades_df),
+                'winning_trades': 0,
+                'losing_trades': 0,
+                'win_rate': '0.0%',
+                'total_pnl': '$0.00',
+                'avg_profit_per_trade': '$0.00',
+                'max_drawdown': '$0.00',
+                'sharpe_ratio': '0.00',
+                'best_trade': '$0.00',
+                'worst_trade': '$0.00'
+            }
+        
+        # Calculate metrics
+        total_trades = len(closed_trades)
+        winning_trades = len(closed_trades[closed_trades['pnl'] > 0])
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0
+        
+        total_pnl = closed_trades['pnl'].sum()
+        avg_profit_per_trade = total_pnl / total_trades if total_trades > 0 else 0
+        
+        # Calculate Sharpe ratio (simplified)
+        if len(closed_trades) > 1:
+            returns = closed_trades['pnl'] / self.max_risk_per_trade
+            sharpe_ratio = returns.mean() / returns.std() if returns.std() > 0 else 0
+        else:
+            sharpe_ratio = 0
+        
+        return {
+            'total_trades': total_trades,
+            'winning_trades': winning_trades,
+            'losing_trades': total_trades - winning_trades,
+            'win_rate': f"{win_rate:.1%}",
+            'total_pnl': f"${total_pnl:.2f}",
+            'avg_profit_per_trade': f"${avg_profit_per_trade:.2f}",
+            'max_drawdown': f"${self.max_drawdown:.2f}",
+            'sharpe_ratio': f"{sharpe_ratio:.2f}",
+            'best_trade': f"${closed_trades['pnl'].max():.2f}" if not closed_trades.empty else "$0.00",
+            'worst_trade': f"${closed_trades['pnl'].min():.2f}" if not closed_trades.empty else "$0.00"
+        }
+    
+    def save_trades_to_csv(self, filename: str = None):
+        """Save all trades to CSV file"""
+        if not self.trades:
+            self.logger.warning("No trades to save")
+            return
+        
+        if filename is None:
+            filename = f"trades_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        trades_df = pd.DataFrame(self.trades)
+        trades_df.to_csv(filename, index=False)
+        self.logger.info(f"Trades saved to {filename}")
+    
+    def save_performance_report(self, filename: str = None):
+        """Save detailed performance report"""
+        if filename is None:
+            filename = f"performance_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        performance = self.get_performance_summary()
+        
+        # Add detailed metrics
+        detailed_report = {
+            'timestamp': datetime.now().strftime('%Y%m%d_%H%M%S'),
+            'results': {
+                'symbols_processed': len(set(trade['symbol'] for trade in self.trades)) if self.trades else 0
+            },
+            'performance': {
+                'total_trades': performance['total_trades'],
+                'winning_trades': performance['winning_trades'],
+                'losing_trades': performance['losing_trades'],
+                'win_rate': performance['win_rate'],
+                'total_pnl': performance['total_pnl'],
+                'avg_profit_per_trade': performance['avg_profit_per_trade'],
+                'max_drawdown': performance['max_drawdown'],
+                'sharpe_ratio': performance['sharpe_ratio'],
+                'best_trade': performance['best_trade'],
+                'worst_trade': performance['worst_trade']
+            },
+            'settings': {
+                'max_risk_per_trade': self.max_risk_per_trade,
+                'max_position_value': self.max_position_value,
+                'min_gap_threshold': f"{self.min_gap_threshold:.1%}",
+                'max_gap_threshold': f"{self.max_gap_threshold:.1%}",
+                'stop_loss_pct': f"{self.stop_loss_pct:.1%}",
+                'profit_target_pct': f"{self.profit_target_pct:.1%}",
+                'min_volume_threshold': self.min_volume_threshold
+            }
+        }
+        
+        with open(filename, 'w') as f:
+            json.dump(detailed_report, f, indent=2)
+        
+        self.logger.info(f"Performance report saved to {filename}")
+        return detailed_report
+    
+    def reset_daily_stats(self):
+        """Reset daily statistics for new trading day"""
+        self.daily_pnl = 0.0
+        self.current_drawdown = 0.0
+        self.logger.info("Daily statistics reset")
+
+# Example usage and testing
+if __name__ == "__main__":
+    # Example usage with your API key
+    api_key = "D4NJ9SDT2NS2L6UX"
+    trader = GSTDayTrader(api_key, max_risk_per_trade=50)  # Reduced risk to $50
+    
+    # Test symbols (smaller list for testing)
+    test_symbols = ['AAPL', 'TSLA', 'MSFT', 'NVDA', 'GOOGL']
+    
+    print("🚀 Starting gSTDayTrader with FIXED position sizing...")
+    print(f"Max risk per trade: ${trader.max_risk_per_trade}")
+    print(f"Max position value: ${trader.max_position_value}")
+    print("=" * 60)
+    
+    # Run strategy
+    results = trader.run_strategy(test_symbols)
+    
+    # Print results
+    print("\n📊 STRATEGY RESULTS:")
+    print("=" * 40)
+    print(f"Symbols processed:   {results['symbols_processed']}")
+    print(f"Symbols with data:   {results['symbols_with_data']}")
+    print(f"Gaps found:          {results['gaps_found']}")
+    print(f"Total trades:        {results['total_trades']}")
+    print(f"Successful trades:   {results['successful_trades']}")
+    print(f"Failed trades:       {results['failed_trades']}")
+    print(f"API errors:          {results['api_errors']}")
+    print(f"Duration:            {results['duration']}")
+    
+    # Performance summary
+    performance = trader.get_performance_summary()
+    print("\n📈 PERFORMANCE SUMMARY:")
+    print("=" * 40)
+    for key, value in performance.items():
+        print(f"{key.replace('_', ' ').title()}: {value}")
+    
+    # Save results
+    trader.save_trades_to_csv()
+    trader.save_performance_report()
+    
+    print("\n✅ gSTDayTrader test completed!")
+    print("📁 Results saved to CSV and JSON files")
