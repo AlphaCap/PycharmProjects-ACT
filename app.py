@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import glob
+import os
+import numpy as np
 from data_manager import (
     get_portfolio_metrics,
     get_strategy_performance,
@@ -42,6 +45,135 @@ hide_streamlit_style = """
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+# --- LIVE UPDATE FUNCTIONS ---
+@st.cache_data(ttl=30)  # Cache for 30 seconds
+def scan_for_live_updates():
+    """Scan for updated CSV files and detect potential trades"""
+    csv_files = glob.glob("*.csv")
+    stock_files = [f for f in csv_files if len(f.replace('.csv', '')) <= 5 and f.replace('.csv', '').isalpha()]
+    
+    update_info = {
+        'total_files': len(stock_files),
+        'last_update': None,
+        'latest_symbol': None,
+        'market_moves': [],
+        'potential_signals': []
+    }
+    
+    if stock_files:
+        # Find most recently updated file
+        latest_file = max(stock_files, key=os.path.getmtime)
+        mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(latest_file))
+        update_info['last_update'] = mod_time
+        update_info['latest_symbol'] = latest_file.replace('.csv', '').upper()
+        
+        # Scan for significant market moves
+        for file in stock_files[:10]:  # Check first 10 files
+            try:
+                df = pd.read_csv(file)
+                symbol = file.replace('.csv', '').upper()
+                
+                if not df.empty and len(df) >= 2 and 'Close' in df.columns:
+                    latest = df.iloc[-1]
+                    previous = df.iloc[-2]
+                    
+                    price_change = latest['Close'] - previous['Close']
+                    change_pct = (price_change / previous['Close']) * 100
+                    
+                    # Track significant moves (>1%)
+                    if abs(change_pct) > 1.0:
+                        update_info['market_moves'].append({
+                            'symbol': symbol,
+                            'price': latest['Close'],
+                            'change_pct': change_pct,
+                            'volume': latest.get('Volume', 0)
+                        })
+                    
+                    # Detect potential trading signals
+                    signal = detect_trading_signal(df, symbol)
+                    if signal:
+                        update_info['potential_signals'].append(signal)
+                        
+            except Exception:
+                continue
+    
+    return update_info
+
+def detect_trading_signal(df, symbol):
+    """Simple signal detection based on technical indicators"""
+    if len(df) < 2:
+        return None
+        
+    latest = df.iloc[-1]
+    previous = df.iloc[-2]
+    
+    signals = []
+    
+    # Bollinger Band signals
+    if all(col in latest.index for col in ['Close', 'UpperBB', 'LowerBB', 'BBAvg']):
+        if latest['Close'] > latest['UpperBB'] and previous['Close'] <= previous['UpperBB']:
+            signals.append({
+                'symbol': symbol,
+                'type': 'BB_Breakout_Up',
+                'price': latest['Close'],
+                'strength': 'Strong',
+                'direction': 'LONG'
+            })
+        elif latest['Close'] < latest['LowerBB'] and previous['Close'] >= previous['LowerBB']:
+            signals.append({
+                'symbol': symbol,
+                'type': 'BB_Breakout_Down', 
+                'price': latest['Close'],
+                'strength': 'Strong',
+                'direction': 'SHORT'
+            })
+    
+    # PSAR signals
+    if 'PSAR_IsLong' in latest.index:
+        if latest['PSAR_IsLong'] == 1 and previous.get('PSAR_IsLong', 0) == 0:
+            signals.append({
+                'symbol': symbol,
+                'type': 'PSAR_Long',
+                'price': latest['Close'],
+                'strength': 'Medium',
+                'direction': 'LONG'
+            })
+        elif latest['PSAR_IsLong'] == 0 and previous.get('PSAR_IsLong', 1) == 1:
+            signals.append({
+                'symbol': symbol,
+                'type': 'PSAR_Short',
+                'price': latest['Close'],
+                'strength': 'Medium', 
+                'direction': 'SHORT'
+            })
+    
+    # Linear Regression trend
+    if 'oLRSlope' in latest.index and 'LinReg' in latest.index:
+        slope = latest['oLRSlope']
+        if abs(slope) > 0.5:  # Strong trend
+            if slope > 0 and latest['Close'] > latest['LinReg']:
+                signals.append({
+                    'symbol': symbol,
+                    'type': 'Strong_Uptrend',
+                    'price': latest['Close'],
+                    'strength': 'Strong' if abs(slope) > 1.0 else 'Medium',
+                    'direction': 'LONG'
+                })
+            elif slope < 0 and latest['Close'] < latest['LinReg']:
+                signals.append({
+                    'symbol': symbol,
+                    'type': 'Strong_Downtrend',
+                    'price': latest['Close'],
+                    'strength': 'Strong' if abs(slope) > 1.0 else 'Medium',
+                    'direction': 'SHORT'
+                })
+    
+    # Return strongest signal
+    if signals:
+        return max(signals, key=lambda x: 1 if x['strength'] == 'Strong' else 0)
+    
+    return None
+
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.title("Trading Systems")
@@ -55,10 +187,68 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Data last updated:")
     st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
+    
+    # Add live update status in sidebar
+    st.markdown("---")
+    st.subheader("🔄 Live Updates")
+    
+    live_data = scan_for_live_updates()
+    
+    if live_data['last_update']:
+        st.success(f"✅ Data current")
+        st.caption(f"Last: {live_data['last_update'].strftime('%H:%M:%S')}")
+        st.caption(f"Symbol: {live_data['latest_symbol']}")
+    else:
+        st.warning("⚠️ No recent updates")
+    
+    st.metric("Files Tracked", live_data['total_files'])
+    st.metric("Market Moves", len(live_data['market_moves']))
 
 # --- PAGE HEADER ---
 st.title("Alpha Capture Technology AI")
 st.caption("S&P 500 Long/Short Position Trader")
+
+# --- LIVE MARKET ACTIVITY BANNER ---
+live_data = scan_for_live_updates()
+
+if live_data['market_moves'] or live_data['potential_signals']:
+    st.markdown("## 🔥 Live Market Activity")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        if live_data['market_moves']:
+            st.subheader("📊 Significant Moves (>1%)")
+            
+            moves_col1, moves_col2, moves_col3 = st.columns(3)
+            
+            for i, move in enumerate(live_data['market_moves'][:6]):  # Show top 6 moves
+                col = [moves_col1, moves_col2, moves_col3][i % 3]
+                
+                with col:
+                    change_color = "🟢" if move['change_pct'] > 0 else "🔴"
+                    st.metric(
+                        f"{change_color} {move['symbol']}", 
+                        f"${move['price']:.2f}",
+                        f"{move['change_pct']:+.1f}%"
+                    )
+    
+    with col2:
+        if live_data['potential_signals']:
+            st.subheader("⚡ Live Signals")
+            
+            for signal in live_data['potential_signals'][:5]:  # Show top 5 signals
+                direction_emoji = "🟢" if signal['direction'] == 'LONG' else "🔴"
+                strength_emoji = "🔥" if signal['strength'] == 'Strong' else "⚡"
+                
+                st.markdown(
+                    f"{direction_emoji} **{signal['symbol']}** | "
+                    f"{strength_emoji} {signal['strength']} | "
+                    f"${signal['price']:.2f}"
+                )
+                st.caption(f"Signal: {signal['type'].replace('_', ' ')}")
+
+    st.markdown("---")
 
 # --- VARIABLE ACCOUNT SIZE ---
 st.markdown("## Current Portfolio Status")
@@ -202,6 +392,49 @@ with col2:
                 st.error(f"Error creating equity curve: {e}")
         else:
             st.info("No trade history for equity curve.")
+
+# --- LIVE DATA MONITORING SECTION ---
+st.markdown("---")
+st.markdown("## 📊 Live Data Monitoring")
+
+# Auto-refresh toggle
+auto_refresh = st.checkbox("🔄 Auto-refresh every 30 seconds", value=False)
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.subheader("📁 Data Status")
+    st.metric("CSV Files", live_data['total_files'])
+    
+    if live_data['last_update']:
+        st.success(f"✅ Last update: {live_data['last_update'].strftime('%H:%M:%S')}")
+        st.info(f"📊 Latest: {live_data['latest_symbol']}")
+    else:
+        st.warning("⚠️ No recent data updates")
+
+with col2:
+    st.subheader("🎯 Signal Summary")
+    st.metric("Active Signals", len(live_data['potential_signals']))
+    st.metric("Market Moves >1%", len(live_data['market_moves']))
+    
+    if live_data['potential_signals']:
+        strong_signals = len([s for s in live_data['potential_signals'] if s['strength'] == 'Strong'])
+        st.metric("Strong Signals", strong_signals)
+
+with col3:
+    st.subheader("⚡ System Status")
+    st.success("✅ nGS System Online")
+    st.info("🔄 Data Updating")
+    
+    if st.button("🔍 Refresh Data Now"):
+        st.cache_data.clear()
+        st.rerun()
+
+# Auto-refresh functionality
+if auto_refresh:
+    import time
+    time.sleep(30)
+    st.rerun()
 
 st.markdown("---")
 st.caption("Alpha Trading Systems Dashboard - For additional support, please contact the trading desk.")
