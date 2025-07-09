@@ -755,6 +755,6 @@ def main():
     print("   4. Scale up to full 100 symbol universe")
     print("   5. Consider live trading integration")
 
-if __name__ == "__main__":
+    if __name__ == "__main__":
     main()
         print(f
