@@ -17,7 +17,7 @@ class GSTDayTraderTest:
     
     def __init__(self):
         self.api_key = "D4NJ9SDT2NS2L6UX"  # Your Alpha Vantage API key
-        self.position_size = 10000  # $10,000 per position
+        self.max_risk_per_trade = 100  # Risk $100 per trade (scalping)
         self.debug_mode = False  # Set to True to test logic without API calls
         
     def get_top_100_sp500(self) -> list:
@@ -85,7 +85,7 @@ class GSTDayTraderTest:
         # Import and initialize
         try:
             from gst_daytrader import GSTDayTrader
-            trader = GSTDayTrader(self.api_key, self.position_size)
+            trader = GSTDayTrader(self.api_key, self.max_risk_per_trade)
             
             # Process single symbol
             result = trader.process_symbol(symbol)
@@ -124,7 +124,7 @@ class GSTDayTraderTest:
             from gst_daytrader import GSTDayTrader
             
             # Create debug trader with mock data generator
-            trader = GSTDayTrader(self.api_key, self.position_size)
+            trader = GSTDayTrader(self.api_key, self.max_risk_per_trade)
             
             # Simulate various gap scenarios
             debug_scenarios = [
