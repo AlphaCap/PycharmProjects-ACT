@@ -21,29 +21,59 @@ class GSTDayTraderTest:
         
     def get_top_100_sp500(self) -> list:
         """Get top 100 S&P 500 symbols from your enhanced CSV"""
-        try:
-            # Load your enhanced S&P 500 symbols
-            df = pd.read_csv("data/sp500_symbols.csv")
-            
-            # Get first 100 symbols (already sorted by market cap)
-            if 'Symbol' in df.columns:
-                symbols = df['Symbol'].head(100).tolist()
-            elif 'symbol' in df.columns:
-                symbols = df['symbol'].head(100).tolist()
-            else:
-                symbols = df.iloc[:100, 0].tolist()
-            
-            print(f"✅ Loaded {len(symbols)} symbols from sp500_symbols.csv")
-            return symbols
-            
-        except FileNotFoundError:
-            print("⚠️ sp500_symbols.csv not found, using default top 20")
-            # Fallback to top 20 liquid stocks
-            return [
-                'MSFT', 'NVDA', 'AAPL', 'AMZN', 'GOOGL', 'GOOG', 'META', 'AVGO', 
-                'TSLA', 'WMT', 'JPM', 'V', 'LLY', 'MA', 'NFLX', 'ORCL', 'COST', 
-                'XOM', 'PG', 'JNJ'
-            ]
+        # Try multiple CSV reading strategies
+        csv_strategies = [
+            # Strategy 1: Default pandas read
+            lambda: pd.read_csv("data/sp500_symbols.csv"),
+            # Strategy 2: Handle potential parsing errors
+            lambda: pd.read_csv("data/sp500_symbols.csv", error_bad_lines=False, warn_bad_lines=False),
+            # Strategy 3: Skip problematic lines
+            lambda: pd.read_csv("data/sp500_symbols.csv", on_bad_lines='skip'),
+            # Strategy 4: Force single column if needed
+            lambda: pd.read_csv("data/sp500_symbols.csv", header=None, names=['Symbol']),
+            # Strategy 5: Try with different separators
+            lambda: pd.read_csv("data/sp500_symbols.csv", sep=None, engine='python'),
+        ]
+        
+        for i, strategy in enumerate(csv_strategies, 1):
+            try:
+                print(f"📊 Trying CSV reading strategy {i}...")
+                df = strategy()
+                
+                # Get first 100 symbols (already sorted by market cap)
+                if 'Symbol' in df.columns:
+                    symbols = df['Symbol'].head(100).tolist()
+                elif 'symbol' in df.columns:
+                    symbols = df['symbol'].head(100).tolist()
+                elif len(df.columns) >= 1:
+                    symbols = df.iloc[:100, 0].tolist()
+                else:
+                    continue
+                
+                # Clean symbols (remove any NaN or invalid entries)
+                symbols = [str(s).strip().upper() for s in symbols if pd.notna(s) and str(s).strip()]
+                
+                # Filter out any non-stock symbols (basic validation)
+                valid_symbols = []
+                for symbol in symbols:
+                    if symbol and len(symbol) <= 5 and symbol.isalpha():
+                        valid_symbols.append(symbol)
+                
+                if len(valid_symbols) >= 10:  # Need at least 10 valid symbols
+                    print(f"✅ Successfully loaded {len(valid_symbols)} symbols using strategy {i}")
+                    return valid_symbols[:100]  # Return max 100
+                    
+            except Exception as e:
+                print(f"❌ Strategy {i} failed: {e}")
+                continue
+        
+        # If all CSV strategies fail, use fallback
+        print("⚠️ All CSV reading strategies failed, using default top 20 symbols")
+        return [
+            'MSFT', 'NVDA', 'AAPL', 'AMZN', 'GOOGL', 'GOOG', 'META', 'AVGO', 
+            'TSLA', 'WMT', 'JPM', 'V', 'LLY', 'MA', 'NFLX', 'ORCL', 'COST', 
+            'XOM', 'PG', 'JNJ'
+        ]
     
     def test_single_symbol(self, symbol: str = "AAPL"):
         """Test the strategy on a single symbol first"""
