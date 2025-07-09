@@ -47,7 +47,9 @@ class GSTDayTraderTest:
     
     def test_single_symbol(self, symbol: str = "AAPL"):
         """Test the strategy on a single symbol first"""
-        print(f"\n=== Testing Single Symbol: {symbol} ===")
+        print(f"\n{'='*60}")
+        print(f"🔍 TESTING SINGLE SYMBOL: {symbol}")
+        print(f"{'='*60}")
         
         # Import and initialize
         try:
@@ -57,19 +59,20 @@ class GSTDayTraderTest:
             # Process single symbol
             result = trader.process_symbol(symbol)
             
-            print(f"Result: {result}")
+            if not result['success']:
+                print(f"❌ Failed to process {symbol}: {result['reason']}")
+                return False
             
-            # Show performance
-            performance = trader.get_performance_summary()
-            print(f"\nPerformance: {performance}")
+            # Extract key data
+            gap = result['gap_analysis']
+            signal = result['trade_signal']
+            execution = result['execution_result']
             
-            # Show trades if any
-            if trader.trades:
-                trades_df = pd.DataFrame(trader.trades)
-                print(f"\nTrades:")
-                print(trades_df.to_string())
-            else:
-                print("\nNo trades generated for this symbol")
+            # Display organized results
+            self.print_gap_analysis(gap)
+            self.print_trade_signal(signal)
+            self.print_execution_result(execution)
+            self.print_performance_summary(trader)
             
             return True
             
@@ -79,6 +82,76 @@ class GSTDayTraderTest:
         except Exception as e:
             print(f"❌ Error testing {symbol}: {e}")
             return False
+    
+    def print_gap_analysis(self, gap: dict):
+        """Print formatted gap analysis"""
+        print(f"\n📊 GAP ANALYSIS")
+        print(f"{'─'*40}")
+        print(f"Symbol:          {gap['symbol']}")
+        print(f"Previous Close:  ${gap['previous_close']:.2f}")
+        print(f"Open Price:      ${gap['open_price']:.2f}")
+        print(f"Current Price:   ${gap['current_price']:.2f}")
+        print(f"Gap %:           {gap['gap_pct']:.2%} ({gap['gap_direction']})")
+        print(f"Volume:          {gap['volume']:,.0f}")
+        print(f"Gap Status:      {'✅' if gap['has_gap'] else '❌'} {gap['reason']}")
+    
+    def print_trade_signal(self, signal: dict):
+        """Print formatted trade signal"""
+        print(f"\n🎯 TRADE SIGNAL")
+        print(f"{'─'*40}")
+        if signal['action'] == 'no_trade':
+            print(f"Action:          ❌ NO TRADE")
+            print(f"Reason:          {signal['reason']}")
+        else:
+            print(f"Action:          {'🟢 LONG' if signal['action'] == 'long' else '🔴 SHORT'}")
+            print(f"Entry Price:     ${signal['entry_price']:.2f}")
+            print(f"Stop Loss:       ${signal['stop_loss']:.2f}")
+            print(f"Profit Target:   ${signal['profit_target']:.2f}")
+            print(f"Shares:          {signal['shares']:,}")
+            print(f"Risk Amount:     ${signal['risk_amount']:.2f}")
+            print(f"Expected Profit: ${signal['expected_profit']:.2f}")
+            print(f"Risk/Reward:     {signal['risk_reward_ratio']:.2f}")
+    
+    def print_execution_result(self, execution: dict):
+        """Print formatted execution result"""
+        print(f"\n⚡ EXECUTION RESULT")
+        print(f"{'─'*40}")
+        if not execution['executed']:
+            print(f"Status:          ❌ NOT EXECUTED")
+            print(f"Reason:          {execution['reason']}")
+        else:
+            trade = execution['trade']
+            exit_result = execution['exit_result']
+            
+            print(f"Status:          ✅ EXECUTED")
+            print(f"Entry Time:      {trade['timestamp'].strftime('%H:%M:%S')}")
+            print(f"Entry Price:     ${trade['entry_price']:.2f}")
+            print(f"Exit Price:      ${trade['exit_price']:.2f}")
+            print(f"Exit Reason:     {exit_result['exit_reason'].replace('_', ' ').title()}")
+            
+            pnl_color = '🟢' if trade['pnl'] > 0 else '🔴'
+            print(f"P&L:             {pnl_color} ${trade['pnl']:.2f}")
+            
+            # Trade outcome
+            outcome = "✅ WINNER" if trade['pnl'] > 0 else "❌ LOSER"
+            print(f"Outcome:         {outcome}")
+    
+    def print_performance_summary(self, trader):
+        """Print formatted performance summary"""
+        performance = trader.get_performance_summary()
+        
+        print(f"\n📈 PERFORMANCE SUMMARY")
+        print(f"{'─'*40}")
+        print(f"Total Trades:    {performance['total_trades']}")
+        print(f"Winners:         {performance['winning_trades']}")
+        print(f"Losers:          {performance['losing_trades']}")
+        print(f"Win Rate:        {performance['win_rate']}")
+        print(f"Total P&L:       {performance['total_pnl']}")
+        print(f"Avg P&L/Trade:   {performance['avg_profit_per_trade']}")
+        print(f"Best Trade:      {performance['best_trade']}")
+        print(f"Worst Trade:     {performance['worst_trade']}")
+        print(f"Max Drawdown:    {performance['max_drawdown']}")
+        print(f"Sharpe Ratio:    {performance['sharpe_ratio']}")
     
     def test_api_connection(self):
         """Test Alpha Vantage API connection"""
@@ -124,38 +197,52 @@ class GSTDayTraderTest:
     
     def run_full_test(self, num_symbols: int = 10):
         """Run full test on multiple symbols"""
-        print(f"\n=== Running Full Test on {num_symbols} Symbols ===")
+        print(f"\n{'='*60}")
+        print(f"🚀 RUNNING FULL TEST ON {num_symbols} SYMBOLS")
+        print(f"{'='*60}")
         
         # Get symbols
         symbols = self.get_top_100_sp500()[:num_symbols]
-        print(f"Testing symbols: {symbols}")
+        print(f"Testing symbols: {', '.join(symbols)}")
         
         try:
             from gst_daytrader import GSTDayTrader
             trader = GSTDayTrader(self.api_key, self.position_size)
             
-            # Run strategy
-            results = trader.run_strategy(symbols)
+            # Track results for each symbol
+            symbol_results = []
             
-            print(f"\n=== Results ===")
-            print(f"Symbols processed: {results['symbols_processed']}")
-            print(f"Symbols with data: {results['symbols_with_data']}")
-            print(f"Total trades: {results['total_trades']}")
+            # Run strategy with progress tracking
+            for i, symbol in enumerate(symbols, 1):
+                print(f"\n{'─'*60}")
+                print(f"📊 Processing {symbol} ({i}/{num_symbols})")
+                print(f"{'─'*60}")
+                
+                result = trader.process_symbol(symbol)
+                symbol_results.append(result)
+                
+                if result['success']:
+                    gap = result['gap_analysis']
+                    execution = result['execution_result']
+                    
+                    # Quick summary for each symbol
+                    gap_status = "✅" if gap['has_gap'] else "❌"
+                    trade_status = "✅ EXECUTED" if execution['executed'] else "❌ NO TRADE"
+                    
+                    print(f"Gap: {gap_status} {gap['gap_pct']:.1%} | Trade: {trade_status}")
+                    
+                    if execution['executed']:
+                        trade = execution['trade']
+                        pnl_emoji = "🟢" if trade['pnl'] > 0 else "🔴"
+                        print(f"P&L: {pnl_emoji} ${trade['pnl']:.2f}")
+                else:
+                    print(f"❌ Failed: {result['reason']}")
             
-            # Performance summary
-            performance = trader.get_performance_summary()
-            print(f"\n=== Performance Summary ===")
-            for key, value in performance.items():
-                print(f"{key}: {value}")
-            
-            # Show individual trades
-            if trader.trades:
-                print(f"\n=== Trade Details ===")
-                trades_df = pd.DataFrame(trader.trades)
-                print(trades_df.to_string())
+            # Final results summary
+            self.print_full_test_summary(trader, symbol_results)
             
             # Save results
-            self.save_results(trader, results, performance)
+            self.save_results(trader, {'symbols_processed': len(symbols)}, trader.get_performance_summary())
             
             return True
             
@@ -165,6 +252,60 @@ class GSTDayTraderTest:
         except Exception as e:
             print(f"❌ Error in full test: {e}")
             return False
+    
+    def print_full_test_summary(self, trader, symbol_results):
+        """Print comprehensive test summary"""
+        print(f"\n{'='*60}")
+        print(f"📊 FULL TEST SUMMARY")
+        print(f"{'='*60}")
+        
+        # Symbol processing stats
+        successful = len([r for r in symbol_results if r['success']])
+        with_gaps = len([r for r in symbol_results if r['success'] and r['gap_analysis']['has_gap']])
+        executed = len([r for r in symbol_results if r['success'] and r['execution_result']['executed']])
+        
+        print(f"\n📈 PROCESSING STATS")
+        print(f"{'─'*40}")
+        print(f"Symbols Processed:   {len(symbol_results)}")
+        print(f"Successfully Loaded: {successful}")
+        print(f"Valid Gaps Found:    {with_gaps}")
+        print(f"Trades Executed:     {executed}")
+        
+        # Performance summary
+        performance = trader.get_performance_summary()
+        print(f"\n💰 TRADING PERFORMANCE")
+        print(f"{'─'*40}")
+        for key, value in performance.items():
+            if key == 'total_trades':
+                print(f"Total Trades:        {value}")
+            elif key == 'winning_trades':
+                print(f"Winning Trades:      {value}")
+            elif key == 'losing_trades':
+                print(f"Losing Trades:       {value}")
+            elif key == 'win_rate':
+                print(f"Win Rate:            {value}")
+            elif key == 'total_pnl':
+                color = "🟢" if "$-" not in value else "🔴"
+                print(f"Total P&L:           {color} {value}")
+            elif key == 'avg_profit_per_trade':
+                print(f"Avg P&L per Trade:   {value}")
+            elif key == 'max_drawdown':
+                print(f"Max Drawdown:        {value}")
+        
+        # Individual trade details if any
+        if trader.trades:
+            print(f"\n📋 TRADE DETAILS")
+            print(f"{'─'*40}")
+            for i, trade in enumerate(trader.trades, 1):
+                pnl_emoji = "🟢" if trade['pnl'] > 0 else "🔴"
+                action_emoji = "🟢" if trade['action'] == 'long' else "🔴"
+                print(f"{i:2d}. {trade['symbol']} {action_emoji} {trade['action'].upper():5} | "
+                      f"${trade['entry_price']:6.2f} → ${trade['exit_price']:6.2f} | "
+                      f"{pnl_emoji} ${trade['pnl']:8.2f} | {trade['exit_reason']}")
+        
+        print(f"\n{'='*60}")
+        print(f"✅ Test completed successfully!")
+        print(f"{'='*60}")
     
     def save_results(self, trader, results, performance):
         """Save test results to files"""
