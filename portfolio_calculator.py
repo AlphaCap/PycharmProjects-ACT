@@ -61,16 +61,8 @@ def calculate_real_portfolio_metrics(initial_portfolio_value: float = 100000) ->
         # Position exposure calculations
         long_exposure, short_exposure, total_open_equity = calculate_position_exposure()
         
-        # L/S Ratio (Long/Short Ratio = Open Longs / Open Shorts)
-        if short_exposure != 0:
-            ls_ratio = f"{abs(long_exposure / short_exposure):.2f}"
-        elif long_exposure > 0:
-            ls_ratio = "∞"  # All long positions
-        else:
-            ls_ratio = "0.00"  # No positions
-        
         # M/E Ratio (Margin to Equity = Total Open Trade Equity / Account Size)
-        me_ratio = f"{abs(total_open_equity) / current_portfolio_value:.2f}" if current_portfolio_value > 0 else "0.00"
+        me_ratio = f"{(total_open_equity / current_portfolio_value):.2f}" if current_portfolio_value > 0 and total_open_equity > 0 else "0.00"
         
         # Performance deltas (vs previous period)
         mtd_delta = calculate_mtd_delta(trades_sorted, initial_portfolio_value)
@@ -81,7 +73,6 @@ def calculate_real_portfolio_metrics(initial_portfolio_value: float = 100000) ->
             'total_return_pct': f"{total_return_pct:+.1f}%",
             'daily_pnl': f"${daily_pnl:+,.2f}",
             'me_ratio': me_ratio,
-            'ls_ratio': ls_ratio,
             'mtd_return': f"{mtd_return:+.1f}%",
             'mtd_delta': mtd_delta,
             'ytd_return': f"{ytd_return:+.1f}%", 
@@ -103,32 +94,51 @@ def calculate_real_portfolio_metrics(initial_portfolio_value: float = 100000) ->
 def calculate_position_exposure():
     """
     Calculate current position exposure from open positions
-    Returns: long_exposure, short_exposure, total_open_equity
+    Returns: (long_exposure, short_exposure, total_open_equity)
     """
     try:
-        from data_manager import get_positions
-        positions_df = get_positions()
+        from data_manager import get_positions_df
+        positions_df = get_positions_df()
+        
+        print(f"🔍 Positions Debug: Shape={positions_df.shape}")
+        if not positions_df.empty:
+            print(f"🔍 Positions Columns: {list(positions_df.columns)}")
+            print(f"🔍 First row: {positions_df.iloc[0].to_dict()}")
         
         if positions_df.empty:
+            print("⚠️ No positions data - returning zeros")
             return 0.0, 0.0, 0.0
         
-        # Ensure required columns exist
-        if 'current_value' not in positions_df.columns or 'position_type' not in positions_df.columns:
-            return 0.0, 0.0, 0.0
+        # Ensure required columns exist and are numeric
+        if 'current_value' not in positions_df.columns:
+            # Calculate current_value from shares and current_price if missing
+            if 'shares' in positions_df.columns and 'current_price' in positions_df.columns:
+                positions_df['shares'] = pd.to_numeric(positions_df['shares'], errors='coerce').fillna(0)
+                positions_df['current_price'] = pd.to_numeric(positions_df['current_price'], errors='coerce').fillna(0)
+                positions_df['current_value'] = positions_df['shares'] * positions_df['current_price']
+                print(f"🔧 Calculated current_value from shares × price")
+            else:
+                print("❌ Missing required columns for position calculations")
+                return 0.0, 0.0, 0.0
         
-        # Calculate exposures
-        long_positions = positions_df[positions_df['position_type'] == 'long']
-        short_positions = positions_df[positions_df['position_type'] == 'short']
+        # Make sure current_value is numeric
+        positions_df['current_value'] = pd.to_numeric(positions_df['current_value'], errors='coerce').fillna(0)
+        positions_df['shares'] = pd.to_numeric(positions_df['shares'], errors='coerce').fillna(0)
         
-        long_exposure = long_positions['current_value'].sum() if not long_positions.empty else 0.0
+        # Calculate exposures based on position direction
+        long_positions = positions_df[positions_df['shares'] > 0]
+        short_positions = positions_df[positions_df['shares'] < 0]
+        
+        long_exposure = abs(long_positions['current_value'].sum()) if not long_positions.empty else 0.0
         short_exposure = abs(short_positions['current_value'].sum()) if not short_positions.empty else 0.0
+        total_open_equity = long_exposure + short_exposure  # Total margin used
         
-        # Total open trade equity (absolute value of all positions)
-        total_open_equity = long_exposure + short_exposure
+        print(f"🔍 Exposure Calc: Long=${long_exposure:,.0f}, Short=${short_exposure:,.0f}, Total=${total_open_equity:,.0f}")
         
         return long_exposure, short_exposure, total_open_equity
         
-    except Exception:
+    except Exception as e:
+        print(f"❌ Error calculating position exposure: {e}")
         return 0.0, 0.0, 0.0
 
 def calculate_mtd_delta(trades_df: pd.DataFrame, initial_value: float) -> str:
@@ -197,7 +207,6 @@ def get_placeholder_metrics(initial_value: float) -> Dict[str, Any]:
         'total_return_pct': "+0.0%",
         'daily_pnl': "$0.00",
         'me_ratio': "0.00",
-        'ls_ratio': "0.00",
         'mtd_return': "+0.0%",
         'mtd_delta': "+0.0%",
         'ytd_return': "+0.0%",
@@ -268,7 +277,6 @@ def get_enhanced_strategy_performance(initial_portfolio_value: float = 100000) -
         print(f"Error calculating strategy performance: {e}")
         return pd.DataFrame()
 
-# Add this function to patch the existing data_manager
 def patch_portfolio_metrics():
     """
     Monkey patch the get_portfolio_metrics function to use real calculations
