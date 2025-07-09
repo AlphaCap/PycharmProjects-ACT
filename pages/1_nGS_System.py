@@ -1,8 +1,3 @@
-"""
-Fixed nGS System Historical Page
-Handles missing metrics and shows all historical performance data
-"""
-
 import streamlit as st
 import pandas as pd
 import datetime
@@ -84,10 +79,24 @@ initial_value = st.number_input(
 )
 
 # --- GET PORTFOLIO METRICS WITH ERROR HANDLING ---
-if USE_REAL_METRICS:
-    metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
-else:
-    metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+try:
+    if USE_REAL_METRICS:
+        metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
+    else:
+        metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+except Exception as e:
+    st.error(f"Error getting portfolio metrics: {e}")
+    metrics = {
+        'total_value': f"${initial_value:,.0f}",
+        'total_return_pct': "+0.0%",
+        'daily_pnl': "$0.00",
+        'me_ratio': "0.00",
+        'net_exposure': "$0",
+        'mtd_return': "+0.0%",
+        'mtd_delta': "+0.0%",
+        'ytd_return': "+0.0%",
+        'ytd_delta': "+0.0%"
+    }
 
 # Ensure all required metrics exist with safe defaults
 safe_metrics = {
@@ -142,15 +151,18 @@ with col7:
 st.markdown("---")
 st.subheader("🎯 Strategy Performance")
 
-if USE_REAL_METRICS:
-    strategy_df = get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
-else:
-    strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
+try:
+    if USE_REAL_METRICS:
+        strategy_df = get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
+    else:
+        strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
 
-if not strategy_df.empty:
-    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
-else:
-    st.info("No strategy performance data available.")
+    if not strategy_df.empty:
+        st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No strategy performance data available.")
+except Exception as e:
+    st.error(f"Error loading strategy performance: {e}")
 
 # --- PERFORMANCE STATISTICS ---
 st.markdown("---")
@@ -159,18 +171,21 @@ st.subheader("📊 Performance Statistics")
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    perf_stats_df = get_portfolio_performance_stats()
-    if not perf_stats_df.empty:
-        st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("No performance statistics available.")
+    try:
+        perf_stats_df = get_portfolio_performance_stats()
+        if not perf_stats_df.empty:
+            st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No performance statistics available.")
+    except Exception as e:
+        st.error(f"Error loading performance stats: {e}")
 
 with col2:
     st.subheader("📈 Equity Curve")
-    # Create equity curve from trade history
-    trades_df = get_trades_history()
-    if not trades_df.empty:
-        try:
+    try:
+        # Create equity curve from trade history
+        trades_df = get_trades_history()
+        if not trades_df.empty:
             # Sort trades by exit date and calculate cumulative profit
             trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
             trades_sorted = trades_df.sort_values('exit_date')
@@ -191,59 +206,65 @@ with col2:
             plt.tight_layout()
             st.pyplot(fig)
             plt.close()
-        except Exception as e:
-            st.error(f"Error creating equity curve: {e}")
-    else:
-        st.info("No trade history available for equity curve.")
+        else:
+            st.info("No trade history available for equity curve.")
+    except Exception as e:
+        st.error(f"Error creating equity curve: {e}")
 
 # --- TRADE HISTORY ---
 st.markdown("---")
 st.subheader("📋 Complete Trade History")
 
-trades_df = get_trades_history()
-if not trades_df.empty:
-    # Add some basic stats
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Total Trades", len(trades_df))
-    with col2:
-        winning_trades = len(trades_df[trades_df['profit'] > 0])
-        st.metric("Winning Trades", winning_trades)
-    with col3:
-        win_rate = (winning_trades / len(trades_df)) * 100 if len(trades_df) > 0 else 0
-        st.metric("Win Rate", f"{win_rate:.1f}%")
-    with col4:
-        total_profit = trades_df['profit'].sum()
-        st.metric("Total Profit", f"${total_profit:,.2f}")
-    
-    # Show trade history table
-    st.dataframe(trades_df, use_container_width=True, hide_index=True)
-    
-    # Download option
-    csv = trades_df.to_csv(index=False)
-    st.download_button(
-        label="📥 Download Trade History CSV",
-        data=csv,
-        file_name=f"trade_history_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
-        mime="text/csv"
-    )
-else:
-    st.info("No trade history available.")
+try:
+    trades_df = get_trades_history()
+    if not trades_df.empty:
+        # Add some basic stats
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Trades", len(trades_df))
+        with col2:
+            winning_trades = len(trades_df[trades_df['profit'] > 0])
+            st.metric("Winning Trades", winning_trades)
+        with col3:
+            win_rate = (winning_trades / len(trades_df)) * 100 if len(trades_df) > 0 else 0
+            st.metric("Win Rate", f"{win_rate:.1f}%")
+        with col4:
+            total_profit = trades_df['profit'].sum()
+            st.metric("Total Profit", f"${total_profit:,.2f}")
+        
+        # Show trade history table
+        st.dataframe(trades_df, use_container_width=True, hide_index=True)
+        
+        # Download option
+        csv = trades_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Trade History CSV",
+            data=csv,
+            file_name=f"trade_history_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
+        )
+    else:
+        st.info("No trade history available.")
+except Exception as e:
+    st.error(f"Error loading trade history: {e}")
 
 # --- SIGNALS HISTORY ---
 st.markdown("---")
 st.subheader("🎯 Signal History")
 
-signals_df = get_signals()
-if not signals_df.empty:
-    # Show recent signals
-    st.dataframe(signals_df.head(50), use_container_width=True, hide_index=True)
-    
-    if len(signals_df) > 50:
-        st.caption(f"Showing latest 50 signals out of {len(signals_df)} total")
-else:
-    st.info("No signal history available.")
+try:
+    signals_df = get_signals()
+    if not signals_df.empty:
+        # Show recent signals
+        st.dataframe(signals_df.head(50), use_container_width=True, hide_index=True)
+        
+        if len(signals_df) > 50:
+            st.caption(f"Showing latest 50 signals out of {len(signals_df)} total")
+    else:
+        st.info("No signal history available.")
+except Exception as e:
+    st.error(f"Error loading signals: {e}")
 
 # --- SYSTEM STATUS ---
 st.markdown("---")
@@ -251,28 +272,23 @@ st.subheader("⚙️ System Status")
 
 try:
     system_status = get_system_status()
-    if system_status:
-        col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.success("✅ System Online")
+        st.info(f"Last Update: {datetime.datetime.now().strftime('%H:%M:%S')}")
+    
+    with col2:
+        if USE_REAL_METRICS:
+            st.success("✅ Real Metrics Active")
+        else:
+            st.warning("⚠️ Using Placeholder Metrics")
+    
+    with col3:
+        st.info("📊 Data Sources Connected")
         
-        with col1:
-            st.success("✅ System Online")
-            st.info(f"Last Update: {datetime.datetime.now().strftime('%H:%M:%S')}")
-        
-        with col2:
-            if USE_REAL_METRICS:
-                st.success("✅ Real Metrics Active")
-            else:
-                st.warning("⚠️ Using Placeholder Metrics")
-        
-        with col3:
-            st.info("📊 Data Sources Connected")
-            
 except Exception as e:
     st.error(f"Error getting system status: {e}")
 
 st.markdown("---")
-<<<<<<< HEAD
 st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
-=======
-st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
->>>>>>> a7bd56370b17a95dfbf443a3253d2f557e159c0e
