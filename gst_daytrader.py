@@ -623,7 +623,7 @@ if __name__ == "__main__":
     trader.save_performance_report()
     
     print("\n✅ gSTDayTrader test completed!")
-    print("📁 Results saved to CSV and JSON files")trades)
+    print("📁 Results saved to CSV and JSON files")
         closed_trades = trades_df[trades_df['status'] == 'closed']
         
         if len(closed_trades) == 0:
