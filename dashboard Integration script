@@ -1,0 +1,201 @@
+"""
+Integration script for adding live updates to existing nGS dashboard
+Add this to your main Streamlit app
+"""
+
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import glob
+import os
+
+def add_live_performance_section():
+    """
+    Add this function to your existing Streamlit app to show live performance
+    """
+    st.markdown("---")
+    st.subheader("📊 Live Performance Updates")
+    
+    # Quick file scan
+    csv_files = glob.glob("*.csv")
+    stock_files = [f for f in csv_files if len(f.replace('.csv', '')) <= 5]
+    
+    if stock_files:
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Files Updated", len(stock_files), "Real-time")
+        
+        with col2:
+            latest_file = max(stock_files, key=os.path.getmtime)
+            mod_time = datetime.fromtimestamp(os.path.getmtime(latest_file))
+            st.metric("Last Update", mod_time.strftime("%H:%M:%S"), latest_file.replace('.csv', ''))
+        
+        with col3:
+            total_rows = 0
+            for file in stock_files[:5]:  # Check first 5 files
+                try:
+                    df = pd.read_csv(file)
+                    total_rows += len(df)
+                except:
+                    pass
+            st.metric("Data Points", f"{total_rows:,}", "Available")
+    
+    # File update monitor
+    if st.button("🔍 Scan for New Trades"):
+        scan_results = scan_for_trade_signals()
+        if scan_results:
+            st.success(f"Found {len(scan_results)} potential trade signals!")
+            for result in scan_results:
+                st.write(f"📈 {result['symbol']}: {result['signal']}")
+        else:
+            st.info("No new trade signals detected")
+
+def scan_for_trade_signals():
+    """
+    Quick scan for potential trade signals in updated files
+    """
+    signals = []
+    csv_files = glob.glob("*.csv")
+    
+    for file in csv_files:
+        if len(file.replace('.csv', '')) <= 5:  # Stock symbols
+            try:
+                df = pd.read_csv(file)
+                if len(df) >= 2:
+                    symbol = file.replace('.csv', '').upper()
+                    latest = df.iloc[-1]
+                    previous = df.iloc[-2]
+                    
+                    # Simple signal detection
+                    if 'Close' in df.columns:
+                        price_change = (latest['Close'] - previous['Close']) / previous['Close']
+                        
+                        if abs(price_change) > 0.02:  # 2% move
+                            direction = "📈 UP" if price_change > 0 else "📉 DOWN"
+                            signals.append({
+                                'symbol': symbol,
+                                'signal': f"{direction} {price_change:.1%}",
+                                'price': latest['Close']
+                            })
+            except:
+                continue
+    
+    return signals
+
+def display_missing_performance_data():
+    """
+    Display the missing performance metrics that should be calculated
+    """
+    st.markdown("---")
+    st.subheader("📈 Performance Analytics (Missing Data)")
+    
+    # Placeholder metrics that should be calculated from trade data
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Daily P&L", "Calculate from trades", "❌ Missing")
+    
+    with col2:
+        st.metric("Win Rate", "Calculate from exits", "❌ Missing")
+    
+    with col3:
+        st.metric("Total Trades", "Count completed trades", "❌ Missing")
+    
+    with col4:
+        st.metric("Active Positions", "Count open positions", "❌ Missing")
+    
+    st.warning("🚧 Performance data will be available once trade detection is implemented")
+    
+    # Show what data we DO have
+    st.subheader("✅ Available Technical Data")
+    
+    # Sample one file to show available indicators
+    csv_files = glob.glob("*.csv")
+    if csv_files:
+        sample_file = csv_files[0]
+        try:
+            df = pd.read_csv(sample_file)
+            symbol = sample_file.replace('.csv', '').upper()
+            
+            st.write(f"**{symbol}** - Latest Data:")
+            
+            if not df.empty:
+                latest = df.iloc[-1]
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.write("**Price Data:**")
+                    if 'Close' in latest:
+                        st.write(f"Close: ${latest['Close']:.2f}")
+                    if 'Volume' in latest:
+                        st.write(f"Volume: {latest['Volume']:,.0f}")
+                    if 'High' in latest and 'Low' in latest:
+                        st.write(f"Range: ${latest['Low']:.2f} - ${latest['High']:.2f}")
+                
+                with col2:
+                    st.write("**Technical Indicators:**")
+                    if 'ATR' in latest:
+                        st.write(f"ATR: {latest['ATR']:.2f}")
+                    if 'BBAvg' in latest:
+                        st.write(f"BB Average: ${latest['BBAvg']:.2f}")
+                    if 'oLRSlope' in latest:
+                        st.write(f"Trend Slope: {latest['oLRSlope']:.3f}")
+                
+                with col3:
+                    st.write("**Support/Resistance:**")
+                    if 'UpperBB' in latest:
+                        st.write(f"Upper BB: ${latest['UpperBB']:.2f}")
+                    if 'LowerBB' in latest:
+                        st.write(f"Lower BB: ${latest['LowerBB']:.2f}")
+                    if 'PSAR_IsLong' in latest:
+                        trend = "Bullish" if latest['PSAR_IsLong'] else "Bearish"
+                        st.write(f"PSAR: {trend}")
+        
+        except Exception as e:
+            st.error(f"Error reading {sample_file}: {e}")
+
+def create_quick_dashboard_update():
+    """
+    Quick dashboard update that you can add to your main app right now
+    """
+    st.markdown("---")
+    st.header("🔄 nGS Dashboard - Live Updates")
+    
+    # Real-time file monitoring
+    add_live_performance_section()
+    
+    # Show what's missing and needs to be implemented
+    display_missing_performance_data()
+    
+    # Next steps
+    st.markdown("---")
+    st.subheader("🎯 Next Steps for Complete Dashboard")
+    
+    steps = [
+        "✅ Data files are updating automatically",
+        "✅ Technical indicators are being calculated", 
+        "🔄 Trade signal detection (in progress)",
+        "⏳ P&L calculation and tracking",
+        "⏳ Position management",
+        "⏳ Performance analytics",
+        "⏳ Real-time alerts"
+    ]
+    
+    for step in steps:
+        st.write(step)
+    
+    if st.button("🚀 Install Full Dashboard System"):
+        st.info("Save the nGSDashboardUpdater code as 'ngs_dashboard.py' and import it into your main app")
+        st.code("""
+# Add to your main Streamlit app:
+from ngs_dashboard import create_ngs_dashboard
+
+# Then call:
+create_ngs_dashboard()
+        """)
+
+# Use this function in your main Streamlit app
+if __name__ == "__main__":
+    create_quick_dashboard_update()
