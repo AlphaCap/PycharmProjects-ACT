@@ -283,29 +283,41 @@ if USE_REAL_METRICS:
 else:
     metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
 
-# Portfolio Overview Metrics
-col1, col2, col3, col4, col5 = st.columns(5)
+# Portfolio Overview Metrics - Single Row with Proper L/S Trading Metrics
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+
 with col1:
     # Remove cents from total value display
     total_value_clean = metrics['total_value'].replace('.00', '').replace(',', '')
     st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
+
 with col2:
     st.metric(label="Daily P&L", value=metrics['daily_pnl'])
-with col3:
-    st.metric(label="M/E Ratio", value=metrics['me_ratio'])
-with col4:
-    st.metric(label="Long Exposure", value=metrics['long_exposure'])
-with col5:
-    st.metric(label="Short Exposure", value=metrics['short_exposure'])
 
-# Net Exposure
-col6, col7, col8 = st.columns(3)
-with col6:
-    st.metric(label="Net Exposure", value=metrics['net_exposure'])
-with col7:
+with col3:
+    st.metric(label="M/E Ratio", value=metrics['me_ratio'], help="Margin to Equity: Total Open Trade Equity / Account Size")
+
+with col4:
+    st.metric(label="L/S Ratio", value=metrics['ls_ratio'], help="Long/Short Ratio: Open Long Value / Open Short Value")
+
+with col5:
     st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
-with col8:
+
+with col6:
     st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
+
+# Debug info for position calculations (can be hidden in production)
+if USE_REAL_METRICS and st.checkbox("🔍 Show Position Details", value=False):
+    debug_col1, debug_col2, debug_col3 = st.columns(3)
+    
+    with debug_col1:
+        st.metric("Long Exposure", f"${metrics.get('long_exposure_raw', 0):,.0f}")
+    
+    with debug_col2:
+        st.metric("Short Exposure", f"${metrics.get('short_exposure_raw', 0):,.0f}")
+    
+    with debug_col3:
+        st.metric("Total Open Equity", f"${metrics.get('total_open_equity', 0):,.0f}")
 
 # --- STRATEGY PERFORMANCE TABLE ---
 st.subheader("Strategy Performance")
