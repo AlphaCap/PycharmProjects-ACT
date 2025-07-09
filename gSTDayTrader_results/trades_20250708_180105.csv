@@ -1,0 +1,2 @@
+symbol,timestamp,action,entry_price,stop_loss,profit_target,shares,gap_pct,status,pnl,exit_price,exit_reason
+MSFT,2025-07-08 18:00:53.285358,long,497.565,490.101525,496.62,1339,-0.05420643550400712,closed,-9993.593025000022,490.101525,stop_loss

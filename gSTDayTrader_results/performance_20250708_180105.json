@@ -1,0 +1,18 @@
+{
+  "timestamp": "20250708_180105",
+  "results": {
+    "symbols_processed": 10
+  },
+  "performance": {
+    "total_trades": 1,
+    "winning_trades": 0,
+    "losing_trades": 1,
+    "win_rate": "0.0%",
+    "total_pnl": "$-9993.59",
+    "avg_profit_per_trade": "$-9993.59",
+    "max_drawdown": "$-9993.59",
+    "sharpe_ratio": "0.00",
+    "best_trade": "$-9993.59",
+    "worst_trade": "$-9993.59"
+  }
+}
