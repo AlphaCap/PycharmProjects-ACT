@@ -16,6 +16,16 @@ from data_manager import (
     get_trades_history
 )
 
+# Import the real portfolio calculator
+try:
+    from portfolio_calculator import calculate_real_portfolio_metrics, get_enhanced_strategy_performance, patch_portfolio_metrics
+    # Patch the data_manager to use real calculations
+    patch_portfolio_metrics()
+    USE_REAL_METRICS = True
+except ImportError:
+    USE_REAL_METRICS = False
+    st.warning("⚠️ Portfolio calculator not found - using placeholder metrics")
+
 # --- PAGE CONFIG ---
 st.set_page_config(
     page_title="Alpha Capture Technology AI",
@@ -261,7 +271,17 @@ initial_value = st.number_input(
 )
 
 # --- PORTFOLIO METRICS ---
-metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+if USE_REAL_METRICS:
+    metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
+    
+    # Add debug info for troubleshooting
+    if metrics.get('total_trades', 0) > 0:
+        st.success(f"✅ Real portfolio metrics calculated from {metrics['total_trades']} trades")
+        st.info(f"💰 Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | Winners: {metrics.get('winning_trades', 0)} | Losers: {metrics.get('losing_trades', 0)}")
+    else:
+        st.warning("⚠️ No trade history found - showing initial portfolio values")
+else:
+    metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
 
 # Portfolio Overview Metrics
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -289,7 +309,11 @@ with col8:
 
 # --- STRATEGY PERFORMANCE TABLE ---
 st.subheader("Strategy Performance")
-strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
+if USE_REAL_METRICS:
+    strategy_df = get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
+else:
+    strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
+
 if not strategy_df.empty:
     st.dataframe(strategy_df, use_container_width=True, hide_index=True)
 else:
