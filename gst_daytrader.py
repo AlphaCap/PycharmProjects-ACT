@@ -360,7 +360,7 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
     
         def simulate_exit(self, trade: Dict, gap_analysis: Dict) -> Dict:
         """Simulate trade exit with realistic probabilities"""
-        import random
+            import random
         
         # Enhanced gap fill probability based on gap size
         gap_abs = abs(gap_analysis['gap_pct'])
