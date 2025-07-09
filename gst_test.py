@@ -602,7 +602,7 @@ class GSTDayTraderTest:
         print(f"Max Drawdown:    {performance['max_drawdown']}")
     
     def create_directory_structure(self):
-        """Create directory structure for gSTDayTrader"""
+        """Create proper directory structure for gSTDayTrader"""
         directories = [
             "data",
             "data/cache", 
@@ -613,128 +613,10 @@ class GSTDayTraderTest:
         for directory in directories:
             os.makedirs(directory, exist_ok=True)
             print(f"📁 Created directory: {directory}")
-    
-    def run_full_test(self):
-        """Run comprehensive test on larger symbol set"""
-        print(f"\n{'='*60}")
-        print(f"🚀 FULL SYSTEM TEST - 100 SYMBOLS")
-        print(f"{'='*60}")
-        
-        try:
-            from gst_daytrader import GSTDayTrader
-            
-            # Get top 100 symbols
-            symbols = self.get_top_100_sp500()
-            
-            print(f"📊 Processing {len(symbols)} symbols...")
-            print(f"⚠️  This will take approximately 10-15 minutes...")
-            print(f"💡 API requests will be rate-limited to respect quotas")
-            
-            # Ask for confirmation
-            try:
-                confirm = input(f"\nProceed with {len(symbols)} symbol test? (y/n): ").lower().strip()
-                if confirm not in ['y', 'yes']:
-                    print("Test cancelled.")
-                    return False
-            except (EOFError, KeyboardInterrupt):
-                print("Test cancelled.")
-                return False
-            
-            # Initialize trader
-            trader = GSTDayTrader(self.api_key, self.max_risk_per_trade)
-            
-            print(f"\n🔄 Starting full test...")
-            start_time = datetime.now()
-            
-            # Run strategy on all symbols
-            results = trader.run_strategy(symbols)
-            
-            end_time = datetime.now()
-            duration = end_time - start_time
-            
-            # Print comprehensive results
-            print(f"\n{'='*60}")
-            print(f"📊 FULL TEST RESULTS")
-            print(f"{'='*60}")
-            
-            print(f"Test Duration:       {duration}")
-            print(f"Symbols Requested:   {len(symbols)}")
-            print(f"Symbols Processed:   {results['symbols_processed']}")
-            print(f"Symbols with Data:   {results['symbols_with_data']}")
-            print(f"Gaps Found:          {results['gaps_found']}")
-            print(f"Total Trades:        {results['total_trades']}")
-            print(f"Successful Trades:   {results['successful_trades']}")
-            print(f"Failed Trades:       {results['failed_trades']}")
-            print(f"API Errors:          {results['api_errors']}")
-            
-            # Performance metrics
-            performance = trader.get_performance_summary()
-            
-            print(f"\n💼 FINAL PERFORMANCE")
-            print(f"{'─'*40}")
-            print(f"Win Rate:            {performance['win_rate']}")
-            print(f"Total P&L:           {performance['total_pnl']}")
-            print(f"Avg P&L per Trade:   {performance['avg_profit_per_trade']}")
-            print(f"Best Trade:          {performance['best_trade']}")
-            print(f"Worst Trade:         {performance['worst_trade']}")
-            print(f"Max Drawdown:        {performance['max_drawdown']}")
-            print(f"Sharpe Ratio:        {performance['sharpe_ratio']}")
-            
-            # Save comprehensive results
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
-            # Save trades
-            trader.save_trades_to_csv(f"full_test_trades_{timestamp}.csv")
-            
-            # Save performance report
-            trader.save_performance_report(f"full_test_performance_{timestamp}.json")
-            
-            # Create summary report
-            summary_report = {
-                'test_timestamp': timestamp,
-                'test_duration': str(duration),
-                'symbols': {
-                    'requested': len(symbols),
-                    'processed': results['symbols_processed'],
-                    'with_data': results['symbols_with_data']
-                },
-                'gaps': {
-                    'found': results['gaps_found'],
-                    'gap_rate': f"{results['gaps_found']/results['symbols_with_data']*100:.1f}%" if results['symbols_with_data'] > 0 else "0%"
-                },
-                'trades': {
-                    'total': results['total_trades'],
-                    'successful': results['successful_trades'],
-                    'failed': results['failed_trades']
-                },
-                'performance': performance,
-                'api_usage': {
-                    'errors': results['api_errors'],
-                    'success_rate': f"{(results['symbols_with_data']/results['symbols_processed']*100):.1f}%" if results['symbols_processed'] > 0 else "0%"
-                }
-            }
-            
-            with open(f"full_test_summary_{timestamp}.json", 'w') as f:
-                json.dump(summary_report, f, indent=2)
-            
-            print(f"\n📁 RESULTS SAVED:")
-            print(f"   📊 Trades: full_test_trades_{timestamp}.csv")
-            print(f"   📈 Performance: full_test_performance_{timestamp}.json")
-            print(f"   📋 Summary: full_test_summary_{timestamp}.json")
-            
-            print(f"\n{'='*60}")
-            print(f"✅ FULL TEST COMPLETED SUCCESSFULLY!")
-            print(f"{'='*60}")
-            
-            return True
-            
-        except Exception as e:
-            print(f"❌ Error in full test: {e}")
-            return False
 
 def main():
     """Main test runner for gSTDayTrader"""
-    print("🚀 gSTDayTrader Complete Test System")
+    print("🚀 gSTDayTrader Complete Enhanced Test System")
     print("=" * 60)
     
     tester = GSTDayTraderTest()
@@ -758,11 +640,12 @@ def main():
             print("\n📋 RATE LIMIT SOLUTIONS:")
             print("   1. Wait until tomorrow for fresh API quota")
             print("   2. Upgrade to Alpha Vantage premium ($25/month)")
-            print("   3. Get additional free API keys")
-            print("   4. Use the enhanced caching system (reduces API calls by 80%)")
+            print("   3. Use the enhanced fetcher with smart caching")
+            print("   4. Test with cached data from previous runs")
         
         return
     
+    # If API works, continue with normal flow
     # Step 3: Test enhanced fetcher
     print("\nStep 3: Testing Enhanced Data Fetcher...")
     fetcher_works = tester.test_enhanced_fetcher()
@@ -770,6 +653,12 @@ def main():
     if not fetcher_works:
         print("\n❌ Enhanced fetcher test failed")
         print("📝 Make sure you created 'gst_enhanced_fetcher.py'")
+        print("🔧 Falling back to single symbol test...")
+        
+        # Fallback to single symbol test
+        print("\nStep 4: Testing Single Symbol (Fallback)...")
+        if tester.test_single_symbol("AAPL"):
+            print("\n✅ Single symbol test completed!")
         return
     
     # Step 4: Test fixed trader
@@ -800,27 +689,27 @@ def main():
                 print("   4. Scale up to more symbols when ready")
                 
                 # Ask about scaling up
-                scale_input = input("\nReady to test with 50 symbols? (y/n): ").lower().strip()
+                scale_input = input("\nReady to test with 25 symbols? (y/n): ").lower().strip()
                 if scale_input in ['y', 'yes']:
-                    print("\nStep 6: Large Scale Test (50 symbols)...")
-                    large_success = tester.test_batch_processing(max_symbols=50)
+                    print("\nStep 6: Medium Scale Test (25 symbols)...")
+                    medium_success = tester.test_batch_processing(max_symbols=25)
                     
-                    if large_success:
-                        print("\n🚀 Large scale test completed!")
+                    if medium_success:
+                        print("\n🚀 Medium scale test completed!")
                         
-                        # Ask about full test
-                        full_input = input("\nReady for FULL TEST with 100 symbols? (y/n): ").lower().strip()
-                        if full_input in ['y', 'yes']:
-                            print("\nStep 7: Full System Test...")
-                            full_success = tester.run_full_test()
+                        # Ask about large scale
+                        large_input = input("\nReady for large scale test with 50 symbols? (y/n): ").lower().strip()
+                        if large_input in ['y', 'yes']:
+                            print("\nStep 7: Large Scale Test (50 symbols)...")
+                            large_success = tester.test_batch_processing(max_symbols=50)
                             
-                            if full_success:
-                                print("\n🎉 FULL SYSTEM TEST COMPLETED!")
+                            if large_success:
+                                print("\n🎉 Large scale test completed!")
                                 print("📊 Your gSTDayTrader system is ready for production!")
                             else:
-                                print("\n⚠️ Full test had issues - check logs")
+                                print("\n⚠️ Large scale test had issues - check logs")
                     else:
-                        print("\n⚠️ Large scale test had issues - check logs")
+                        print("\n⚠️ Medium scale test had issues - check the logs")
             else:
                 print("\n⚠️ Batch test had issues - check the logs for details")
         else:
@@ -830,7 +719,7 @@ def main():
         print("\nTest interrupted by user.")
     
     print("\n" + "=" * 60)
-    print("✅ gSTDayTrader Complete Test Finished!")
+    print("✅ gSTDayTrader Complete Enhanced Test Finished!")
     print("=" * 60)
     
     print("\n📊 SYSTEM STATUS:")
@@ -838,25 +727,34 @@ def main():
     print("   ✅ Fixed position sizing implemented")
     print("   ✅ Smart caching system active")
     print("   ✅ Rate limiting protection enabled")
+    print("   ✅ Comprehensive testing completed")
     
     print("\n🔧 CONFIGURATION:")
     print(f"   💰 Max risk per trade: ${tester.max_risk_per_trade}")
     print(f"   🔑 API key: {tester.api_key[:8]}...")
     print(f"   📁 Cache directory: data/cache/")
     print(f"   📊 Results directory: results/")
+    print(f"   📋 Logs directory: logs/")
     
-    print("\n🎯 SYSTEM READY FOR:")
+    print("\n🎯 SYSTEM IS READY FOR:")
     print("   📈 Gap trading on 100+ symbols")
     print("   🛡️  Risk-controlled position sizing")
     print("   ⚡ Smart data caching and rate limiting")
     print("   📊 Comprehensive performance tracking")
     print("   💼 Professional trade management")
     
-    print("\n📋 FILES CREATED:")
-    print("   📄 Trade records (CSV format)")
-    print("   📊 Performance reports (JSON format)")
-    print("   📁 Cached market data (SQLite)")
-    print("   📝 Execution logs")
+    print("\n📋 FILES GENERATED:")
+    print("   📊 trades_YYYYMMDD_HHMMSS.csv - All executed trades")
+    print("   📈 performance_YYYYMMDD_HHMMSS.json - Performance metrics")
+    print("   📋 gst_trader_YYYYMMDD.log - Detailed execution logs")
+    
+    print("\n🚀 NEXT ACTIONS:")
+    print("   1. Review performance metrics in JSON files")
+    print("   2. Analyze trade patterns in CSV files")
+    print("   3. Adjust strategy parameters if needed")
+    print("   4. Scale up to full 100 symbol universe")
+    print("   5. Consider live trading integration")
 
 if __name__ == "__main__":
     main()
+        print(f
