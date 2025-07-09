@@ -34,9 +34,12 @@ class GSTDataVerifier:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         
-        # API rate limiting
+        # API rate limiting with batching
         self.requests_made = 0
-        self.max_requests = 20  # Conservative limit for free tier
+        self.max_requests_per_batch = 10  # 10 requests per batch
+        self.max_daily_requests = 25      # Free tier daily limit
+        self.batch_delay = 60             # 60 seconds between batches
+        self.request_delay = 12           # 12 seconds between individual requests
         
         print(f"📊 GSTDataVerifier initialized")
         print(f"🎯 Gap thresholds: {self.min_gap_threshold:.1%} to {self.max_gap_threshold:.1%}")
@@ -67,9 +70,9 @@ class GSTDataVerifier:
         ]
     
     def get_intraday_data(self, symbol: str, interval: str = "1min") -> Optional[pd.DataFrame]:
-        """Get 1-minute intraday data"""
-        if self.requests_made >= self.max_requests:
-            self.logger.warning(f"API limit reached ({self.requests_made}/{self.max_requests})")
+        """Get 1-minute intraday data with rate limiting"""
+        if self.requests_made >= self.max_daily_requests:
+            self.logger.warning(f"Daily API limit reached ({self.requests_made}/{self.max_daily_requests})")
             return None
             
         url = "https://www.alphavantage.co/query"
@@ -116,6 +119,9 @@ class GSTDataVerifier:
             # Add symbol column
             df['symbol'] = symbol
             
+            # Add delay for rate limiting
+            time.sleep(self.request_delay)
+            
             return df
             
         except Exception as e:
@@ -123,8 +129,8 @@ class GSTDataVerifier:
             return None
     
     def get_previous_close(self, symbol: str) -> Optional[float]:
-        """Get previous close price"""
-        if self.requests_made >= self.max_requests:
+        """Get previous close price with rate limiting"""
+        if self.requests_made >= self.max_daily_requests:
             return None
             
         url = "https://www.alphavantage.co/query"
@@ -209,59 +215,96 @@ class GSTDataVerifier:
     
     def process_symbol_data(self, symbol: str) -> Optional[pd.DataFrame]:
         """Process a single symbol and return data with indicators"""
-        print(f"📊 Processing {symbol}...")
+        print(f"📊 Processing {symbol}...", end=" ")
         
-        # Get previous close
+        # Get previous close (uses 1 API call)
         previous_close = self.get_previous_close(symbol)
         if previous_close is None:
-            print(f"❌ {symbol}: No previous close data")
+            print(f"❌ No previous close")
             return None
         
-        # Get intraday data
+        # Get intraday data (uses 1 API call)
         df = self.get_intraday_data(symbol)
         if df is None:
-            print(f"❌ {symbol}: No intraday data")
+            print(f"❌ No intraday data")
             return None
         
         # Calculate indicators
         df_with_indicators = self.calculate_indicators(df, symbol, previous_close)
         
-        # Add delay for API rate limiting
-        time.sleep(0.5)
-        
-        print(f"✅ {symbol}: {len(df_with_indicators)} data points, gap: {df_with_indicators.iloc[0]['gap_pct']:.3%}")
+        print(f"✅ {len(df_with_indicators)} points, gap: {df_with_indicators.iloc[0]['gap_pct']:.3%}")
         
         return df_with_indicators
     
-    def verify_data_pull(self, max_symbols: int = 10) -> pd.DataFrame:
-        """Verify data pull for specified number of symbols"""
+    def verify_data_pull_batched(self, max_symbols: int = 100) -> pd.DataFrame:
+        """Verify data pull for 100 symbols using batch processing"""
         symbols = self.get_top_100_symbols()[:max_symbols]
         
-        print(f"\n🚀 Starting data verification for {len(symbols)} symbols")
-        print(f"📡 API requests available: {self.max_requests - self.requests_made}")
-        print("=" * 60)
+        print(f"\n🚀 Starting BATCHED data verification for {len(symbols)} symbols")
+        print(f"📦 Batch size: {self.max_requests_per_batch} symbols per batch")
+        print(f"⏱️  Batch delay: {self.batch_delay} seconds between batches")
+        print(f"📡 Daily API limit: {self.max_daily_requests} requests")
+        print("=" * 80)
         
         all_data = []
         successful = 0
+        batch_num = 1
         
-        for i, symbol in enumerate(symbols, 1):
-            print(f"[{i:2}/{len(symbols)}] ", end="")
+        # Process in batches
+        for i in range(0, len(symbols), self.max_requests_per_batch):
+            batch_symbols = symbols[i:i + self.max_requests_per_batch]
+            batch_start_requests = self.requests_made
             
-            df = self.process_symbol_data(symbol)
-            if df is not None:
-                # Take last 5 rows for verification
-                recent_data = df.tail(5).copy()
-                all_data.append(recent_data)
-                successful += 1
+            print(f"\n📦 BATCH {batch_num} ({len(batch_symbols)} symbols)")
+            print(f"🎯 Symbols: {', '.join(batch_symbols)}")
+            print(f"📊 API requests used so far: {self.requests_made}/{self.max_daily_requests}")
+            print("-" * 60)
             
-            # Stop if API limit reached
-            if self.requests_made >= self.max_requests:
-                print(f"⚠️ API limit reached after {i} symbols")
+            # Process batch
+            batch_successful = 0
+            for j, symbol in enumerate(batch_symbols, 1):
+                print(f"[{i+j:3}/{len(symbols)}] ", end="")
+                
+                # Check if we're approaching daily limit
+                if self.requests_made >= self.max_daily_requests - 2:  # Leave 2 requests buffer
+                    print(f"⚠️ Approaching daily API limit, stopping at {symbol}")
+                    break
+                
+                df = self.process_symbol_data(symbol)
+                if df is not None:
+                    # Take last 3 rows for verification
+                    recent_data = df.tail(3).copy()
+                    all_data.append(recent_data)
+                    successful += 1
+                    batch_successful += 1
+            
+            batch_requests_used = self.requests_made - batch_start_requests
+            print(f"\n✅ Batch {batch_num} complete: {batch_successful}/{len(batch_symbols)} successful")
+            print(f"📊 API requests used in batch: {batch_requests_used}")
+            
+            # Check if we should continue
+            if self.requests_made >= self.max_daily_requests - 2:
+                print(f"\n⚠️ Stopping: Near daily API limit ({self.requests_made}/{self.max_daily_requests})")
                 break
+            
+            # Delay between batches (except for last batch)
+            if i + self.max_requests_per_batch < len(symbols):
+                print(f"⏳ Waiting {self.batch_delay} seconds before next batch...")
+                
+                # Show countdown
+                for remaining in range(self.batch_delay, 0, -10):
+                    print(f"   ⏰ {remaining} seconds remaining...", end="\r")
+                    time.sleep(10)
+                print(f"   ✅ Ready for next batch!      ")
+            
+            batch_num += 1
         
         if all_data:
             combined_df = pd.concat(all_data, ignore_index=True)
-            print(f"\n✅ Data pull complete: {successful}/{len(symbols)} symbols successful")
+            print(f"\n🎉 BATCHED DATA PULL COMPLETE!")
+            print(f"✅ Total successful: {successful}/{len(symbols)} symbols")
+            print(f"📊 API requests used: {self.requests_made}/{self.max_daily_requests}")
+            print(f"📦 Batches processed: {batch_num - 1}")
             return combined_df
         else:
             print(f"\n❌ No data retrieved")
@@ -325,28 +368,67 @@ class GSTDataVerifier:
             print(f"{i:2}. {col}")
 
 def main():
-    """Main verification function"""
+    """Main verification function with batch processing"""
     api_key = "D4NJ9SDT2NS2L6UX"
     verifier = GSTDataVerifier(api_key)
     
-    print("🔍 gSTDayTrader Data Verification")
-    print("=" * 50)
+    print("🔍 gSTDayTrader Data Verification - BATCH MODE")
+    print("=" * 60)
     print("📋 Checking:")
     print("   ✓ Corrected gap thresholds (0.2% - 0.8%)")
     print("   ✓ 1-minute data retrieval")
     print("   ✓ All indicators calculation")
     print("   ✓ Column format display")
+    print("   ✓ Batch processing for 100 symbols")
     
-    # Start with small number for testing
+    print(f"\n🔧 BATCH CONFIGURATION:")
+    print(f"   📦 Batch size: {verifier.max_requests_per_batch} symbols per batch")
+    print(f"   ⏱️  Batch delay: {verifier.batch_delay} seconds between batches")
+    print(f"   📡 Daily API limit: {verifier.max_daily_requests} requests")
+    print(f"   🚀 For 100 symbols: ~10 batches over ~10 minutes")
+    
+    # Get user choice
     try:
-        max_symbols = int(input("\nHow many symbols to test? (1-20, default 5): ") or "5")
-    except (ValueError, KeyboardInterrupt):
-        max_symbols = 5
+        print("\nChoose verification mode:")
+        print("1. Quick test (5 symbols)")
+        print("2. Medium test (25 symbols)")
+        print("3. Full test (100 symbols in batches)")
+        
+        choice = input("Enter choice (1-3, default 1): ").strip() or "1"
+        
+        if choice == "1":
+            max_symbols = 5
+            use_batching = False
+        elif choice == "2":
+            max_symbols = 25
+            use_batching = True
+        elif choice == "3":
+            max_symbols = 100
+            use_batching = True
+        else:
+            max_symbols = 5
+            use_batching = False
+            
+    except (KeyboardInterrupt, EOFError):
+        print("\nTest cancelled by user")
+        return
     
-    max_symbols = min(max_symbols, 20)  # Cap at 20 for API limits
-    
-    # Verify data pull
-    df = verifier.verify_data_pull(max_symbols)
+    # Run verification
+    if use_batching and max_symbols > 10:
+        df = verifier.verify_data_pull_batched(max_symbols)
+    else:
+        # Use original method for small tests
+        symbols = verifier.get_top_100_symbols()[:max_symbols]
+        print(f"\n🚀 Starting quick verification for {len(symbols)} symbols")
+        
+        all_data = []
+        for i, symbol in enumerate(symbols, 1):
+            print(f"[{i:2}/{len(symbols)}] ", end="")
+            df_symbol = verifier.process_symbol_data(symbol)
+            if df_symbol is not None:
+                all_data.append(df_symbol.tail(3))
+        
+        df = pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
     
     # Display results
     if not df.empty:
@@ -354,14 +436,29 @@ def main():
         
         # Save verification results
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"data_verification_{timestamp}.csv"
+        filename = f"data_verification_{max_symbols}symbols_{timestamp}.csv"
         df.to_csv(filename, index=False)
         print(f"\n💾 Verification data saved to: {filename}")
+        
+        # Show gap analysis
+        valid_gaps = df[df['gap_valid'] == True]
+        if not valid_gaps.empty:
+            print(f"\n🎯 VALID GAPS FOUND:")
+            print("-" * 40)
+            for _, row in valid_gaps.iterrows():
+                print(f"   {row['symbol']}: {row['gap_pct']:.2f}% {row['gap_direction']} - Signal: {row['signal']}")
+        else:
+            print(f"\n📊 No valid gaps found (range: {verifier.min_gap_threshold:.1%} - {verifier.max_gap_threshold:.1%})")
         
     else:
         print("\n❌ Verification failed - no data retrieved")
     
-    print(f"\n📊 API Usage: {verifier.requests_made}/{verifier.max_requests} requests used")
+    print(f"\n📊 FINAL API USAGE: {verifier.requests_made}/{verifier.max_daily_requests} requests used")
+    remaining = verifier.max_daily_requests - verifier.requests_made
+    print(f"📈 Remaining requests today: {remaining}")
+    
+    if remaining > 0:
+        print(f"💡 You can process ~{remaining//2} more symbols today (2 API calls per symbol)")
 
 if __name__ == "__main__":
     main()
