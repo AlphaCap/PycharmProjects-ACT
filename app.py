@@ -24,10 +24,9 @@ try:
     USE_REAL_METRICS = True
 except ImportError:
     USE_REAL_METRICS = False
-<<<<<<< HEAD
-=======
+
     st.warning("⚠️ Portfolio calculator not found - using placeholder metrics")
->>>>>>> a7bd56370b17a95dfbf443a3253d2f557e159c0e
+
 
 # --- PAGE CONFIG ---
 st.set_page_config(
@@ -313,11 +312,10 @@ initial_value = st.number_input(
     format="%d"
 )
 
-<<<<<<< HEAD
 # --- PORTFOLIO METRICS - SINGLE LINE ONLY ---
 if USE_REAL_METRICS:
     metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
-=======
+
 # --- PORTFOLIO METRICS ---
 if USE_REAL_METRICS:
     metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
@@ -376,7 +374,7 @@ else:
 
 if not strategy_df.empty:
     st.dataframe(strategy_df, use_container_width=True, hide_index=True)
->>>>>>> a7bd56370b17a95dfbf443a3253d2f557e159c0e
+
 else:
     metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
 
