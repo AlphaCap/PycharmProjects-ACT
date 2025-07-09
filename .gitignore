@@ -1,21 +1,4 @@
-# Sensitive configuration
-utils/config.py
-
-# Python cache files
-__pycache__/
-*.py[cod]
-*$py.class
-.ipynb_checkpoints
-
-# Virtual environment
-venv/
-env/
-ENV/
-
-# Data files (allow trades data)
-data/*
-!data/trades/
-!data/trades/*.csv
-
-# Logs
-*.log
+gst_*.py 
+gst_*.csv 
+performance_*.json 
+trades_*.csv 
