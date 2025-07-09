@@ -1,286 +1,377 @@
-"""
-Portfolio Performance Calculator
-Calculates real portfolio metrics from actual trade history
-"""
-
+import streamlit as st
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from typing import Dict, Any
+import datetime
+import matplotlib.pyplot as plt
+import sys
+import os
 
-def calculate_real_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict[str, Any]:
-    """
-    Calculate actual portfolio performance from trade history
-    Returns real metrics instead of placeholder values
-    """
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from data_manager import (
+    get_portfolio_metrics,
+    get_strategy_performance,
+    get_portfolio_performance_stats,
+    get_positions,
+    get_long_positions_formatted,
+    get_short_positions_formatted,
+    get_signals,
+    get_system_status,
+    get_trades_history
+)
+
+# Import the real portfolio calculator
+try:
+    from portfolio_calculator import calculate_real_portfolio_metrics, get_enhanced_strategy_performance
+    USE_REAL_METRICS = True
+except ImportError:
+    USE_REAL_METRICS = False
+
+# --- PAGE CONFIG ---
+st.set_page_config(
+    page_title="nGS Historical Performance",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# --- HIDE STREAMLIT ELEMENTS ---
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    .stDecoration {display:none;}
+    [data-testid="stToolbar"] {display: none;}
+    [data-testid="stHeader"] {display: none;}
+    .stApp > header {display: none;}
+    [data-testid="stSidebarNav"] {display: none;}
     
-    try:
-        # Import the trade history function
-        from data_manager import get_trades_history
-        trades_df = get_trades_history()
-        
-        if trades_df.empty:
-            # Return initial values if no trades
-            return get_placeholder_metrics(initial_portfolio_value)
-        
-        # Ensure required columns exist
-        required_cols = ['profit', 'exit_date', 'entry_date']
-        if not all(col in trades_df.columns for col in required_cols):
-            return get_placeholder_metrics(initial_portfolio_value)
-        
-        # Convert dates
-        trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
-        trades_df['entry_date'] = pd.to_datetime(trades_df['entry_date'])
-        
-        # Calculate cumulative performance
-        trades_sorted = trades_df.sort_values('exit_date')
-        trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
-        
-        # Current portfolio metrics
-        total_profit = trades_sorted['profit'].sum()
-        current_portfolio_value = initial_portfolio_value + total_profit
-        total_return_pct = (total_profit / initial_portfolio_value) * 100
-        
-        # Daily P&L (trades closed today)
-        today = datetime.now().date()
-        todays_trades = trades_sorted[trades_sorted['exit_date'].dt.date == today]
-        daily_pnl = todays_trades['profit'].sum() if not todays_trades.empty else 0.0
-        
-        # Monthly P&L (this month)
-        current_month = datetime.now().replace(day=1).date()
-        monthly_trades = trades_sorted[trades_sorted['exit_date'].dt.date >= current_month]
-        mtd_profit = monthly_trades['profit'].sum() if not monthly_trades.empty else 0.0
-        mtd_return = (mtd_profit / initial_portfolio_value) * 100
-        
-        # YTD P&L (this year)
-        current_year = datetime.now().replace(month=1, day=1).date()
-        ytd_trades = trades_sorted[trades_sorted['exit_date'].dt.date >= current_year]
-        ytd_profit = ytd_trades['profit'].sum() if not ytd_trades.empty else 0.0
-        ytd_return = (ytd_profit / initial_portfolio_value) * 100
-        
-        # Position exposure calculations
-        long_exposure, short_exposure, total_open_equity = calculate_position_exposure()
-        
-        # M/E Ratio (Margin to Equity = Total Open Trade Equity / Account Size)
-        me_ratio = f"{(total_open_equity / current_portfolio_value):.2f}" if current_portfolio_value > 0 and total_open_equity > 0 else "0.00"
-        
-        # Performance deltas (vs previous period)
-        mtd_delta = calculate_mtd_delta(trades_sorted, initial_portfolio_value)
-        ytd_delta = calculate_ytd_delta(trades_sorted, initial_portfolio_value)
-        
-        return {
-            'total_value': f"${current_portfolio_value:,.0f}",
-            'total_return_pct': f"{total_return_pct:+.1f}%",
-            'daily_pnl': f"${daily_pnl:+,.2f}",
-            'me_ratio': me_ratio,
-            'mtd_return': f"{mtd_return:+.1f}%",
-            'mtd_delta': mtd_delta,
-            'ytd_return': f"{ytd_return:+.1f}%", 
-            'ytd_delta': ytd_delta,
-            # Additional metrics for debugging
-            'total_trades': len(trades_df),
-            'total_profit_raw': total_profit,
-            'winning_trades': len(trades_df[trades_df['profit'] > 0]),
-            'losing_trades': len(trades_df[trades_df['profit'] <= 0]),
-            'long_exposure_raw': long_exposure,
-            'short_exposure_raw': short_exposure,
-            'total_open_equity': total_open_equity
-        }
-        
-    except Exception as e:
-        print(f"Error calculating portfolio metrics: {e}")
-        return get_placeholder_metrics(initial_portfolio_value)
+    .stAppViewContainer > .main .block-container {
+        padding-top: 1rem;
+    }
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-def calculate_position_exposure():
-    """
-    Calculate current position exposure from open positions
-    Returns: (long_exposure, short_exposure, total_open_equity)
-    """
-    try:
-        from data_manager import get_positions_df
-        positions_df = get_positions_df()
-        
-        print(f"🔍 Positions Debug: Shape={positions_df.shape}")
-        if not positions_df.empty:
-            print(f"🔍 Positions Columns: {list(positions_df.columns)}")
-            print(f"🔍 First row: {positions_df.iloc[0].to_dict()}")
-        
-        if positions_df.empty:
-            print("⚠️ No positions data - returning zeros")
-            return 0.0, 0.0, 0.0
-        
-        # Ensure required columns exist and are numeric
-        if 'current_value' not in positions_df.columns:
-            # Calculate current_value from shares and current_price if missing
-            if 'shares' in positions_df.columns and 'current_price' in positions_df.columns:
-                positions_df['shares'] = pd.to_numeric(positions_df['shares'], errors='coerce').fillna(0)
-                positions_df['current_price'] = pd.to_numeric(positions_df['current_price'], errors='coerce').fillna(0)
-                positions_df['current_value'] = positions_df['shares'] * positions_df['current_price']
-                print(f"🔧 Calculated current_value from shares × price")
-            else:
-                print("❌ Missing required columns for position calculations")
-                return 0.0, 0.0, 0.0
-        
-        # Make sure current_value is numeric
-        positions_df['current_value'] = pd.to_numeric(positions_df['current_value'], errors='coerce').fillna(0)
-        positions_df['shares'] = pd.to_numeric(positions_df['shares'], errors='coerce').fillna(0)
-        
-        # Calculate exposures based on position direction
-        long_positions = positions_df[positions_df['shares'] > 0]
-        short_positions = positions_df[positions_df['shares'] < 0]
-        
-        long_exposure = abs(long_positions['current_value'].sum()) if not long_positions.empty else 0.0
-        short_exposure = abs(short_positions['current_value'].sum()) if not short_positions.empty else 0.0
-        total_open_equity = long_exposure + short_exposure  # Total margin used
-        
-        print(f"🔍 Exposure Calc: Long=${long_exposure:,.0f}, Short=${short_exposure:,.0f}, Total=${total_open_equity:,.0f}")
-        
-        return long_exposure, short_exposure, total_open_equity
-        
-    except Exception as e:
-        print(f"❌ Error calculating position exposure: {e}")
-        return 0.0, 0.0, 0.0
+# --- SIDEBAR NAVIGATION ---
+with st.sidebar:
+    st.title("Trading Systems")
+    if st.button("← Back to Main Dashboard", use_container_width=True):
+        st.switch_page("app.py")
+    
+    st.markdown("---")
+    st.caption("Historical Performance")
+    st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
 
-def calculate_mtd_delta(trades_df: pd.DataFrame, initial_value: float) -> str:
-    """Calculate month-to-date performance delta"""
-    try:
-        # Compare this month vs last month
-        now = datetime.now()
-        this_month_start = now.replace(day=1).date()
-        last_month_start = (now.replace(day=1) - timedelta(days=1)).replace(day=1).date()
-        
-        # This month's performance
-        this_month_trades = trades_df[trades_df['exit_date'].dt.date >= this_month_start]
-        this_month_profit = this_month_trades['profit'].sum() if not this_month_trades.empty else 0.0
-        
-        # Last month's performance  
-        last_month_trades = trades_df[
-            (trades_df['exit_date'].dt.date >= last_month_start) & 
-            (trades_df['exit_date'].dt.date < this_month_start)
-        ]
-        last_month_profit = last_month_trades['profit'].sum() if not last_month_trades.empty else 0.0
-        
-        # Calculate delta
-        if last_month_profit != 0:
-            delta_pct = ((this_month_profit - last_month_profit) / abs(last_month_profit)) * 100
-            return f"{delta_pct:+.1f}%"
-        else:
-            return "+0.0%" if this_month_profit >= 0 else f"{this_month_profit/initial_value*100:.1f}%"
-            
-    except Exception:
-        return "+0.0%"
+# --- PAGE HEADER ---
+st.markdown("### nGulfStream Swing Trader - Historical Performance")
+st.caption("Detailed Performance Analytics & Trade History")
 
-def calculate_ytd_delta(trades_df: pd.DataFrame, initial_value: float) -> str:
-    """Calculate year-to-date performance delta"""
-    try:
-        # Compare this year vs last year
-        now = datetime.now()
-        this_year_start = now.replace(month=1, day=1).date()
-        last_year_start = this_year_start.replace(year=this_year_start.year - 1)
-        
-        # This year's performance
-        this_year_trades = trades_df[trades_df['exit_date'].dt.date >= this_year_start]
-        this_year_profit = this_year_trades['profit'].sum() if not this_year_trades.empty else 0.0
-        
-        # Last year's performance (same period)
-        last_year_end = this_year_start.replace(year=this_year_start.year - 1, month=now.month, day=now.day)
-        last_year_trades = trades_df[
-            (trades_df['exit_date'].dt.date >= last_year_start) & 
-            (trades_df['exit_date'].dt.date <= last_year_end)
-        ]
-        last_year_profit = last_year_trades['profit'].sum() if not last_year_trades.empty else 0.0
-        
-        # Calculate delta
-        if last_year_profit != 0:
-            delta_pct = ((this_year_profit - last_year_profit) / abs(last_year_profit)) * 100
-            return f"{delta_pct:+.1f}%"
-        else:
-            return "+0.0%" if this_year_profit >= 0 else f"{this_year_profit/initial_value*100:.1f}%"
-            
-    except Exception:
-        return "+0.0%"
+# --- VARIABLE ACCOUNT SIZE ---
+st.markdown("## Portfolio Performance Analysis")
+initial_value = st.number_input(
+    "Set initial portfolio/account size:",
+    min_value=1000,
+    value=100000,
+    step=1000,
+    format="%d"
+)
 
-def get_placeholder_metrics(initial_value: float) -> Dict[str, Any]:
-    """Return placeholder metrics when no trade data is available"""
-    return {
+# --- GET PORTFOLIO METRICS WITH ERROR HANDLING ---
+try:
+    if USE_REAL_METRICS:
+        metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
+    else:
+        metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+except Exception as e:
+    st.error(f"Error getting portfolio metrics: {e}")
+    metrics = {
         'total_value': f"${initial_value:,.0f}",
         'total_return_pct': "+0.0%",
         'daily_pnl': "$0.00",
         'me_ratio': "0.00",
+        'net_exposure': "$0",
         'mtd_return': "+0.0%",
         'mtd_delta': "+0.0%",
         'ytd_return': "+0.0%",
-        'ytd_delta': "+0.0%",
-        'total_trades': 0,
-        'total_profit_raw': 0.0,
-        'winning_trades': 0,
-        'losing_trades': 0,
-        'long_exposure_raw': 0.0,
-        'short_exposure_raw': 0.0,
-        'total_open_equity': 0.0
+        'ytd_delta': "+0.0%"
     }
 
-def get_enhanced_strategy_performance(initial_portfolio_value: float = 100000) -> pd.DataFrame:
-    """
-    Calculate strategy performance with real metrics
-    """
-    try:
-        from data_manager import get_trades_history
-        trades_df = get_trades_history()
-        
-        if trades_df.empty:
-            return pd.DataFrame()
-        
-        # Group trades by strategy if strategy column exists
-        if 'strategy' in trades_df.columns:
-            strategy_stats = []
-            
-            for strategy in trades_df['strategy'].unique():
-                strategy_trades = trades_df[trades_df['strategy'] == strategy]
-                
-                total_profit = strategy_trades['profit'].sum()
-                total_trades = len(strategy_trades)
-                winning_trades = len(strategy_trades[strategy_trades['profit'] > 0])
-                win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-                avg_profit = total_profit / total_trades if total_trades > 0 else 0
-                
-                strategy_stats.append({
-                    'Strategy': strategy,
-                    'Total Trades': total_trades,
-                    'Winning Trades': winning_trades,
-                    'Win Rate': f"{win_rate:.1f}%",
-                    'Total Profit': f"${total_profit:,.2f}",
-                    'Avg Profit/Trade': f"${avg_profit:,.2f}",
-                    'Return %': f"{(total_profit/initial_portfolio_value)*100:+.1f}%"
-                })
-            
-            return pd.DataFrame(strategy_stats)
-        else:
-            # Single strategy summary
-            total_profit = trades_df['profit'].sum()
-            total_trades = len(trades_df)
-            winning_trades = len(trades_df[trades_df['profit'] > 0])
-            win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-            avg_profit = total_profit / total_trades if total_trades > 0 else 0
-            
-            return pd.DataFrame([{
-                'Strategy': 'nGS Trading System',
-                'Total Trades': total_trades,
-                'Winning Trades': winning_trades, 
-                'Win Rate': f"{win_rate:.1f}%",
-                'Total Profit': f"${total_profit:,.2f}",
-                'Avg Profit/Trade': f"${avg_profit:,.2f}",
-                'Return %': f"{(total_profit/initial_portfolio_value)*100:+.1f}%"
-            }])
-            
-    except Exception as e:
-        print(f"Error calculating strategy performance: {e}")
-        return pd.DataFrame()
+# Ensure all required metrics exist with safe defaults
+safe_metrics = {
+    'total_value': f"${initial_value:,.0f}",
+    'total_return_pct': "+0.0%",
+    'daily_pnl': "$0.00",
+    'me_ratio': "0.00",
+    'mtd_return': "+0.0%",
+    'mtd_delta': "+0.0%",
+    'ytd_return': "+0.0%",
+    'ytd_delta': "+0.0%"
+}
 
-def patch_portfolio_metrics():
-    """
-    Monkey patch the get_portfolio_metrics function to use real calculations
-    """
-    import data_manager
-    data_manager.get_portfolio_metrics = calculate_real_portfolio_metrics
-    data_manager.get_strategy_performance = get_enhanced_strategy_performance
+# Update with actual metrics if available
+for key, default_value in safe_metrics.items():
+    if key not in metrics:
+        metrics[key] = default_value
+
+# --- DETAILED PORTFOLIO METRICS ---
+st.subheader("📈 Detailed Portfolio Metrics")
+
+# Show debug info if using real metrics
+if USE_REAL_METRICS and metrics.get('total_trades', 0) > 0:
+    st.success(f"✅ Real portfolio metrics calculated from {metrics['total_trades']} trades")
+    st.info(f"💰 Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | Winners: {metrics.get('winning_trades', 0)} | Losers: {metrics.get('losing_trades', 0)}")
+
+# Portfolio Overview Metrics - Consolidated Layout (NO NET EXPOSURE)
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    total_value_clean = str(metrics['total_value']).replace('.00', '').replace(',', '')
+    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
+with col2:
+    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
+with col3:
+    # Show historical M/E ratio instead of current M/E ratio
+    historical_me = metrics.get('historical_me_ratio', '0.00')
+    st.metric(label="Avg Historical M/E", value=f"{historical_me}%")
+with col4:
+    st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
+
+# Second row
+col5, col6 = st.columns([1, 1])
+with col5:
+    st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
+with col6:
+    if st.button("🔄 Refresh Historical Data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+# --- STRATEGY PERFORMANCE TABLE ---
+st.markdown("---")
+st.subheader("🎯 Strategy Performance")
+
+try:
+    if USE_REAL_METRICS:
+        strategy_df = get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
+    else:
+        strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
+
+    if not strategy_df.empty:
+        st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No strategy performance data available.")
+except Exception as e:
+    st.error(f"Error loading strategy performance: {e}")
+
+# --- M/E RATIO ANALYSIS SECTION ---
+st.markdown("---")
+st.subheader("⚠️ M/E Ratio Risk Management")
+
+try:
+    # Import the M/E ratio history function
+    from portfolio_calculator import get_me_ratio_history
+    
+    trades_df = get_trades_history()
+    if not trades_df.empty:
+        me_history_df = get_me_ratio_history(trades_df, initial_value)
+        
+        if not me_history_df.empty:
+            # Create M/E ratio chart
+            fig, ax = plt.subplots(figsize=(12, 6))
+            
+            # Plot M/E ratio over time
+            ax.plot(me_history_df['date'], me_history_df['me_ratio'], 
+                   linewidth=3, color='#ff6b35', label='M/E Ratio', marker='o', markersize=4)
+            
+            # Add critical 100% line
+            ax.axhline(y=100, color='red', linestyle='--', linewidth=2, 
+                      alpha=0.8, label='CRITICAL LIMIT (100%)')
+            
+            # Add safe zone shading (below 80%)
+            ax.fill_between(me_history_df['date'], 0, 80, 
+                           alpha=0.2, color='green', label='Safe Zone (<80%)')
+            
+            # Add warning zone shading (80-100%)
+            ax.fill_between(me_history_df['date'], 80, 100, 
+                           alpha=0.2, color='orange', label='Warning Zone (80-100%)')
+            
+            ax.set_title('M/E Ratio History - Critical for Portfolio Rebalancing', 
+                        fontsize=16, fontweight='bold')
+            ax.set_xlabel('Date')
+            ax.set_ylabel('M/E Ratio (%)')
+            ax.set_ylim(0, max(110, me_history_df['me_ratio'].max() * 1.1))
+            ax.grid(True, alpha=0.3)
+            ax.legend(loc='upper left')
+            ax.tick_params(axis='x', rotation=45)
+            
+            # Add current stats
+            avg_me = me_history_df['me_ratio'].mean()
+            max_me = me_history_df['me_ratio'].max()
+            min_me = me_history_df['me_ratio'].min()
+            
+            stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
+            ax.text(0.02, 0.98, stats_text, 
+                   transform=ax.transAxes, verticalalignment='top',
+                   bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8),
+                   fontsize=10)
+            
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close()
+            
+            # Risk assessment with color coding
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if max_me > 90:
+                    st.error(f"🚨 HIGH RISK\nMax M/E: {max_me:.1f}%\n(>90% Critical)")
+                elif max_me > 80:
+                    st.warning(f"⚠️ MODERATE RISK\nMax M/E: {max_me:.1f}%\n(>80% Warning)")
+                else:
+                    st.success(f"✅ LOW RISK\nMax M/E: {max_me:.1f}%\n(<80% Safe)")
+            
+            with col2:
+                st.info(f"📊 **Average M/E Ratio**\n{avg_me:.1f}%\n(Historical Average)")
+            
+            with col3:
+                target_me = 75  # Target M/E ratio for rebalancing
+                if avg_me > target_me:
+                    st.warning(f"🎯 **Rebalancing Signal**\nAvg: {avg_me:.1f}% > {target_me}%\nConsider reducing position sizes")
+                else:
+                    st.success(f"🎯 **Portfolio Balanced**\nAvg: {avg_me:.1f}% ≤ {target_me}%\nWithin target range")
+                    
+        else:
+            st.info("No M/E ratio history available - need position data for analysis")
+    else:
+        st.info("No trade history for M/E ratio analysis")
+except Exception as e:
+    st.error(f"Error creating M/E ratio analysis: {e}")
+
+# --- PERFORMANCE STATISTICS ---
+st.markdown("---")
+st.subheader("📊 Performance Statistics")
+
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    try:
+        perf_stats_df = get_portfolio_performance_stats()
+        if not perf_stats_df.empty:
+            st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No performance statistics available.")
+    except Exception as e:
+        st.error(f"Error loading performance stats: {e}")
+
+with col2:
+    st.subheader("📈 Equity Curve")
+    try:
+        # Create equity curve from trade history
+        trades_df = get_trades_history()
+        if not trades_df.empty:
+            # Sort trades by exit date and calculate cumulative profit
+            trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
+            trades_sorted = trades_df.sort_values('exit_date')
+            trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
+            
+            # Create the equity curve chart
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], linewidth=2, color='#1f77b4')
+            ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
+                           where=(trades_sorted['cumulative_profit'] > 0), alpha=0.3, color='green')
+            ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
+                           where=(trades_sorted['cumulative_profit'] <= 0), alpha=0.3, color='red')
+            ax.set_title('Cumulative Profit Over Time', fontsize=12, fontweight='bold')
+            ax.set_xlabel('Date')
+            ax.set_ylabel('Cumulative Profit ($)')
+            ax.grid(True, alpha=0.3)
+            ax.tick_params(axis='x', rotation=45)
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close()
+        else:
+            st.info("No trade history available for equity curve.")
+    except Exception as e:
+        st.error(f"Error creating equity curve: {e}")
+
+# --- TRADE HISTORY ---
+st.markdown("---")
+st.subheader("📋 Complete Trade History")
+
+try:
+    trades_df = get_trades_history()
+    if not trades_df.empty:
+        # Add some basic stats
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Trades", len(trades_df))
+        with col2:
+            winning_trades = len(trades_df[trades_df['profit'] > 0])
+            st.metric("Winning Trades", winning_trades)
+        with col3:
+            win_rate = (winning_trades / len(trades_df)) * 100 if len(trades_df) > 0 else 0
+            st.metric("Win Rate", f"{win_rate:.1f}%")
+        with col4:
+            total_profit = trades_df['profit'].sum()
+            st.metric("Total Profit", f"${total_profit:,.2f}")
+        
+        # Show trade history table
+        st.dataframe(trades_df, use_container_width=True, hide_index=True)
+        
+        # Download option
+        csv = trades_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Trade History CSV",
+            data=csv,
+            file_name=f"trade_history_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv"
+        )
+    else:
+        st.info("No trade history available.")
+except Exception as e:
+    st.error(f"Error loading trade history: {e}")
+
+# --- SIGNALS HISTORY ---
+st.markdown("---")
+st.subheader("🎯 Signal History")
+
+try:
+    signals_df = get_signals()
+    if not signals_df.empty:
+        # Show recent signals
+        st.dataframe(signals_df.head(50), use_container_width=True, hide_index=True)
+        
+        if len(signals_df) > 50:
+            st.caption(f"Showing latest 50 signals out of {len(signals_df)} total")
+    else:
+        st.info("No signal history available.")
+except Exception as e:
+    st.error(f"Error loading signals: {e}")
+
+# --- SYSTEM STATUS ---
+st.markdown("---")
+st.subheader("⚙️ System Status")
+
+try:
+    system_status = get_system_status()
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.success("✅ System Online")
+        st.info(f"Last Update: {datetime.datetime.now().strftime('%H:%M:%S')}")
+    
+    with col2:
+        if USE_REAL_METRICS:
+            st.success("✅ Real Metrics Active")
+        else:
+            st.warning("⚠️ Using Placeholder Metrics")
+    
+    with col3:
+        st.info("📊 Data Sources Connected")
+        
+except Exception as e:
+    st.error(f"Error getting system status: {e}")
+
+st.markdown("---")
+st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
