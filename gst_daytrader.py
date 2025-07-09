@@ -24,9 +24,9 @@ class GSTDayTrader:
     4. Manages risk with tight stops and profit targets
     """
     
-    def __init__(self, api_key: str, position_size: float = 10000):
+    def __init__(self, api_key: str, max_risk_per_trade: float = 100):
         self.api_key = api_key
-        self.position_size = position_size
+        self.max_risk_per_trade = max_risk_per_trade  # Max $ risk per trade (scalping)
         self.trades = []
         self.daily_pnl = 0.0
         self.total_pnl = 0.0
@@ -48,6 +48,8 @@ class GSTDayTrader:
         
         # Setup logging
         self.setup_logging()
+        
+        self.logger.info(f"gSTDayTrader initialized - Max risk per trade: ${max_risk_per_trade}")
         
     def setup_logging(self):
         """Setup comprehensive logging"""
@@ -257,9 +259,16 @@ class GSTDayTrader:
             stop_loss = entry_price * (1 - self.stop_loss_pct)
             profit_target = gap_analysis['previous_close']  # Gap fill target
         
-        # Calculate position size
+        # Calculate position size based on risk amount (SCALPING APPROACH)
         risk_amount = abs(entry_price - stop_loss)
-        shares = int(self.position_size / risk_amount) if risk_amount > 0 else 0
+        shares = int(self.max_risk_per_trade / risk_amount) if risk_amount > 0 else 0
+        
+        # Minimum position size check
+        if shares < 10:  # Don't trade if less than 10 shares
+            return {'action': 'no_trade', 'reason': 'Position too small (< 10 shares)'}
+        
+        # Calculate actual position value for logging
+        position_value = shares * entry_price
         
         trade_signal = {
             'action': action,
@@ -267,7 +276,9 @@ class GSTDayTrader:
             'stop_loss': stop_loss,
             'profit_target': profit_target,
             'shares': shares,
+            'position_value': position_value,
             'risk_amount': risk_amount,
+            'max_risk': self.max_risk_per_trade,
             'expected_profit': abs(profit_target - entry_price),
             'risk_reward_ratio': abs(profit_target - entry_price) / risk_amount if risk_amount > 0 else 0
         }
@@ -522,7 +533,7 @@ class GSTDayTrader:
         
         # Calculate Sharpe ratio (simplified)
         if len(closed_trades) > 1:
-            returns = closed_trades['pnl'] / self.position_size
+            returns = closed_trades['pnl'] / self.max_risk_per_trade  # Returns as % of risk
             sharpe_ratio = returns.mean() / returns.std() if returns.std() > 0 else 0
         else:
             sharpe_ratio = 0
@@ -568,7 +579,7 @@ class GSTDayTrader:
 if __name__ == "__main__":
     # Example usage
     api_key = "YOUR_API_KEY"
-    trader = GSTDayTrader(api_key, position_size=10000)
+    trader = GSTDayTrader(api_key, max_risk_per_trade=100)  # Risk $100 per trade
     
     # Test symbols
     symbols = ['AAPL', 'TSLA', 'MSFT']
