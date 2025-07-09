@@ -12,9 +12,10 @@ venv/
 env/
 ENV/
 
-# Data files
-data/
+# Data files (allow trades data)
+data/*
+!data/trades/
+!data/trades/*.csv
 
 # Logs
 *.log
-
