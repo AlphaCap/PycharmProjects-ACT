@@ -624,11 +624,12 @@ if __name__ == "__main__":
     
     print("\n✅ gSTDayTrader test completed!")
     print("📁 Results saved to CSV and JSON files")
-        closed_trades = trades_df[trades_df['status'] == 'closed']
-        
-        if len(closed_trades) == 0:
+
+    def get_performance_summary(self) -> Dict:
+        """Get comprehensive performance summary"""
+        if not self.trades:
             return {
-                'total_trades': len(trades_df),
+                'total_trades': 0,
                 'total_pnl': '$0.00',
                 'win_rate': '0.0%',
                 'avg_profit_per_trade': '$0.00',
@@ -636,6 +637,10 @@ if __name__ == "__main__":
                 'sharpe_ratio': '0.00',
                 'best_trade': '$0.00',
                 'worst_trade': '$0.00'
+            }
+        
+        trades_df = pd.DataFrame(self.trades)
+        closed_trades = trades_df[trades_df['status'] == 'closed']
             }
         
         # Calculate metrics
