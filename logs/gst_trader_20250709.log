@@ -1,0 +1,20 @@
+2025-07-09 16:22:14,155 - INFO - gSTDayTrader initialized - Max risk: $50, Max position: $1000
+2025-07-09 16:22:14,157 - INFO - Starting gap trading strategy on 5 symbols
+2025-07-09 16:22:14,157 - INFO - Processing 1/5: AAPL
+2025-07-09 16:22:14,157 - INFO - Processing symbol: AAPL
+2025-07-09 16:22:15,427 - INFO - Retrieved 100 data points for AAPL
+2025-07-09 16:22:16,436 - INFO - Processing 2/5: TSLA
+2025-07-09 16:22:16,437 - INFO - Processing symbol: TSLA
+2025-07-09 16:22:17,110 - INFO - Retrieved 100 data points for TSLA
+2025-07-09 16:22:18,114 - INFO - Processing 3/5: MSFT
+2025-07-09 16:22:18,115 - INFO - Processing symbol: MSFT
+2025-07-09 16:22:19,345 - INFO - Retrieved 100 data points for MSFT
+2025-07-09 16:22:20,347 - INFO - Processing 4/5: NVDA
+2025-07-09 16:22:20,347 - INFO - Processing symbol: NVDA
+2025-07-09 16:22:21,058 - INFO - Retrieved 100 data points for NVDA
+2025-07-09 16:22:22,061 - INFO - Processing 5/5: GOOGL
+2025-07-09 16:22:22,061 - INFO - Processing symbol: GOOGL
+2025-07-09 16:22:22,842 - INFO - Retrieved 100 data points for GOOGL
+2025-07-09 16:22:23,845 - INFO - Strategy completed: 0 trades executed, 0 gaps found
+2025-07-09 16:22:23,882 - WARNING - No trades to save
+2025-07-09 16:22:23,884 - INFO - Performance report saved to performance_20250709_162223.json

@@ -1,0 +1,31 @@
+2025-07-08 17:36:48,356 - INFO - Processing symbol: AAPL
+2025-07-08 17:36:49,737 - INFO - Retrieved 18056 data points for AAPL
+2025-07-08 17:36:50,021 - INFO - Trade executed: AAPL long at 209.10
+2025-07-08 17:48:37,765 - INFO - Processing symbol: AAPL
+2025-07-08 17:48:39,478 - INFO - Retrieved 18056 data points for AAPL
+2025-07-08 17:48:39,974 - INFO - Trade executed: AAPL long at 209.10
+2025-07-08 18:00:21,451 - INFO - Processing symbol: AAPL
+2025-07-08 18:00:22,700 - INFO - Retrieved 18056 data points for AAPL
+2025-07-08 18:00:23,192 - INFO - Trade executed: AAPL long at 209.10
+2025-07-08 18:00:51,676 - INFO - Processing symbol: MSFT
+2025-07-08 18:00:52,960 - INFO - Retrieved 17776 data points for MSFT
+2025-07-08 18:00:53,285 - INFO - Trade executed: MSFT long at 497.56
+2025-07-08 18:00:53,503 - INFO - Processing symbol: NVDA
+2025-07-08 18:00:54,726 - INFO - Retrieved 18060 data points for NVDA
+2025-07-08 18:00:55,248 - INFO - Processing symbol: AAPL
+2025-07-08 18:00:56,418 - INFO - Retrieved 18056 data points for AAPL
+2025-07-08 18:00:57,085 - INFO - Processing symbol: AMZN
+2025-07-08 18:00:58,290 - INFO - Retrieved 17964 data points for AMZN
+2025-07-08 18:00:58,827 - INFO - Processing symbol: GOOGL
+2025-07-08 18:01:00,005 - INFO - Retrieved 18018 data points for GOOGL
+2025-07-08 18:01:00,587 - INFO - Processing symbol: GOOG
+2025-07-08 18:01:01,767 - INFO - Retrieved 17690 data points for GOOG
+2025-07-08 18:01:02,316 - INFO - Processing symbol: META
+2025-07-08 18:01:03,541 - INFO - Retrieved 17791 data points for META
+2025-07-08 18:01:04,033 - INFO - Processing symbol: AVGO
+2025-07-08 18:01:05,382 - INFO - Retrieved 17838 data points for AVGO
+2025-07-08 18:01:05,583 - INFO - Processing symbol: TSLA
+2025-07-08 18:01:05,754 - WARNING - No time series data for TSLA
+2025-07-08 18:01:05,766 - INFO - Processing symbol: WMT
+2025-07-08 18:01:05,937 - WARNING - No time series data for WMT
+2025-07-08 18:27:46,920 - INFO - gSTDayTrader initialized - Max risk per trade: $100
