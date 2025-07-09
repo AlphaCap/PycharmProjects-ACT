@@ -225,7 +225,7 @@ class GSTDayTraderTest:
             print(f"❌ API connection failed: {e}")
             return False
     
-    def run_full_test(self, num_symbols: int = 10):
+    def run_full_test(self, num_symbols: int = 100):
         """Run full test on multiple symbols"""
         print(f"\n{'='*60}")
         print(f"🚀 RUNNING FULL TEST ON {num_symbols} SYMBOLS")
@@ -233,7 +233,7 @@ class GSTDayTraderTest:
         
         # Get symbols
         symbols = self.get_top_100_sp500()[:num_symbols]
-        print(f"Testing symbols: {', '.join(symbols)}")
+        print(f"Testing {len(symbols)} symbols: {', '.join(symbols[:10])}{'...' if len(symbols) > 10 else ''}")
         
         try:
             from gst_daytrader import GSTDayTrader
@@ -241,38 +241,52 @@ class GSTDayTraderTest:
             
             # Track results for each symbol
             symbol_results = []
+            gaps_found = 0
+            trades_executed = 0
+            
+            # Progress tracking
+            print(f"\n🔄 Processing symbols (this may take 5-10 minutes)...")
             
             # Run strategy with progress tracking
             for i, symbol in enumerate(symbols, 1):
-                print(f"\n{'─'*60}")
-                print(f"📊 Processing {symbol} ({i}/{num_symbols})")
-                print(f"{'─'*60}")
+                # Show progress every 10 symbols
+                if i % 10 == 0 or i == len(symbols):
+                    print(f"📊 Progress: {i}/{len(symbols)} symbols processed | Gaps found: {gaps_found} | Trades: {trades_executed}")
                 
-                result = trader.process_symbol(symbol)
-                symbol_results.append(result)
-                
-                if result['success']:
-                    gap = result['gap_analysis']
-                    execution = result['execution_result']
+                try:
+                    result = trader.process_symbol(symbol)
+                    symbol_results.append(result)
                     
-                    # Quick summary for each symbol
-                    gap_status = "✅" if gap['has_gap'] else "❌"
-                    trade_status = "✅ EXECUTED" if execution['executed'] else "❌ NO TRADE"
+                    if result['success']:
+                        gap = result['gap_analysis']
+                        execution = result['execution_result']
+                        
+                        # Track gaps and trades
+                        if gap['has_gap']:
+                            gaps_found += 1
+                            print(f"  ✅ {symbol}: {gap['gap_pct']:.1%} gap ({gap['gap_direction']})")
+                        
+                        if execution['executed']:
+                            trades_executed += 1
+                            trade = execution['trade']
+                            pnl_emoji = "🟢" if trade['pnl'] > 0 else "🔴"
+                            print(f"     💰 Trade: {trade['action'].upper()} @ ${trade['entry_price']:.2f} → ${trade['exit_price']:.2f} | {pnl_emoji} ${trade['pnl']:.2f}")
                     
-                    print(f"Gap: {gap_status} {gap['gap_pct']:.1%} | Trade: {trade_status}")
-                    
-                    if execution['executed']:
-                        trade = execution['trade']
-                        pnl_emoji = "🟢" if trade['pnl'] > 0 else "🔴"
-                        print(f"P&L: {pnl_emoji} ${trade['pnl']:.2f}")
-                else:
-                    print(f"❌ Failed: {result['reason']}")
+                    # Stop if daily loss limit reached
+                    if trader.daily_pnl <= trader.max_daily_loss:
+                        print(f"\n⚠️ Daily loss limit reached after {i} symbols, stopping")
+                        break
+                        
+                except Exception as e:
+                    print(f"❌ Error processing {symbol}: {e}")
+                    continue
             
             # Final results summary
             self.print_full_test_summary(trader, symbol_results)
+            self.print_detailed_analysis(trader, symbol_results)
             
             # Save results
-            self.save_results(trader, {'symbols_processed': len(symbols)}, trader.get_performance_summary())
+            self.save_results(trader, {'symbols_processed': len(symbol_results)}, trader.get_performance_summary())
             
             return True
             
@@ -333,9 +347,108 @@ class GSTDayTraderTest:
                       f"${trade['entry_price']:6.2f} → ${trade['exit_price']:6.2f} | "
                       f"{pnl_emoji} ${trade['pnl']:8.2f} | {trade['exit_reason']}")
         
+    def print_detailed_analysis(self, trader, symbol_results):
+        """Print detailed analysis for debugging"""
         print(f"\n{'='*60}")
-        print(f"✅ Test completed successfully!")
+        print(f"🔍 DETAILED ANALYSIS FOR DEBUGGING")
         print(f"{'='*60}")
+        
+        # Analyze gaps found
+        gaps_found = [r for r in symbol_results if r['success'] and r['gap_analysis']['has_gap']]
+        gaps_rejected = [r for r in symbol_results if r['success'] and not r['gap_analysis']['has_gap']]
+        
+        print(f"\n📊 GAP STATISTICS")
+        print(f"{'─'*40}")
+        print(f"Total symbols processed:  {len(symbol_results)}")
+        print(f"Valid gaps found:         {len(gaps_found)}")
+        print(f"Gaps rejected:            {len(gaps_rejected)}")
+        
+        # Show rejection reasons
+        if gaps_rejected:
+            rejection_reasons = {}
+            for result in gaps_rejected:
+                reason = result['gap_analysis']['reason']
+                rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
+            
+            print(f"\n❌ GAP REJECTION REASONS")
+            print(f"{'─'*40}")
+            for reason, count in sorted(rejection_reasons.items(), key=lambda x: x[1], reverse=True):
+                print(f"{count:3d}: {reason}")
+        
+        # Analyze trades
+        if trader.trades:
+            print(f"\n💼 TRADE ANALYSIS")
+            print(f"{'─'*40}")
+            
+            trades_df = pd.DataFrame(trader.trades)
+            
+            # Group by exit reason
+            exit_reasons = trades_df['exit_reason'].value_counts()
+            print(f"Exit reasons:")
+            for reason, count in exit_reasons.items():
+                print(f"  {count:3d}: {reason.replace('_', ' ').title()}")
+            
+            # Group by action
+            actions = trades_df['action'].value_counts()
+            print(f"\nTrade directions:")
+            for action, count in actions.items():
+                avg_pnl = trades_df[trades_df['action'] == action]['pnl'].mean()
+                print(f"  {count:3d}: {action.upper()} (avg P&L: ${avg_pnl:.2f})")
+            
+            # Gap size analysis
+            gap_ranges = []
+            for _, trade in trades_df.iterrows():
+                gap_pct = abs(trade['gap_pct'])
+                if gap_pct < 0.03:
+                    gap_ranges.append("2-3%")
+                elif gap_pct < 0.05:
+                    gap_ranges.append("3-5%")
+                elif gap_pct < 0.08:
+                    gap_ranges.append("5-8%")
+                else:
+                    gap_ranges.append("8%+")
+            
+            if gap_ranges:
+                gap_range_counts = pd.Series(gap_ranges).value_counts()
+                print(f"\nGap size distribution:")
+                for gap_range, count in gap_range_counts.items():
+                    range_trades = [i for i, r in enumerate(gap_ranges) if r == gap_range]
+                    avg_pnl = trades_df.iloc[range_trades]['pnl'].mean()
+                    print(f"  {count:3d}: {gap_range} (avg P&L: ${avg_pnl:.2f})")
+        
+        # API and data issues
+        failed_symbols = [r for r in symbol_results if not r['success']]
+        if failed_symbols:
+            print(f"\n⚠️ DATA ISSUES")
+            print(f"{'─'*40}")
+            failure_reasons = {}
+            for result in failed_symbols:
+                reason = result['reason']
+                failure_reasons[reason] = failure_reasons.get(reason, 0) + 1
+            
+            for reason, count in sorted(failure_reasons.items(), key=lambda x: x[1], reverse=True):
+                print(f"{count:3d}: {reason}")
+        
+        print(f"\n🎯 DEBUGGING RECOMMENDATIONS")
+        print(f"{'─'*40}")
+        
+        if len(trader.trades) < 5:
+            print("• Consider lowering gap thresholds to capture more trades")
+            print("• Check if volume thresholds are too restrictive")
+        
+        if trader.trades:
+            win_rate = len([t for t in trader.trades if t['pnl'] > 0]) / len(trader.trades)
+            if win_rate < 0.4:
+                print("• Low win rate - consider adjusting entry/exit criteria")
+                print("• Review gap-fill probability assumptions")
+        
+        if len(gaps_found) < len(symbol_results) * 0.1:
+            print("• Very few gaps found - market may be less volatile today")
+            print("• Consider testing on different trading days")
+        
+        print(f"• Total trades generated: {len(trader.trades)} (target: 20-50 for good analysis)")
+        
+        print(f"\n{'='*60}")
     
     def save_results(self, trader, results, performance):
         """Save test results to files"""
