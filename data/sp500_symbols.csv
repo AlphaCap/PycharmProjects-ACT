@@ -1,0 +1,257 @@
+import pandas as pd
+import requests
+import time
+import os
+from datetime import datetime
+
+def enhance_sp500_csv():
+    """
+    Automatically enhance the SP500 symbols CSV with additional data columns
+    for better trade debugging and analysis.
+    """
+    print("=== ENHANCING S&P 500 CSV WITH ADDITIONAL DATA ===\n")
+    
+    # Read current symbols
+    csv_file = "data/sp500_symbols.csv"
+    if not os.path.exists(csv_file):
+        print(f"❌ {csv_file} not found!")
+        return False
+    
+    df = pd.read_csv(csv_file)
+    print(f"📊 Found {len(df)} symbols in current CSV")
+    
+    # Get the symbol column (handle different column names)
+    if 'Symbol' in df.columns:
+        symbols = df['Symbol'].tolist()
+    elif 'symbol' in df.columns:
+        symbols = df['symbol'].tolist()
+    else:
+        symbols = df.iloc[:, 0].tolist()
+    
+    print(f"🔄 Processing {len(symbols)} symbols...\n")
+    
+    # Create enhanced dataframe
+    enhanced_data = []
+    
+    # Pre-defined company data for major S&P 500 companies
+    company_data = {
+        'MSFT': {'name': 'Microsoft Corporation', 'sector': 'Technology', 'industry': 'Software'},
+        'NVDA': {'name': 'NVIDIA Corporation', 'sector': 'Technology', 'industry': 'Semiconductors'},
+        'AAPL': {'name': 'Apple Inc.', 'sector': 'Technology', 'industry': 'Consumer Electronics'},
+        'AMZN': {'name': 'Amazon.com Inc.', 'sector': 'Consumer Discretionary', 'industry': 'E-commerce'},
+        'GOOGL': {'name': 'Alphabet Inc. Class A', 'sector': 'Technology', 'industry': 'Internet Services'},
+        'GOOG': {'name': 'Alphabet Inc. Class C', 'sector': 'Technology', 'industry': 'Internet Services'},
+        'META': {'name': 'Meta Platforms Inc.', 'sector': 'Technology', 'industry': 'Social Media'},
+        'TSLA': {'name': 'Tesla Inc.', 'sector': 'Consumer Discretionary', 'industry': 'Electric Vehicles'},
+        'BRK.B': {'name': 'Berkshire Hathaway Inc.', 'sector': 'Financial Services', 'industry': 'Conglomerate'},
+        'AVGO': {'name': 'Broadcom Inc.', 'sector': 'Technology', 'industry': 'Semiconductors'},
+        'WMT': {'name': 'Walmart Inc.', 'sector': 'Consumer Staples', 'industry': 'Retail'},
+        'JPM': {'name': 'JPMorgan Chase & Co.', 'sector': 'Financial Services', 'industry': 'Banking'},
+        'V': {'name': 'Visa Inc.', 'sector': 'Financial Services', 'industry': 'Payment Processing'},
+        'JNJ': {'name': 'Johnson & Johnson', 'sector': 'Healthcare', 'industry': 'Pharmaceuticals'},
+        'WFC': {'name': 'Wells Fargo & Company', 'sector': 'Financial Services', 'industry': 'Banking'},
+        'PG': {'name': 'Procter & Gamble Co.', 'sector': 'Consumer Staples', 'industry': 'Consumer Goods'},
+        'MA': {'name': 'Mastercard Inc.', 'sector': 'Financial Services', 'industry': 'Payment Processing'},
+        'HD': {'name': 'Home Depot Inc.', 'sector': 'Consumer Discretionary', 'industry': 'Home Improvement'},
+        'NFLX': {'name': 'Netflix Inc.', 'sector': 'Communication Services', 'industry': 'Streaming'},
+        'DIS': {'name': 'Walt Disney Co.', 'sector': 'Communication Services', 'industry': 'Entertainment'},
+        'BAC': {'name': 'Bank of America Corp.', 'sector': 'Financial Services', 'industry': 'Banking'},
+        'ADBE': {'name': 'Adobe Inc.', 'sector': 'Technology', 'industry': 'Software'},
+        'CRM': {'name': 'Salesforce Inc.', 'sector': 'Technology', 'industry': 'Cloud Software'},
+        'XOM': {'name': 'Exxon Mobil Corp.', 'sector': 'Energy', 'industry': 'Oil & Gas'},
+        'CVX': {'name': 'Chevron Corp.', 'sector': 'Energy', 'industry': 'Oil & Gas'},
+        'LLY': {'name': 'Eli Lilly & Co.', 'sector': 'Healthcare', 'industry': 'Pharmaceuticals'},
+        'ABBV': {'name': 'AbbVie Inc.', 'sector': 'Healthcare', 'industry': 'Pharmaceuticals'},
+        'COST': {'name': 'Costco Wholesale Corp.', 'sector': 'Consumer Staples', 'industry': 'Retail'},
+        'TMO': {'name': 'Thermo Fisher Scientific Inc.', 'sector': 'Healthcare', 'industry': 'Life Sciences'},
+        'MRK': {'name': 'Merck & Co. Inc.', 'sector': 'Healthcare', 'industry': 'Pharmaceuticals'},
+        'ACN': {'name': 'Accenture PLC', 'sector': 'Technology', 'industry': 'Consulting'},
+        'LIN': {'name': 'Linde PLC', 'sector': 'Materials', 'industry': 'Industrial Gases'},
+        'ABT': {'name': 'Abbott Laboratories', 'sector': 'Healthcare', 'industry': 'Medical Devices'},
+        'CSCO': {'name': 'Cisco Systems Inc.', 'sector': 'Technology', 'industry': 'Networking'},
+        'TXN': {'name': 'Texas Instruments Inc.', 'sector': 'Technology', 'industry': 'Semiconductors'},
+        'ORCL': {'name': 'Oracle Corp.', 'sector': 'Technology', 'industry': 'Database Software'},
+        'NKE': {'name': 'Nike Inc.', 'sector': 'Consumer Discretionary', 'industry': 'Footwear'},
+        'PEP': {'name': 'PepsiCo Inc.', 'sector': 'Consumer Staples', 'industry': 'Beverages'},
+        'INTC': {'name': 'Intel Corp.', 'sector': 'Technology', 'industry': 'Semiconductors'},
+        'VZ': {'name': 'Verizon Communications Inc.', 'sector': 'Communication Services', 'industry': 'Telecom'},
+        'T': {'name': 'AT&T Inc.', 'sector': 'Communication Services', 'industry': 'Telecom'},
+        'COP': {'name': 'ConocoPhillips', 'sector': 'Energy', 'industry': 'Oil & Gas'},
+        'AMD': {'name': 'Advanced Micro Devices Inc.', 'sector': 'Technology', 'industry': 'Semiconductors'},
+        'QCOM': {'name': 'Qualcomm Inc.', 'sector': 'Technology', 'industry': 'Semiconductors'},
+        'HON': {'name': 'Honeywell International Inc.', 'sector': 'Industrials', 'industry': 'Aerospace'},
+        'UNP': {'name': 'Union Pacific Corp.', 'sector': 'Industrials', 'industry': 'Railroad'},
+        'UPS': {'name': 'United Parcel Service Inc.', 'sector': 'Industrials', 'industry': 'Logistics'},
+        'LOW': {'name': 'Lowe\'s Companies Inc.', 'sector': 'Consumer Discretionary', 'industry': 'Home Improvement'},
+        'SBUX': {'name': 'Starbucks Corp.', 'sector': 'Consumer Discretionary', 'industry': 'Restaurants'},
+        'CAT': {'name': 'Caterpillar Inc.', 'sector': 'Industrials', 'industry': 'Machinery'},
+        'GS': {'name': 'Goldman Sachs Group Inc.', 'sector': 'Financial Services', 'industry': 'Investment Banking'},
+        'MS': {'name': 'Morgan Stanley', 'sector': 'Financial Services', 'industry': 'Investment Banking'},
+        'MDT': {'name': 'Medtronic PLC', 'sector': 'Healthcare', 'industry': 'Medical Devices'},
+        'UNH': {'name': 'UnitedHealth Group Inc.', 'sector': 'Healthcare', 'industry': 'Health Insurance'},
+        'IBM': {'name': 'International Business Machines Corp.', 'sector': 'Technology', 'industry': 'IT Services'},
+        'AMGN': {'name': 'Amgen Inc.', 'sector': 'Healthcare', 'industry': 'Biotechnology'},
+        'AXP': {'name': 'American Express Co.', 'sector': 'Financial Services', 'industry': 'Credit Services'},
+        'BA': {'name': 'Boeing Co.', 'sector': 'Industrials', 'industry': 'Aerospace'},
+        'MCD': {'name': 'McDonald\'s Corp.', 'sector': 'Consumer Discretionary', 'industry': 'Restaurants'},
+        'BLK': {'name': 'BlackRock Inc.', 'sector': 'Financial Services', 'industry': 'Asset Management'},
+        'DE': {'name': 'Deere & Co.', 'sector': 'Industrials', 'industry': 'Agricultural Machinery'},
+        'MMM': {'name': '3M Co.', 'sector': 'Industrials', 'industry': 'Diversified Industrials'},
+        'CVS': {'name': 'CVS Health Corp.', 'sector': 'Healthcare', 'industry': 'Healthcare Services'},
+        'GE': {'name': 'General Electric Co.', 'sector': 'Industrials', 'industry': 'Conglomerate'},
+        'GILD': {'name': 'Gilead Sciences Inc.', 'sector': 'Healthcare', 'industry': 'Biotechnology'},
+        'RTX': {'name': 'Raytheon Technologies Corp.', 'sector': 'Industrials', 'industry': 'Aerospace'},
+        'BKNG': {'name': 'Booking Holdings Inc.', 'sector': 'Consumer Discretionary', 'industry': 'Online Travel'},
+        'SYK': {'name': 'Stryker Corp.', 'sector': 'Healthcare', 'industry': 'Medical Devices'},
+        'TJX': {'name': 'TJX Companies Inc.', 'sector': 'Consumer Discretionary', 'industry': 'Retail'},
+        'ADP': {'name': 'Automatic Data Processing Inc.', 'sector': 'Technology', 'industry': 'Payroll Services'},
+        'ZTS': {'name': 'Zoetis Inc.', 'sector': 'Healthcare', 'industry': 'Animal Health'},
+        'MDLZ': {'name': 'Mondelez International Inc.', 'sector': 'Consumer Staples', 'industry': 'Food Products'},
+        'C': {'name': 'Citigroup Inc.', 'sector': 'Financial Services', 'industry': 'Banking'},
+        'CB': {'name': 'Chubb Ltd.', 'sector': 'Financial Services', 'industry': 'Insurance'},
+        'NOW': {'name': 'ServiceNow Inc.', 'sector': 'Technology', 'industry': 'Cloud Software'},
+        'ISRG': {'name': 'Intuitive Surgical Inc.', 'sector': 'Healthcare', 'industry': 'Medical Devices'},
+        'SPGI': {'name': 'S&P Global Inc.', 'sector': 'Financial Services', 'industry': 'Financial Data'},
+        'INTU': {'name': 'Intuit Inc.', 'sector': 'Technology', 'industry': 'Tax Software'},
+        'CME': {'name': 'CME Group Inc.', 'sector': 'Financial Services', 'industry': 'Financial Exchanges'},
+        'SO': {'name': 'Southern Co.', 'sector': 'Utilities', 'industry': 'Electric Utilities'},
+        'TGT': {'name': 'Target Corp.', 'sector': 'Consumer Discretionary', 'industry': 'Retail'},
+        'USB': {'name': 'U.S. Bancorp', 'sector': 'Financial Services', 'industry': 'Banking'},
+        'TMUS': {'name': 'T-Mobile US Inc.', 'sector': 'Communication Services', 'industry': 'Wireless Telecom'},
+        'DUK': {'name': 'Duke Energy Corp.', 'sector': 'Utilities', 'industry': 'Electric Utilities'},
+        'BSX': {'name': 'Boston Scientific Corp.', 'sector': 'Healthcare', 'industry': 'Medical Devices'},
+        'BMY': {'name': 'Bristol Myers Squibb Co.', 'sector': 'Healthcare', 'industry': 'Pharmaceuticals'},
+        'NEE': {'name': 'NextEra Energy Inc.', 'sector': 'Utilities', 'industry': 'Electric Utilities'},
+        'SCHW': {'name': 'Charles Schwab Corp.', 'sector': 'Financial Services', 'industry': 'Brokerage'},
+        'PFE': {'name': 'Pfizer Inc.', 'sector': 'Healthcare', 'industry': 'Pharmaceuticals'},
+        'AON': {'name': 'Aon PLC', 'sector': 'Financial Services', 'industry': 'Insurance Brokerage'},
+        'LMT': {'name': 'Lockheed Martin Corp.', 'sector': 'Industrials', 'industry': 'Aerospace & Defense'},
+        'MO': {'name': 'Altria Group Inc.', 'sector': 'Consumer Staples', 'industry': 'Tobacco'},
+        'PNC': {'name': 'PNC Financial Services Group Inc.', 'sector': 'Financial Services', 'industry': 'Banking'},
+        'APH': {'name': 'Amphenol Corp.', 'sector': 'Technology', 'industry': 'Electronic Components'},
+        'CL': {'name': 'Colgate-Palmolive Co.', 'sector': 'Consumer Staples', 'industry': 'Personal Products'},
+        'FDX': {'name': 'FedEx Corp.', 'sector': 'Industrials', 'industry': 'Package Delivery'},
+        'CSX': {'name': 'CSX Corp.', 'sector': 'Industrials', 'industry': 'Railroad'},
+        'WM': {'name': 'Waste Management Inc.', 'sector': 'Industrials', 'industry': 'Waste Management'},
+        'ITW': {'name': 'Illinois Tool Works Inc.', 'sector': 'Industrials', 'industry': 'Diversified Industrials'},
+        'FIS': {'name': 'Fidelity National Information Services Inc.', 'sector': 'Technology', 'industry': 'Financial Technology'},
+        'GM': {'name': 'General Motors Co.', 'sector': 'Consumer Discretionary', 'industry': 'Automotive'},
+        'EMR': {'name': 'Emerson Electric Co.', 'sector': 'Industrials', 'industry': 'Electrical Equipment'},
+        'GD': {'name': 'General Dynamics Corp.', 'sector': 'Industrials', 'industry': 'Aerospace & Defense'},
+        'NSC': {'name': 'Norfolk Southern Corp.', 'sector': 'Industrials', 'industry': 'Railroad'},
+        'PYPL': {'name': 'PayPal Holdings Inc.', 'sector': 'Financial Services', 'industry': 'Digital Payments'},
+        'EOG': {'name': 'EOG Resources Inc.', 'sector': 'Energy', 'industry': 'Oil & Gas Exploration'},
+        'WBA': {'name': 'Walgreens Boots Alliance Inc.', 'sector': 'Healthcare', 'industry': 'Pharmacy Retail'},
+        'F': {'name': 'Ford Motor Co.', 'sector': 'Consumer Discretionary', 'industry': 'Automotive'},
+        'COIN': {'name': 'Coinbase Global Inc.', 'sector': 'Financial Services', 'industry': 'Cryptocurrency Exchange'}
+    }
+    
+    # Add sector mappings for other symbols not in detailed list
+    sector_mappings = {
+        # Technology
+        'ADSK': 'Technology', 'CRM': 'Technology', 'CDNS': 'Technology', 'ANSS': 'Technology',
+        'KEYS': 'Technology', 'NTAP': 'Technology', 'SWKS': 'Technology', 'MCHP': 'Technology',
+        # Healthcare  
+        'DXCM': 'Healthcare', 'IDXX': 'Healthcare', 'REGN': 'Healthcare', 'VRTX': 'Healthcare',
+        # Financial Services
+        'FITB': 'Financial Services', 'HBAN': 'Financial Services', 'RF': 'Financial Services',
+        'CFG': 'Financial Services', 'KEY': 'Financial Services', 'STT': 'Financial Services',
+        # Energy
+        'HAL': 'Energy', 'SLB': 'Energy', 'OXY': 'Energy', 'DVN': 'Energy', 'FANG': 'Energy',
+        # Industrials
+        'LHX': 'Industrials', 'NOC': 'Industrials', 'CARR': 'Industrials', 'OTIS': 'Industrials',
+        # Consumer Discretionary
+        'ABNB': 'Consumer Discretionary', 'UBER': 'Consumer Discretionary', 'MAR': 'Consumer Discretionary',
+        # Consumer Staples
+        'KO': 'Consumer Staples', 'KMB': 'Consumer Staples', 'GIS': 'Consumer Staples',
+        # Utilities
+        'AEP': 'Utilities', 'EXC': 'Utilities', 'XEL': 'Utilities', 'WEC': 'Utilities',
+        # Real Estate
+        'PLD': 'Real Estate', 'AMT': 'Real Estate', 'SPG': 'Real Estate', 'EQIX': 'Real Estate',
+        # Materials
+        'NUE': 'Materials', 'DOW': 'Materials', 'LYB': 'Materials', 'APD': 'Materials'
+    }
+    
+    # Get current date
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    
+    # Process each symbol
+    for i, symbol in enumerate(symbols, 1):
+        print(f"Processing {symbol}... ({i}/{len(symbols)})")
+        
+        # Get company data if available
+        if symbol in company_data:
+            company_name = company_data[symbol]['name']
+            sector = company_data[symbol]['sector']
+            industry = company_data[symbol].get('industry', 'Unknown')
+        else:
+            # Default values for symbols not in our database
+            company_name = f"{symbol} Inc."
+            sector = sector_mappings.get(symbol, 'Other')
+            industry = 'Unknown'
+        
+        # Check if we have price data for this symbol
+        daily_file = f"data/daily/{symbol}.csv"
+        has_data = "Yes" if os.path.exists(daily_file) else "No"
+        last_price = "N/A"
+        data_rows = 0
+        
+        if has_data == "Yes":
+            try:
+                price_df = pd.read_csv(daily_file)
+                data_rows = len(price_df)
+                if not price_df.empty and 'Close' in price_df.columns:
+                    last_price = f"${price_df['Close'].iloc[-1]:.2f}"
+            except:
+                has_data = "Error"
+        
+        # Create enhanced record
+        enhanced_data.append({
+            'Symbol': symbol,
+            'Company_Name': company_name,
+            'Sector': sector,
+            'Industry': industry,
+            'Has_Data': has_data,
+            'Data_Rows': data_rows,
+            'Last_Price': last_price,
+            'Market_Cap_Rank': i,  # Based on order in S&P 500
+            'Last_Updated': current_date
+        })
+    
+    # Create enhanced DataFrame
+    enhanced_df = pd.DataFrame(enhanced_data)
+    
+    # Save enhanced CSV
+    backup_file = f"data/sp500_symbols_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    original_df = pd.read_csv(csv_file)
+    original_df.to_csv(backup_file, index=False)
+    print(f"📁 Backup saved: {backup_file}")
+    
+    # Save enhanced version
+    enhanced_df.to_csv(csv_file, index=False)
+    print(f"✅ Enhanced CSV saved: {csv_file}")
+    
+    # Display summary
+    print(f"\n📊 ENHANCEMENT SUMMARY:")
+    print(f"   • Total symbols: {len(enhanced_df)}")
+    print(f"   • Symbols with data: {len(enhanced_df[enhanced_df['Has_Data'] == 'Yes'])}")
+    print(f"   • Sectors represented: {enhanced_df['Sector'].nunique()}")
+    print(f"   • Added columns: Company_Name, Sector, Industry, Has_Data, Data_Rows, Last_Price, Market_Cap_Rank, Last_Updated")
+    
+    print(f"\n🔍 SECTOR BREAKDOWN:")
+    sector_counts = enhanced_df['Sector'].value_counts()
+    for sector, count in sector_counts.items():
+        print(f"   • {sector}: {count} companies")
+    
+    print(f"\n✅ CSV enhancement complete! Your symbols file now has rich data for debugging trades.")
+    print(f"   Tonight's EOD update will continue to work normally - it only reads the 'Symbol' column.")
+    
+    return True
+
+if __name__ == "__main__":
+    success = enhance_sp500_csv()
+    if success:
+        print(f"\n🎉 SUCCESS! Your SP500 CSV is now enhanced with debugging-friendly columns.")
+        print(f"   Open data/sp500_symbols.csv in Excel to see the rich data format.")
+    else:
+        print(f"\n❌ Enhancement failed. Check the error messages above.")

@@ -1,0 +1,17 @@
+{
+  "last_update": "2025-07-04",
+  "active_symbols": [
+    "AAPL"
+  ],
+  "data_stats": {
+    "total_symbols": 0,
+    "primary_tier_symbols": 0,
+    "secondary_tier_symbols": 0,
+    "symbols_with_positions": 0,
+    "total_trades": 2
+  },
+  "version": "1.0.0",
+  "daily_update": {
+    "last_run": "2025-07-08 12:57:32"
+  }
+}
