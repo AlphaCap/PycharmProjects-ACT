@@ -48,7 +48,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 with st.sidebar:
     st.title("Trading Systems")
     if st.button("← Back to Main Dashboard", use_container_width=True):
-        st.switch_page("App.py")
+        st.switch_page("app.py")
     
     st.markdown("---")
     
