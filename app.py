@@ -25,9 +25,6 @@ try:
 except ImportError:
     USE_REAL_METRICS = False
 
-    st.warning("⚠️ Portfolio calculator not found - using placeholder metrics")
-
-
 # --- PAGE CONFIG ---
 st.set_page_config(
     page_title="Alpha Capture Technology AI",
@@ -260,48 +257,6 @@ with st.sidebar:
 st.title("Alpha Capture Technology AI")
 st.caption("S&P 500 Long/Short Position Trader")
 
-# --- LIVE MARKET ACTIVITY BANNER ---
-live_data = scan_for_live_updates()
-
-if live_data['market_moves'] or live_data['potential_signals']:
-    st.markdown("## 🔥 Live Market Activity")
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        if live_data['market_moves']:
-            st.subheader("📊 Significant Moves (>1%)")
-            
-            moves_col1, moves_col2, moves_col3 = st.columns(3)
-            
-            for i, move in enumerate(live_data['market_moves'][:6]):  # Show top 6 moves
-                col = [moves_col1, moves_col2, moves_col3][i % 3]
-                
-                with col:
-                    change_color = "🟢" if move['change_pct'] > 0 else "🔴"
-                    st.metric(
-                        f"{change_color} {move['symbol']}", 
-                        f"${move['price']:.2f}",
-                        f"{move['change_pct']:+.1f}%"
-                    )
-    
-    with col2:
-        if live_data['potential_signals']:
-            st.subheader("⚡ Live Signals")
-            
-            for signal in live_data['potential_signals'][:5]:  # Show top 5 signals
-                direction_emoji = "🟢" if signal['direction'] == 'LONG' else "🔴"
-                strength_emoji = "🔥" if signal['strength'] == 'Strong' else "⚡"
-                
-                st.markdown(
-                    f"{direction_emoji} **{signal['symbol']}** | "
-                    f"{strength_emoji} {signal['strength']} | "
-                    f"${signal['price']:.2f}"
-                )
-                st.caption(f"Signal: {signal['type'].replace('_', ' ')}")
-
-    st.markdown("---")
-
 # --- VARIABLE ACCOUNT SIZE ---
 st.markdown("## Current Portfolio Status")
 initial_value = st.number_input(
@@ -315,66 +270,6 @@ initial_value = st.number_input(
 # --- PORTFOLIO METRICS - SINGLE LINE ONLY ---
 if USE_REAL_METRICS:
     metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
-
-# --- PORTFOLIO METRICS ---
-if USE_REAL_METRICS:
-    metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
-    
-    # Add debug info for troubleshooting
-    if metrics.get('total_trades', 0) > 0:
-        st.success(f"✅ Real portfolio metrics calculated from {metrics['total_trades']} trades")
-        st.info(f"💰 Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | Winners: {metrics.get('winning_trades', 0)} | Losers: {metrics.get('losing_trades', 0)}")
-    else:
-        st.warning("⚠️ No trade history found - showing initial portfolio values")
-else:
-    metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
-
-# Portfolio Overview Metrics - Single Row with Proper L/S Trading Metrics
-col1, col2, col3, col4, col5, col6 = st.columns(6)
-
-with col1:
-    # Remove cents from total value display
-    total_value_clean = metrics['total_value'].replace('.00', '').replace(',', '')
-    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
-
-with col2:
-    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
-
-with col3:
-    st.metric(label="M/E Ratio", value=metrics['me_ratio'], help="Margin to Equity: Total Open Trade Equity / Account Size")
-
-with col4:
-    st.metric(label="L/S Ratio", value=metrics['ls_ratio'], help="Long/Short Ratio: Open Long Value / Open Short Value")
-
-with col5:
-    st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
-
-with col6:
-    st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
-
-# Debug info for position calculations (can be hidden in production)
-if USE_REAL_METRICS and st.checkbox("🔍 Show Position Details", value=False):
-    debug_col1, debug_col2, debug_col3 = st.columns(3)
-    
-    with debug_col1:
-        st.metric("Long Exposure", f"${metrics.get('long_exposure_raw', 0):,.0f}")
-    
-    with debug_col2:
-        st.metric("Short Exposure", f"${metrics.get('short_exposure_raw', 0):,.0f}")
-    
-    with debug_col3:
-        st.metric("Total Open Equity", f"${metrics.get('total_open_equity', 0):,.0f}")
-
-# --- STRATEGY PERFORMANCE TABLE ---
-st.subheader("Strategy Performance")
-if USE_REAL_METRICS:
-    strategy_df = get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
-else:
-    strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
-
-if not strategy_df.empty:
-    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
-
 else:
     metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
 
@@ -494,49 +389,6 @@ if live_data['potential_signals']:
             st.write(f"${signal['price']:.2f}")
         with col_d:
             st.write(f"{strength_emoji} {signal['type'].replace('_', ' ')}")
-
-# --- LIVE DATA MONITORING SECTION ---
-st.markdown("---")
-st.markdown("## 📊 Live Data Monitoring")
-
-# Auto-refresh toggle
-auto_refresh = st.checkbox("🔄 Auto-refresh every 30 seconds", value=False)
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.subheader("📁 Data Status")
-    st.metric("CSV Files", live_data['total_files'])
-    
-    if live_data['last_update']:
-        st.success(f"✅ Last update: {live_data['last_update'].strftime('%H:%M:%S')}")
-        st.info(f"📊 Latest: {live_data['latest_symbol']}")
-    else:
-        st.warning("⚠️ No recent data updates")
-
-with col2:
-    st.subheader("🎯 Signal Summary")
-    st.metric("Active Signals", len(live_data['potential_signals']))
-    st.metric("Market Moves >1%", len(live_data['market_moves']))
-    
-    if live_data['potential_signals']:
-        strong_signals = len([s for s in live_data['potential_signals'] if s['strength'] == 'Strong'])
-        st.metric("Strong Signals", strong_signals)
-
-with col3:
-    st.subheader("⚡ System Status")
-    st.success("✅ nGS System Online")
-    st.info("🔄 Data Updating")
-    
-    if st.button("🔍 Refresh Data Now"):
-        st.cache_data.clear()
-        st.rerun()
-
-# Auto-refresh functionality
-if auto_refresh:
-    import time
-    time.sleep(30)
-    st.rerun()
 
 st.markdown("---")
 st.caption("Alpha Trading Systems Dashboard - For additional support, please contact the trading desk.")
