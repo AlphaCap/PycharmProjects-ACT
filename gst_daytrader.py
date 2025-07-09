@@ -1,5 +1,5 @@
 """
-gSTDayTrader - Gap Strategy Day Trading Algorithm (FIXED VERSION)
+gSTDayTrader - Gap Strategy Day Trading Algorithm (PERMANENT VERSION)
 Professional gap trading system with comprehensive risk management
 """
 
@@ -25,8 +25,8 @@ class GSTDayTrader:
     
     def __init__(self, api_key: str, max_risk_per_trade: float = 100):
         self.api_key = api_key
-        self.max_risk_per_trade = max_risk_per_trade  # Max $ risk per trade (scalping)
-        self.max_position_value = max_risk_per_trade * 20  # Max $2000 position for $100 risk
+        self.max_risk_per_trade = max_risk_per_trade
+        self.max_position_value = max_risk_per_trade * 20
         self.trades = []
         self.daily_pnl = 0.0
         self.total_pnl = 0.0
@@ -35,18 +35,18 @@ class GSTDayTrader:
         self.current_drawdown = 0.0
         
         # Strategy parameters
-        self.min_gap_threshold = 0.02  # 2% minimum gap
-        self.max_gap_threshold = 0.08  # 8% maximum gap (reduced from 10%)
-        self.stop_loss_pct = 0.01      # 1% stop loss (reduced from 1.5%)
-        self.profit_target_pct = 0.02  # 2% profit target (reduced from 2.5%)
-        self.max_hold_time = 240       # 4 hours max hold time (minutes)
+        self.min_gap_threshold = 0.02
+        self.max_gap_threshold = 0.08
+        self.stop_loss_pct = 0.01
+        self.profit_target_pct = 0.02
+        self.max_hold_time = 240
         
-        # Risk management (ENHANCED)
-        self.max_daily_loss = -300     # Max $300 daily loss (reduced)
-        self.max_positions = 2         # Max 2 concurrent positions (reduced)
-        self.min_volume_threshold = 500000  # Min 500k volume (increased)
-        self.min_price = 20            # Minimum stock price $20
-        self.max_price = 1000          # Maximum stock price $1000
+        # Risk management
+        self.max_daily_loss = -300
+        self.max_positions = 2
+        self.min_volume_threshold = 500000
+        self.min_price = 20
+        self.max_price = 1000
         
         # Setup logging
         self.setup_logging()
@@ -75,14 +75,13 @@ class GSTDayTrader:
             'symbol': symbol,
             'interval': interval,
             'apikey': self.api_key,
-            'outputsize': 'compact'  # Use compact to save API calls
+            'outputsize': 'compact'
         }
         
         try:
             response = requests.get(url, params=params, timeout=30)
             data = response.json()
             
-            # Check for API errors
             if 'Error Message' in data:
                 self.logger.error(f"API Error for {symbol}: {data['Error Message']}")
                 return None
@@ -91,7 +90,6 @@ class GSTDayTrader:
                 self.logger.warning(f"API Limit for {symbol}: {data['Note']}")
                 return None
                 
-            # Parse time series data
             time_series_key = f'Time Series ({interval})'
             if time_series_key not in data:
                 self.logger.warning(f"No time series data for {symbol}")
@@ -103,12 +101,10 @@ class GSTDayTrader:
                 self.logger.warning(f"Empty time series for {symbol}")
                 return None
             
-            # Convert to DataFrame
             df = pd.DataFrame.from_dict(time_series, orient='index')
             df.columns = ['open', 'high', 'low', 'close', 'volume']
             df.index = pd.to_datetime(df.index)
             
-            # Validate data types
             try:
                 df = df.astype(float)
             except ValueError as e:
@@ -117,7 +113,6 @@ class GSTDayTrader:
             
             df.sort_index(inplace=True)
             
-            # Filter to recent data only (last 2 days)
             recent_cutoff = datetime.now() - timedelta(days=2)
             df = df[df.index >= recent_cutoff]
             
@@ -152,14 +147,12 @@ class GSTDayTrader:
                 if not daily_data:
                     return None
                 
-                # Get the most recent trading day
                 dates = sorted(daily_data.keys(), reverse=True)
                 
                 for date in dates:
                     try:
                         previous_close = float(daily_data[date]['4. close'])
                         
-                        # Validate price
                         if self.min_price <= previous_close <= self.max_price:
                             return previous_close
                         else:
@@ -186,23 +179,18 @@ class GSTDayTrader:
         if df.empty:
             return {'has_gap': False, 'reason': 'No data'}
         
-        # Validate previous close
         if previous_close <= 0 or previous_close < self.min_price or previous_close > self.max_price:
             return {'has_gap': False, 'reason': f'Invalid previous close: ${previous_close:.2f}'}
             
-        # Get market open data (use first available data point)
         open_price = df.iloc[0]['open']
-        current_price = df.iloc[-1]['close']  # Most recent price
+        current_price = df.iloc[-1]['close']
         volume = df['volume'].sum()
         
-        # Validate prices
         if any(price <= 0 for price in [open_price, current_price]):
             return {'has_gap': False, 'reason': 'Invalid price data'}
         
-        # Calculate gap
         gap_pct = self.calculate_gap(open_price, previous_close)
         
-        # Check gap criteria
         gap_analysis = {
             'symbol': None,
             'has_gap': False,
@@ -215,12 +203,10 @@ class GSTDayTrader:
             'reason': None
         }
         
-        # Volume check
         if volume < self.min_volume_threshold:
             gap_analysis['reason'] = f'Low volume: {volume:,.0f} < {self.min_volume_threshold:,.0f}'
             return gap_analysis
         
-        # Gap size check
         if abs(gap_pct) < self.min_gap_threshold:
             gap_analysis['reason'] = f'Gap too small: {gap_pct:.1%} < {self.min_gap_threshold:.1%}'
             return gap_analysis
@@ -229,7 +215,6 @@ class GSTDayTrader:
             gap_analysis['reason'] = f'Gap too large: {gap_pct:.1%} > {self.max_gap_threshold:.1%}'
             return gap_analysis
         
-        # Valid gap found
         gap_analysis['has_gap'] = True
         gap_analysis['reason'] = f'Valid {gap_analysis["gap_direction"]} gap: {gap_pct:.1%}'
         
@@ -243,58 +228,45 @@ class GSTDayTrader:
         current_price = gap_analysis['current_price']
         gap_pct = gap_analysis['gap_pct']
         
-        # Validate current price
         if current_price <= 0 or current_price < self.min_price or current_price > self.max_price:
             return {'action': 'no_trade', 'reason': f'Invalid current price: ${current_price:.2f}'}
         
-        # Gap-fill strategy logic
-        if gap_pct > 0:  # Gap up
-            # Short position expecting gap fill
+        if gap_pct > 0:
             action = 'short'
             entry_price = current_price
             stop_loss = entry_price * (1 + self.stop_loss_pct)
             profit_target = max(gap_analysis['previous_close'], entry_price * (1 - self.profit_target_pct))
             
-        else:  # Gap down
-            # Long position expecting gap fill
+        else:
             action = 'long'
             entry_price = current_price
             stop_loss = entry_price * (1 - self.stop_loss_pct)
             profit_target = min(gap_analysis['previous_close'], entry_price * (1 + self.profit_target_pct))
         
-        # FIXED POSITION SIZING - Multiple layers of protection
         risk_per_share = abs(entry_price - stop_loss)
         
         if risk_per_share <= 0:
             return {'action': 'no_trade', 'reason': 'Invalid risk calculation'}
         
-        # Calculate shares based on risk limit
         max_shares_by_risk = int(self.max_risk_per_trade / risk_per_share)
-        
-        # Calculate shares based on position value limit
         max_shares_by_value = int(self.max_position_value / entry_price)
         
-        # Use the smaller of the two limits
         shares = min(max_shares_by_risk, max_shares_by_value)
         
-        # Minimum position size check
         if shares < 10:
             return {'action': 'no_trade', 'reason': f'Position too small: {shares} shares (min 10)'}
         
-        # Maximum position size check (safety net)
         if shares > 1000:
             shares = 1000
             self.logger.warning(f"Capping position at 1000 shares for safety")
         
-        # Calculate actual values for validation
         position_value = shares * entry_price
         actual_risk = shares * risk_per_share
         
-        # Final safety checks
         if position_value > self.max_position_value:
             return {'action': 'no_trade', 'reason': f'Position value ${position_value:.2f} exceeds limit ${self.max_position_value:.2f}'}
         
-        if actual_risk > self.max_risk_per_trade * 1.1:  # 10% tolerance
+        if actual_risk > self.max_risk_per_trade * 1.1:
             return {'action': 'no_trade', 'reason': f'Actual risk ${actual_risk:.2f} exceeds limit ${self.max_risk_per_trade:.2f}'}
         
         expected_profit = abs(profit_target - entry_price) * shares
@@ -314,12 +286,12 @@ class GSTDayTrader:
         }
         
         return trade_signal
-def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> Dict:
+    
+    def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> Dict:
         """Execute trade (simulation) with enhanced risk management"""
         if trade_signal['action'] == 'no_trade':
             return {'executed': False, 'reason': trade_signal['reason']}
         
-        # Risk management checks
         if self.daily_pnl <= self.max_daily_loss:
             return {'executed': False, 'reason': f'Daily loss limit reached: ${self.daily_pnl:.2f}'}
         
@@ -327,11 +299,9 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
         if len(open_positions) >= self.max_positions:
             return {'executed': False, 'reason': f'Maximum positions reached: {len(open_positions)}/{self.max_positions}'}
         
-        # Final position value check
         if trade_signal['position_value'] > self.max_position_value:
             return {'executed': False, 'reason': f'Position value ${trade_signal["position_value"]:.2f} exceeds limit'}
         
-        # Execute trade
         trade = {
             'symbol': symbol,
             'timestamp': datetime.now(),
@@ -351,56 +321,47 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
         
         self.trades.append(trade)
         
-        # Simulate immediate exit (for backtesting)
         exit_result = self.simulate_exit(trade, gap_analysis)
         
         self.logger.info(f"Trade executed: {symbol} {trade_signal['action']} {trade_signal['shares']} shares at ${trade_signal['entry_price']:.2f}, Risk: ${trade_signal['risk_amount']:.2f}")
         
         return {'executed': True, 'trade': trade, 'exit_result': exit_result}
     
-        def simulate_exit(self, trade: Dict, gap_analysis: Dict) -> Dict:
-            """Simulate trade exit with realistic probabilities"""
-            import random
+    def simulate_exit(self, trade: Dict, gap_analysis: Dict) -> Dict:
+        """Simulate trade exit with realistic probabilities"""
+        import random
         
-        # Enhanced gap fill probability based on gap size
         gap_abs = abs(gap_analysis['gap_pct'])
         
-        if gap_abs <= 0.03:  # Small gaps (<=3%) - higher fill probability
+        if gap_abs <= 0.03:
             gap_fill_probability = 0.75
-        elif gap_abs <= 0.05:  # Medium gaps (3-5%) - medium fill probability
+        elif gap_abs <= 0.05:
             gap_fill_probability = 0.60
-        else:  # Large gaps (>5%) - lower fill probability
+        else:
             gap_fill_probability = 0.45
         
         if random.random() < gap_fill_probability:
-            # Gap fills - profitable exit
             exit_price = trade['profit_target']
             exit_reason = 'profit_target'
         else:
-            # Gap doesn't fill - stop loss hit
             exit_price = trade['stop_loss']
             exit_reason = 'stop_loss'
         
-        # Calculate P&L
         if trade['action'] == 'long':
             pnl = (exit_price - trade['entry_price']) * trade['shares']
-        else:  # short
+        else:
             pnl = (trade['entry_price'] - exit_price) * trade['shares']
         
-        # Round P&L
         pnl = round(pnl, 2)
         
-        # Update trade
         trade['exit_price'] = round(exit_price, 2)
         trade['exit_reason'] = exit_reason
         trade['pnl'] = pnl
         trade['status'] = 'closed'
         
-        # Update portfolio
         self.daily_pnl = round(self.daily_pnl + pnl, 2)
         self.total_pnl = round(self.total_pnl + pnl, 2)
         
-        # Update drawdown
         if pnl < 0:
             self.current_drawdown = round(self.current_drawdown + pnl, 2)
             self.max_drawdown = round(min(self.max_drawdown, self.current_drawdown), 2)
@@ -420,24 +381,19 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
         self.logger.info(f"Processing symbol: {symbol}")
         
         try:
-            # Get previous close first (more efficient)
             previous_close = self.get_previous_close(symbol)
             if previous_close is None:
                 return {'success': False, 'reason': 'No previous close data'}
             
-            # Get intraday data
             df = self.get_intraday_data(symbol)
             if df is None:
                 return {'success': False, 'reason': 'No intraday data'}
             
-            # Identify gap opportunity
             gap_analysis = self.identify_gap_opportunity(df, previous_close)
             gap_analysis['symbol'] = symbol
             
-            # Generate trade signal
             trade_signal = self.generate_trade_signal(gap_analysis, df)
             
-            # Execute trade if signal is valid
             execution_result = self.execute_trade(symbol, trade_signal, gap_analysis)
             
             result = {
@@ -448,8 +404,7 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
                 'execution_result': execution_result
             }
             
-            # Add delay to avoid API rate limits
-            time.sleep(1.0)  # Increased delay
+            time.sleep(1.0)
             
             return result
             
@@ -488,7 +443,6 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
                     if result['execution_result']['executed']:
                         results['total_trades'] += 1
                         
-                        # Track trade success
                         trade = result['execution_result']['trade']
                         if trade['pnl'] > 0:
                             results['successful_trades'] += 1
@@ -498,7 +452,6 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
                     if 'API' in result['reason'] or 'Error' in result['reason']:
                         results['api_errors'] += 1
                 
-                # Stop if daily loss limit reached
                 if self.daily_pnl <= self.max_daily_loss:
                     self.logger.warning(f"Daily loss limit reached: ${self.daily_pnl:.2f}, stopping strategy")
                     break
@@ -548,7 +501,6 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
                 'worst_trade': '$0.00'
             }
         
-        # Calculate metrics
         total_trades = len(closed_trades)
         winning_trades = len(closed_trades[closed_trades['pnl'] > 0])
         win_rate = winning_trades / total_trades if total_trades > 0 else 0
@@ -556,7 +508,6 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
         total_pnl = closed_trades['pnl'].sum()
         avg_profit_per_trade = total_pnl / total_trades if total_trades > 0 else 0
         
-        # Calculate Sharpe ratio (simplified)
         if len(closed_trades) > 1:
             returns = closed_trades['pnl'] / self.max_risk_per_trade
             sharpe_ratio = returns.mean() / returns.std() if returns.std() > 0 else 0
@@ -596,7 +547,6 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
         
         performance = self.get_performance_summary()
         
-        # Add detailed metrics
         detailed_report = {
             'timestamp': datetime.now().strftime('%Y%m%d_%H%M%S'),
             'results': {
@@ -637,13 +587,10 @@ def execute_trade(self, symbol: str, trade_signal: Dict, gap_analysis: Dict) -> 
         self.current_drawdown = 0.0
         self.logger.info("Daily statistics reset")
 
-# Example usage and testing
 if __name__ == "__main__":
-    # Example usage with your API key
     api_key = "D4NJ9SDT2NS2L6UX"
-    trader = GSTDayTrader(api_key, max_risk_per_trade=50)  # Reduced risk to $50
+    trader = GSTDayTrader(api_key, max_risk_per_trade=50)
     
-    # Test symbols (smaller list for testing)
     test_symbols = ['AAPL', 'TSLA', 'MSFT', 'NVDA', 'GOOGL']
     
     print("🚀 Starting gSTDayTrader with FIXED position sizing...")
@@ -651,10 +598,8 @@ if __name__ == "__main__":
     print(f"Max position value: ${trader.max_position_value}")
     print("=" * 60)
     
-    # Run strategy
     results = trader.run_strategy(test_symbols)
     
-    # Print results
     print("\n📊 STRATEGY RESULTS:")
     print("=" * 40)
     print(f"Symbols processed:   {results['symbols_processed']}")
@@ -666,14 +611,12 @@ if __name__ == "__main__":
     print(f"API errors:          {results['api_errors']}")
     print(f"Duration:            {results['duration']}")
     
-    # Performance summary
     performance = trader.get_performance_summary()
     print("\n📈 PERFORMANCE SUMMARY:")
     print("=" * 40)
     for key, value in performance.items():
         print(f"{key.replace('_', ' ').title()}: {value}")
     
-    # Save results
     trader.save_trades_to_csv()
     trader.save_performance_report()
     
