@@ -7,7 +7,7 @@ from data_manager import get_sp500_symbols, save_price_data, load_price_data
 from nGS_Strategy import NGSStrategy  # ADD THIS IMPORT
 
 # --- CONFIGURATION ---
-HISTORY_DAYS = 2
+HISTORY_DAYS = 180
 SLEEP_SECONDS = 12
 
 # Set your Polygon API key here if not set in environment
