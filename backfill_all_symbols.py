@@ -90,15 +90,11 @@ if not os.getenv("POLYGON_API_KEY"):
         "Set it in your terminal before running this script."
     )
 
-symbols = ['AAPL', 'MSFT', 'GOOGL']  # Simple test list
 print(f"Starting sequential backfill for {len(symbols)} symbols, {HISTORY_DAYS} days each.")
 print(f"Respecting Polygon free tier rate limit: 1 request every {SLEEP_SECONDS} seconds.")
 
-# FOR TESTING: Process only first 3 symbols
-test_symbols = symbols[:3]  # REMOVE THIS LINE TO PROCESS ALL SYMBOLS
-
 for idx, symbol in enumerate(test_symbols):
-    print(f"({idx+1}/{len(test_symbols)}) Downloading {symbol} ...")
+    print(f"({idx+1}/{len(symbols)}) Downloading {symbol} ...")
     try:
         # Download raw data
         df = get_polygon_daily_data(symbol, HISTORY_DAYS)
