@@ -302,7 +302,7 @@ initial_value = st.number_input(
     min_value=1000,
     value=100000,
     step=1000,
-    format="%d"
+    format="%d",
     key="portfolio_size" 
 )
 
