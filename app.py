@@ -303,6 +303,7 @@ initial_value = st.number_input(
     value=100000,
     step=1000,
     format="%d"
+    key="portfolio_size" 
 )
 
 # --- PORTFOLIO METRICS - SINGLE LINE ONLY ---
