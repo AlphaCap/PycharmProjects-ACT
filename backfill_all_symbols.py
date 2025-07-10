@@ -89,7 +89,7 @@ if not os.getenv("POLYGON_API_KEY"):
         "POLYGON_API_KEY environment variable is not set.\n"
         "Set it in your terminal before running this script."
     )
-symbols = ['AAPL', 'MSFT', 'GOOGL']  
+symbols = get_sp500_symbols()  # All 500 symbols 
 
 print(f"Starting sequential backfill for {len(symbols)} symbols, {HISTORY_DAYS} days each.")
 print(f"Respecting Polygon free tier rate limit: 1 request every {SLEEP_SECONDS} seconds.")
