@@ -1,7 +1,7 @@
 # Core dependencies
 streamlit>=1.24.0
 numpy==1.26.4
-pandas>=1.5.3  # Uncommented - needed for data processing
+pandas>=1.5.3
 requests==2.31.0
 urllib3==1.26.18
 
@@ -18,6 +18,9 @@ seaborn>=0.12.2
 cffi==1.17.1
 setuptools==70.0.0
 
+# nGS System dependencies (Polygon API)
+polygon-api-client>=1.12.0
+typing-extensions>=4.5.0
+
 # Optional - uncomment if needed
 #lxml==4.9.4
-
