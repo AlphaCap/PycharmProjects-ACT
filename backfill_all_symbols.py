@@ -7,7 +7,7 @@ from data_manager import get_sp500_symbols, save_price_data, load_price_data
 from nGS_Strategy import NGSStrategy  # ADD THIS IMPORT
 
 # --- CONFIGURATION ---
-HISTORY_DAYS = 2
+HISTORY_DAYS = 180
 SLEEP_SECONDS = 12
 
 # Set your Polygon API key here if not set in environment
@@ -79,7 +79,7 @@ def process_with_indicators(symbol, new_df):
             return df_with_indicators
         else:
             return combined_df
-            
+               
     except Exception as e:
         print(f"Error calculating indicators for {symbol}: {e}")
         return new_df
@@ -89,16 +89,13 @@ if not os.getenv("POLYGON_API_KEY"):
         "POLYGON_API_KEY environment variable is not set.\n"
         "Set it in your terminal before running this script."
     )
+symbols = get_sp500_symbols()  # All 500 symbols 
 
-symbols = ['AAPL', 'MSFT', 'GOOGL']  # Simple test list
 print(f"Starting sequential backfill for {len(symbols)} symbols, {HISTORY_DAYS} days each.")
 print(f"Respecting Polygon free tier rate limit: 1 request every {SLEEP_SECONDS} seconds.")
 
-# FOR TESTING: Process only first 3 symbols
-test_symbols = symbols[:3]  # REMOVE THIS LINE TO PROCESS ALL SYMBOLS
-
-for idx, symbol in enumerate(test_symbols):
-    print(f"({idx+1}/{len(test_symbols)}) Downloading {symbol} ...")
+for idx, symbol in enumerate(symbols):
+    print(f"({idx+1}/{len(symbols)}) Downloading {symbol} ...")
     try:
         # Download raw data
         df = get_polygon_daily_data(symbol, HISTORY_DAYS)
