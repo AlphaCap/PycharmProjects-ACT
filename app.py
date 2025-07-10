@@ -132,7 +132,7 @@ def scan_for_live_updates():
     
     # Fallback to CSV scanning if nGS not available or failed
     if not update_info['potential_signals']:
-        csv_files = glob.glob("*.csv")
+        csv_files = glob.glob("data/daily/*.csv")
         stock_files = [f for f in csv_files if len(f.replace('.csv', '')) <= 5 and f.replace('.csv', '').isalpha()]
         
         update_info['total_files'] = len(stock_files)
@@ -148,7 +148,7 @@ def scan_for_live_updates():
             for file in stock_files[:10]:  # Check first 10 files
                 try:
                     df = pd.read_csv(file)
-                    symbol = file.replace('.csv', '').upper()
+                    symbol = os.path.basename(file).replace('.csv', '').upper()
                     
                     if not df.empty and len(df) >= 2 and 'Close' in df.columns:
                         latest = df.iloc[-1]
