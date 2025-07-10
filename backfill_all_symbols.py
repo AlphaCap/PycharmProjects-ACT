@@ -120,3 +120,45 @@ for idx, symbol in enumerate(symbols):
     time.sleep(SLEEP_SECONDS)
 
 print("Backfill complete with indicators!")
+
+# Add this validation summary:
+print("\n" + "="*60)
+print("BACKFILL VALIDATION SUMMARY")
+print("="*60)
+
+def validate_final_data():
+    """Validate all downloaded data after backfill completion"""
+    valid_count = 0
+    invalid_count = 0
+    total_rows = 0
+    
+    for symbol in symbols:
+        try:
+            df = load_price_data(symbol)
+            if not df.empty:
+                # Check required columns
+                required_cols = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
+                indicator_cols = ['BBAvg', 'UpperBB', 'LowerBB', 'ATR']
+                
+                missing_cols = [col for col in required_cols if col not in df.columns]
+                has_indicators = sum(1 for col in indicator_cols if col in df.columns and not df[col].isna().all())
+                
+                if not missing_cols:
+                    valid_count += 1
+                    total_rows += len(df)
+                    print(f"✅ {symbol}: {len(df)} rows, {has_indicators}/4 indicators, Latest: ${df['Close'].iloc[-1]:.2f}")
+                else:
+                    invalid_count += 1
+                    print(f"❌ {symbol}: Missing columns: {missing_cols}")
+            else:
+                invalid_count += 1
+                print(f"❌ {symbol}: No data found")
+                
+        except Exception as e:
+            invalid_count += 1
+            print(f"❌ {symbol}: Error reading - {e}")
+    
+    print(f"\n📊 SUMMARY: {valid_count} valid, {invalid_count} invalid, {total_rows:,} total rows")
+    return valid_count, invalid_count
+
+validate_final_data()
