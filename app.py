@@ -16,6 +16,14 @@ from data_manager import (
     get_trades_history
 )
 
+# Import nGS System (Polygon data)
+try:
+    from nGS_Strategy import NGSStrategy
+    from ngs_main_runner import NGSSystemRunner
+    NGS_AVAILABLE = True
+except ImportError:
+    NGS_AVAILABLE = False
+
 # Import the real portfolio calculator
 try:
     from portfolio_calculator import calculate_real_portfolio_metrics, get_enhanced_strategy_performance, patch_portfolio_metrics
@@ -97,54 +105,74 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- LIVE UPDATE FUNCTIONS ---
 @st.cache_data(ttl=30)  # Cache for 30 seconds
 def scan_for_live_updates():
-    """Scan for updated CSV files and detect potential trades"""
-    csv_files = glob.glob("*.csv")
-    stock_files = [f for f in csv_files if len(f.replace('.csv', '')) <= 5 and f.replace('.csv', '').isalpha()]
-    
+    """Scan for updated data and detect potential trades - nGS integration"""
     update_info = {
-        'total_files': len(stock_files),
+        'total_files': 0,
         'last_update': None,
         'latest_symbol': None,
         'market_moves': [],
         'potential_signals': []
     }
     
-    if stock_files:
-        # Find most recently updated file
-        latest_file = max(stock_files, key=os.path.getmtime)
-        mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(latest_file))
-        update_info['last_update'] = mod_time
-        update_info['latest_symbol'] = latest_file.replace('.csv', '').upper()
-        
-        # Scan for significant market moves
-        for file in stock_files[:10]:  # Check first 10 files
-            try:
-                df = pd.read_csv(file)
-                symbol = file.replace('.csv', '').upper()
+    # Try to get nGS data first
+    if NGS_AVAILABLE:
+        try:
+            runner = NGSSystemRunner()
+            results = runner.run()
+            
+            if results and 'current_signals' in results:
+                update_info['potential_signals'] = results['current_signals']
+                update_info['total_files'] = results.get('symbols_scanned', 0)
+                update_info['last_update'] = datetime.datetime.now()
+                update_info['latest_symbol'] = 'nGS_SCAN'
                 
-                if not df.empty and len(df) >= 2 and 'Close' in df.columns:
-                    latest = df.iloc[-1]
-                    previous = df.iloc[-2]
+        except Exception as e:
+            # Fallback to CSV scanning if nGS fails
+            pass
+    
+    # Fallback to CSV scanning if nGS not available or failed
+    if not update_info['potential_signals']:
+        csv_files = glob.glob("*.csv")
+        stock_files = [f for f in csv_files if len(f.replace('.csv', '')) <= 5 and f.replace('.csv', '').isalpha()]
+        
+        update_info['total_files'] = len(stock_files)
+        
+        if stock_files:
+            # Find most recently updated file
+            latest_file = max(stock_files, key=os.path.getmtime)
+            mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(latest_file))
+            update_info['last_update'] = mod_time
+            update_info['latest_symbol'] = latest_file.replace('.csv', '').upper()
+            
+            # Scan for significant market moves
+            for file in stock_files[:10]:  # Check first 10 files
+                try:
+                    df = pd.read_csv(file)
+                    symbol = file.replace('.csv', '').upper()
                     
-                    price_change = latest['Close'] - previous['Close']
-                    change_pct = (price_change / previous['Close']) * 100
-                    
-                    # Track significant moves (>1%)
-                    if abs(change_pct) > 1.0:
-                        update_info['market_moves'].append({
-                            'symbol': symbol,
-                            'price': latest['Close'],
-                            'change_pct': change_pct,
-                            'volume': latest.get('Volume', 0)
-                        })
-                    
-                    # Detect potential trading signals
-                    signal = detect_trading_signal(df, symbol)
-                    if signal:
-                        update_info['potential_signals'].append(signal)
+                    if not df.empty and len(df) >= 2 and 'Close' in df.columns:
+                        latest = df.iloc[-1]
+                        previous = df.iloc[-2]
                         
-            except Exception:
-                continue
+                        price_change = latest['Close'] - previous['Close']
+                        change_pct = (price_change / previous['Close']) * 100
+                        
+                        # Track significant moves (>1%)
+                        if abs(change_pct) > 1.0:
+                            update_info['market_moves'].append({
+                                'symbol': symbol,
+                                'price': latest['Close'],
+                                'change_pct': change_pct,
+                                'volume': latest.get('Volume', 0)
+                            })
+                        
+                        # Detect potential trading signals
+                        signal = detect_trading_signal(df, symbol)
+                        if signal:
+                            update_info['potential_signals'].append(signal)
+                            
+                except Exception:
+                    continue
     
     return update_info
 
@@ -229,6 +257,10 @@ with st.sidebar:
     if st.button("nGulfStream Swing Trader", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
+    # nGS System status indicator
+    ngs_status = "🟢 Active" if NGS_AVAILABLE else "🔴 Offline"
+    st.caption(f"nGS System: {ngs_status}")
+    
     # Disabled placeholder buttons for future systems
     st.button("Alpha Capture AI", use_container_width=True, disabled=True, help="Coming Soon")
     st.button("gST DayTrader", use_container_width=True, disabled=True, help="Coming Soon")
@@ -256,6 +288,12 @@ with st.sidebar:
 # --- PAGE HEADER ---
 st.title("Alpha Capture Technology AI")
 st.caption("S&P 500 Long/Short Position Trader")
+
+# Data source indicator
+if NGS_AVAILABLE:
+    st.success("📊 Data Source: nGS System (Polygon API)")
+else:
+    st.warning("📊 Data Source: CSV Files (nGS System offline)")
 
 # --- VARIABLE ACCOUNT SIZE ---
 st.markdown("## Current Portfolio Status")
