@@ -79,7 +79,8 @@ def process_with_indicators(symbol, new_df):
             return df_with_indicators
         else:
             return combined_df
-            
+        symbols = ['AAPL', 'MSFT', 'GOOGL']   
+        
     except Exception as e:
         print(f"Error calculating indicators for {symbol}: {e}")
         return new_df
@@ -93,7 +94,7 @@ if not os.getenv("POLYGON_API_KEY"):
 print(f"Starting sequential backfill for {len(symbols)} symbols, {HISTORY_DAYS} days each.")
 print(f"Respecting Polygon free tier rate limit: 1 request every {SLEEP_SECONDS} seconds.")
 
-for idx, symbol in enumerate(test_symbols):
+for idx, symbol in enumerate(symbols):
     print(f"({idx+1}/{len(symbols)}) Downloading {symbol} ...")
     try:
         # Download raw data
