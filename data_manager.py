@@ -39,6 +39,63 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def get_sp500_symbols():
+    """Return a list of S&P 500 symbols"""
+    # Sample S&P 500 symbols - you can expand this list or load from a file
+    symbols = [
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BRK-B', 'UNH', 'JNJ',
+        'V', 'PG', 'HD', 'CVX', 'MA', 'BAC', 'ABBV', 'PFE', 'KO', 'AVGO',
+        'PEP', 'TMO', 'COST', 'MRK', 'WMT', 'NFLX', 'DIS', 'ABT', 'ADBE', 'CRM',
+        'XOM', 'VZ', 'CMCSA', 'NKE', 'INTC', 'T', 'AMD', 'TXN', 'QCOM', 'LOW',
+        'UPS', 'PM', 'SPGI', 'HON', 'INTU', 'IBM', 'GS', 'AMGN', 'BKNG', 'CAT',
+        'SBUX', 'GILD', 'MDT', 'AXP', 'BLK', 'ISRG', 'TJX', 'MMM', 'LRCX', 'MU',
+        'CVS', 'MO', 'PYPL', 'PLD', 'ZTS', 'MDLZ', 'TMUS', 'C', 'REGN', 'DUK',
+        'SO', 'CB', 'BMY', 'SCHW', 'NEE', 'RTX', 'NOW', 'SYK', 'BSX', 'COP',
+        'ELV', 'LMT', 'DE', 'FDX', 'ANTM', 'EQIX', 'EL', 'ITW', 'AON', 'MMC',
+        'NSC', 'HUM', 'PNC', 'GD', 'FCX', 'CSX', 'WM', 'USB', 'EMR', 'SRE',
+        'TGT', 'GM', 'CL', 'F', 'APD', 'GE', 'ORLY', 'MCD', 'ATVI', 'D'
+    ]
+    return symbols
+
+def save_price_data(symbol, df):
+    """Save price data to CSV file"""
+    try:
+        file_path = f'data/daily/{symbol}.csv'
+        
+        # Ensure Date column is properly formatted
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'])
+        
+        # Save to CSV
+        df.to_csv(file_path, index=False)
+        logger.info(f"Saved {len(df)} rows for {symbol} to {file_path}")
+        
+    except Exception as e:
+        logger.error(f"Error saving data for {symbol}: {e}")
+        raise
+
+def load_price_data(symbol):
+    """Load price data from CSV file"""
+    try:
+        file_path = f'data/daily/{symbol}.csv'
+        
+        if os.path.exists(file_path):
+            df = pd.read_csv(file_path)
+            
+            # Ensure Date column is properly formatted
+            if 'Date' in df.columns:
+                df['Date'] = pd.to_datetime(df['Date'])
+            
+            logger.info(f"Loaded {len(df)} rows for {symbol} from {file_path}")
+            return df
+        else:
+            logger.warning(f"Data file not found for symbol: {symbol}")
+            return pd.DataFrame()
+            
+    except Exception as e:
+        logger.error(f"Error loading data for {symbol}: {e}")
+        return pd.DataFrame()
+
 def get_portfolio_metrics():
     """Get basic portfolio metrics"""
     try:
@@ -226,4 +283,3 @@ def validate_data_integrity():
 
 # Initialize on import
 validate_data_integrity()
-
