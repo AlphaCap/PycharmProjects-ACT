@@ -3,18 +3,52 @@ import pandas as pd
 import datetime
 import glob
 import os
+import sys
 import numpy as np
-from data_manager import (
-    get_portfolio_metrics,
-    get_strategy_performance,
-    get_portfolio_performance_stats,
-    get_positions,
-    get_long_positions_formatted,
-    get_short_positions_formatted,
-    get_signals,
-    get_system_status,
-    get_trades_history
-)
+
+# --- PATH CONFIGURATION FOR STREAMLIT CLOUD ---
+# Get the directory where app.py is located
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Add the app directory to Python path
+if APP_DIR not in sys.path:
+    sys.path.insert(0, APP_DIR)
+
+# Set up data directories using absolute paths
+DATA_DIR = os.path.join(APP_DIR, "data")
+DAILY_DIR = os.path.join(DATA_DIR, "daily")
+
+# Ensure data directories exist
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(DAILY_DIR, exist_ok=True)
+
+# --- DEBUG INFO (remove after deployment works) ---
+# st.sidebar.write("**Debug Info:**")
+# st.sidebar.write(f"Current working dir: {os.getcwd()}")
+# st.sidebar.write(f"App file location: {__file__}")
+# st.sidebar.write(f"App directory: {APP_DIR}")
+# st.sidebar.write(f"Files in app dir: {os.listdir(APP_DIR) if os.path.exists(APP_DIR) else 'DIR NOT FOUND'}")
+# if os.path.exists(DATA_DIR):
+#     st.sidebar.write(f"Data dir exists: {os.listdir(DATA_DIR)}")
+# else:
+#     st.sidebar.write("Data directory not found")
+
+# Import data manager functions with path fixes
+try:
+    from data_manager import (
+        get_portfolio_metrics,
+        get_strategy_performance,
+        get_portfolio_performance_stats,
+        get_positions,
+        get_long_positions_formatted,
+        get_short_positions_formatted,
+        get_signals,
+        get_system_status,
+        get_trades_history
+    )
+except ImportError as e:
+    st.error(f"Failed to import data_manager: {e}")
+    st.stop()
 
 # Import nGS System (Polygon data)
 try:
@@ -132,8 +166,10 @@ def scan_for_live_updates():
     
     # Fallback to CSV scanning if nGS not available or failed
     if not update_info['potential_signals']:
-        csv_files = glob.glob("data/daily/*.csv")
-        stock_files = [f for f in csv_files if len(f.replace('.csv', '')) <= 5 and f.replace('.csv', '').isalpha()]
+        # Use absolute path for CSV files
+        csv_pattern = os.path.join(DAILY_DIR, "*.csv")
+        csv_files = glob.glob(csv_pattern)
+        stock_files = [f for f in csv_files if len(os.path.basename(f).replace('.csv', '')) <= 5 and os.path.basename(f).replace('.csv', '').isalpha()]
         
         update_info['total_files'] = len(stock_files)
         
@@ -142,7 +178,7 @@ def scan_for_live_updates():
             latest_file = max(stock_files, key=os.path.getmtime)
             mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(latest_file))
             update_info['last_update'] = mod_time
-            update_info['latest_symbol'] = latest_file.replace('.csv', '').upper()
+            update_info['latest_symbol'] = os.path.basename(latest_file).replace('.csv', '').upper()
             
             # Scan for significant market moves
             for file in stock_files[:10]:  # Check first 10 files
@@ -307,10 +343,14 @@ initial_value = st.number_input(
 )
 
 # --- PORTFOLIO METRICS - SINGLE LINE ONLY ---
-if USE_REAL_METRICS:
-    metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
-else:
-    metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+try:
+    if USE_REAL_METRICS:
+        metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
+    else:
+        metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+except Exception as e:
+    st.error(f"Error loading portfolio metrics: {e}")
+    metrics = {}
 
 # Ensure all required metrics exist with defaults
 required_metrics = {
@@ -353,62 +393,71 @@ st.markdown("## Current Positions")
 
 # Long Positions
 st.subheader("📈 Long Positions")
-long_positions_df = get_long_positions_formatted()
-if not long_positions_df.empty:
-    st.dataframe(long_positions_df, use_container_width=True, hide_index=True)
-    
-    # Long positions summary
-    long_count = len(long_positions_df)
-    long_total_value = long_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
-    st.caption(f"**Long Summary:** {long_count} positions, Total P&L: ${long_total_value:.2f}")
-else:
-    st.info("No active long positions.")
+try:
+    long_positions_df = get_long_positions_formatted()
+    if not long_positions_df.empty:
+        st.dataframe(long_positions_df, use_container_width=True, hide_index=True)
+        
+        # Long positions summary
+        long_count = len(long_positions_df)
+        long_total_value = long_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
+        st.caption(f"**Long Summary:** {long_count} positions, Total P&L: ${long_total_value:.2f}")
+    else:
+        st.info("No active long positions.")
+except Exception as e:
+    st.error(f"Error loading long positions: {e}")
 
 # Short Positions  
 st.subheader("📉 Short Positions")
-short_positions_df = get_short_positions_formatted()
-if not short_positions_df.empty:
-    st.dataframe(short_positions_df, use_container_width=True, hide_index=True)
-    
-    # Short positions summary
-    short_count = len(short_positions_df)
-    short_total_value = short_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
-    st.caption(f"**Short Summary:** {short_count} positions, Total P&L: ${short_total_value:.2f}")
-else:
-    st.info("No active short positions.")
+try:
+    short_positions_df = get_short_positions_formatted()
+    if not short_positions_df.empty:
+        st.dataframe(short_positions_df, use_container_width=True, hide_index=True)
+        
+        # Short positions summary
+        short_count = len(short_positions_df)
+        short_total_value = short_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
+        st.caption(f"**Short Summary:** {short_count} positions, Total P&L: ${short_total_value:.2f}")
+    else:
+        st.info("No active short positions.")
+except Exception as e:
+    st.error(f"Error loading short positions: {e}")
 
 # --- TODAY'S SIGNALS SECTION ---
 st.markdown("## Today's Signals")
 
 # Get signals from data manager
-signals_df = get_signals()
-if not signals_df.empty:
-    # Filter for today's signals if date column exists
-    today = datetime.datetime.now().date()
-    if 'date' in signals_df.columns:
-        signals_df['date'] = pd.to_datetime(signals_df['date']).dt.date
-        todays_signals = signals_df[signals_df['date'] == today]
+try:
+    signals_df = get_signals()
+    if not signals_df.empty:
+        # Filter for today's signals if date column exists
+        today = datetime.datetime.now().date()
+        if 'date' in signals_df.columns:
+            signals_df['date'] = pd.to_datetime(signals_df['date']).dt.date
+            todays_signals = signals_df[signals_df['date'] == today]
+        else:
+            todays_signals = signals_df.head(10)  # Show recent signals
+        
+        if not todays_signals.empty:
+            # Display today's signals in a clean format
+            for _, signal in todays_signals.iterrows():
+                col_a, col_b, col_c, col_d = st.columns([1, 1, 1, 2])
+                
+                with col_a:
+                    st.write(f"**{signal['symbol']}**")
+                with col_b:
+                    direction_emoji = "🟢" if "long" in str(signal['signal_type']).lower() else "🔴"
+                    st.write(f"{direction_emoji} {signal['signal_type']}")
+                with col_c:
+                    st.write(f"${signal['price']}")
+                with col_d:
+                    st.write(f"{signal['strategy']}")
+        else:
+            st.info("No signals generated today.")
     else:
-        todays_signals = signals_df.head(10)  # Show recent signals
-    
-    if not todays_signals.empty:
-        # Display today's signals in a clean format
-        for _, signal in todays_signals.iterrows():
-            col_a, col_b, col_c, col_d = st.columns([1, 1, 1, 2])
-            
-            with col_a:
-                st.write(f"**{signal['symbol']}**")
-            with col_b:
-                direction_emoji = "🟢" if "long" in str(signal['signal_type']).lower() else "🔴"
-                st.write(f"{direction_emoji} {signal['signal_type']}")
-            with col_c:
-                st.write(f"${signal['price']}")
-            with col_d:
-                st.write(f"{signal['strategy']}")
-    else:
-        st.info("No signals generated today.")
-else:
-    st.info("No recent signals available.")
+        st.info("No recent signals available.")
+except Exception as e:
+    st.error(f"Error loading signals: {e}")
 
 # Add live signals if available
 live_data = scan_for_live_updates()
