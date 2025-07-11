@@ -5,20 +5,38 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# --- PATH CONFIGURATION FOR STREAMLIT CLOUD ---
+# Get the parent directory where app.py and data_manager.py are located
+PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from data_manager import (
-    get_portfolio_metrics,
-    get_strategy_performance,
-    get_portfolio_performance_stats,
-    get_positions,
-    get_long_positions_formatted,
-    get_short_positions_formatted,
-    get_signals,
-    get_system_status,
-    get_trades_history
-)
+# Add the parent directory to Python path
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
+
+# Also add current directory
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
+
+# Import data manager functions with error handling
+try:
+    from data_manager import (
+        get_portfolio_metrics,
+        get_strategy_performance,
+        get_portfolio_performance_stats,
+        get_positions,
+        get_long_positions_formatted,
+        get_short_positions_formatted,
+        get_signals,
+        get_system_status,
+        get_trades_history
+    )
+except ImportError as e:
+    st.error(f"Failed to import data_manager: {e}")
+    st.error(f"Current working directory: {os.getcwd()}")
+    st.error(f"Parent directory: {PARENT_DIR}")
+    st.error(f"Python path: {sys.path}")
+    st.stop()
 
 # Import the real portfolio calculator
 try:
@@ -143,7 +161,7 @@ col6, col7 = st.columns([1, 1])
 with col6:
     st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
 with col7:
-    if st.button("🔄 Refresh Historical Data", use_container_width=True):
+    if st.button("🔄 Refresh Historical Data", use_container_width=True, key="refresh_historical"):
         st.cache_data.clear()
         st.rerun()
 
@@ -242,7 +260,8 @@ try:
             label="📥 Download Trade History CSV",
             data=csv,
             file_name=f"trade_history_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
+            mime="text/csv",
+            key="download_trades"
         )
     else:
         st.info("No trade history available.")
