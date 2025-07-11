@@ -319,5 +319,98 @@ def validate_data_integrity():
         logger.error(f"Data integrity validation failed: {e}")
         return False
 
+# Add missing functions that nGS_Strategy needs
+
+def save_trades(trades_list):
+    """Save trades to CSV file"""
+    try:
+        trades_file = 'data/trades/trade_history.csv'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(trades_file), exist_ok=True)
+        
+        if os.path.exists(trades_file):
+            # Append to existing trades
+            existing_df = pd.read_csv(trades_file)
+            new_df = pd.DataFrame(trades_list)
+            combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+            combined_df.to_csv(trades_file, index=False)
+        else:
+            # Create new file
+            df = pd.DataFrame(trades_list)
+            df.to_csv(trades_file, index=False)
+        
+        logger.info(f"Saved {len(trades_list)} trades to {trades_file}")
+        
+    except Exception as e:
+        logger.error(f"Error saving trades: {e}")
+        raise
+
+def save_positions(positions_list):
+    """Save positions to CSV file"""
+    try:
+        positions_file = 'data/trades/current_positions.csv'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(positions_file), exist_ok=True)
+        
+        df = pd.DataFrame(positions_list)
+        df.to_csv(positions_file, index=False)
+        
+        logger.info(f"Saved {len(positions_list)} positions to {positions_file}")
+        
+    except Exception as e:
+        logger.error(f"Error saving positions: {e}")
+        raise
+
+def save_signals(signals_list):
+    """Save signals to CSV file"""
+    try:
+        signals_file = 'data/trades/recent_signals.csv'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(signals_file), exist_ok=True)
+        
+        df = pd.DataFrame(signals_list)
+        df.to_csv(signals_file, index=False)
+        
+        logger.info(f"Saved {len(signals_list)} signals to {signals_file}")
+        
+    except Exception as e:
+        logger.error(f"Error saving signals: {e}")
+        raise
+
+def get_current_positions():
+    """Get current portfolio positions"""
+    try:
+        positions_file = 'data/trades/current_positions.csv'
+        
+        if os.path.exists(positions_file):
+            positions_df = pd.read_csv(positions_file)
+            return positions_df
+        else:
+            print("⚠️ Positions file not found - creating empty DataFrame")
+            return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
+            
+    except Exception as e:
+        logger.error(f"Error in get_current_positions: {e}")
+        return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
+
+def get_recent_signals():
+    """Get recent trading signals"""
+    try:
+        signals_file = 'data/trades/recent_signals.csv'
+        
+        if os.path.exists(signals_file):
+            signals_df = pd.read_csv(signals_file)
+            return signals_df
+        else:
+            print("⚠️ Signals file not found - creating empty DataFrame")
+            return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
+            
+    except Exception as e:
+        logger.error(f"Error in get_recent_signals: {e}")
+        return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
+
 # Initialize on import
 validate_data_integrity()
