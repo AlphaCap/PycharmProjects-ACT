@@ -13,7 +13,6 @@ DAILY_COLUMNS = [
     "oLRValue", "oLRValue2", "SwingLow", "SwingHigh"
 ]
 
-<<<<<<< HEAD
 os.makedirs("data/daily", exist_ok=True)
 aapl_file = "data/daily/AAPL.csv"
 if not os.path.exists(aapl_file):
@@ -21,7 +20,6 @@ if not os.path.exists(aapl_file):
     print(f"Created {aapl_file}")
 else:
     print(f"{aapl_file} already exists.")
-=======
 # --- LOGGING ---
 logging.basicConfig(
     level=logging.INFO,
@@ -203,14 +201,13 @@ def load_price_data(symbol: str) -> pd.DataFrame:
         return pd.DataFrame(columns=ALL_COLUMNS)
 
 # --- TRADES, POSITIONS, SIGNALS, METADATA, INITIALIZATION ---
->>>>>>> 1aa2d35df918c0a7ca82ab910708fed5f2e15ed9
 
 # Trade history file columns
 TRADE_COLUMNS = [
     "symbol", "type", "entry_date", "exit_date",
     "entry_price", "exit_price", "shares", "profit", "exit_reason"
 ]
-<<<<<<< HEAD
+
 os.makedirs("data/trades", exist_ok=True)
 trade_file = "data/trades/trade_history.csv"
 if not os.path.exists(trade_file):
@@ -218,7 +215,7 @@ if not os.path.exists(trade_file):
     print(f"Created {trade_file}")
 else:
     print(f"{trade_file} already exists.")
-=======
+
 POSITION_COLUMNS = [
     "symbol", "shares", "entry_price", "entry_date", "current_price", 
     "current_value", "profit", "profit_pct", "days_held", "side", "strategy"
@@ -784,4 +781,3 @@ def initialize():
 if __name__ == "__main__":
     initialize()
     logger.info("data_manager.py loaded successfully")
->>>>>>> 1aa2d35df918c0a7ca82ab910708fed5f2e15ed9
