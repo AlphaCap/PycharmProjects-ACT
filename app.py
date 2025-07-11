@@ -288,9 +288,10 @@ def detect_trading_signal(df, symbol):
     return None
 
 # --- SIDEBAR NAVIGATION ---
+# --- SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.title("Trading Systems")
-    if st.button("nGulfStream Swing Trader", use_container_width=True):
+    if st.button("nGulfStream Swing Trader", use_container_width=True, key="nav_ngs"):
         st.switch_page("pages/1_nGS_System.py")
     
     # nGS System status indicator
@@ -298,8 +299,8 @@ with st.sidebar:
     st.caption(f"nGS System: {ngs_status}")
     
     # Disabled placeholder buttons for future systems
-    st.button("Alpha Capture AI", use_container_width=True, disabled=True, help="Coming Soon")
-    st.button("gST DayTrader", use_container_width=True, disabled=True, help="Coming Soon")
+    st.button("Alpha Capture AI", use_container_width=True, disabled=True, help="Coming Soon", key="nav_alpha")
+    st.button("gST DayTrader", use_container_width=True, disabled=True, help="Coming Soon", key="nav_gst")
     
     st.markdown("---")
     st.caption("Data last updated:")
