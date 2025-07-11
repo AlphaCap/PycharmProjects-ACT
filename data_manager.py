@@ -70,7 +70,7 @@ def get_sp500_symbols() -> list:
 # --- PRICE + INDICATOR DATA ---
 def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_DAYS):
     """
-    Save the DataFrame with price + indicator columns for a symbol.
+    Save the DataFrame with price + indicator columns for a symbol in readable column format.
     Only the most recent `history_days` rows are retained.
     """
     filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
@@ -82,14 +82,135 @@ def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_D
                 df[col] = np.nan
         df = df[ALL_COLUMNS]
         df = df.sort_values("Date").drop_duplicates(subset=["Date"], keep="last").tail(history_days)
-        df.to_csv(filename, index=False)
+        
+        # Save in readable fixed-width column format
+        with open(filename, 'w') as f:
+            # Write header with proper spacing
+            header = (f"{'Date':<20} {'Open':<8} {'High':<8} {'Low':<8} {'Close':<8} {'Volume':<12} "
+                     f"{'BBAvg':<8} {'BBSDev':<8} {'UpperBB':<8} {'LowerBB':<8} {'High_Low':<8} "
+                     f"{'High_Close':<10} {'Low_Close':<9} {'TR':<8} {'ATR':<8} {'ATRma':<8} "
+                     f"{'LongPSAR':<9} {'ShortPSAR':<10} {'PSAR_EP':<8} {'PSAR_AF':<8} {'PSAR_IsLong':<11} "
+                     f"{'oLRSlope':<9} {'oLRAngle':<9} {'oLRIntercept':<12} {'TSF':<8} "
+                     f"{'oLRSlope2':<10} {'oLRAngle2':<10} {'oLRIntercept2':<13} {'TSF5':<8} "
+                     f"{'Value1':<8} {'ROC':<8} {'LRV':<8} {'LinReg':<8} "
+                     f"{'oLRValue':<9} {'oLRValue2':<10} {'SwingLow':<9} {'SwingHigh':<10}\n")
+            f.write(header)
+            
+            # Write data rows in fixed-width columns
+            for _, row in df.iterrows():
+                # Format date
+                date_str = str(row['Date'])[:19] if pd.notna(row['Date']) else "N/A"
+                
+                # Format numbers with proper handling of NaN
+                def fmt_num(val, width, decimals=2):
+                    if pd.isna(val) or val == '' or str(val).lower() == 'nan':
+                        return f"{'N/A':<{width}}"
+                    try:
+                        if decimals == 0:
+                            return f"{int(float(val)):<{width}}"
+                        else:
+                            return f"{float(val):<{width}.{decimals}f}"
+                    except (ValueError, TypeError):
+                        return f"{'N/A':<{width}}"
+                
+                # Write formatted row
+                row_str = (f"{date_str:<20} "
+                          f"{fmt_num(row['Open'], 8)} "
+                          f"{fmt_num(row['High'], 8)} "
+                          f"{fmt_num(row['Low'], 8)} "
+                          f"{fmt_num(row['Close'], 8)} "
+                          f"{fmt_num(row['Volume'], 12, 0)} "
+                          f"{fmt_num(row['BBAvg'], 8)} "
+                          f"{fmt_num(row['BBSDev'], 8)} "
+                          f"{fmt_num(row['UpperBB'], 8)} "
+                          f"{fmt_num(row['LowerBB'], 8)} "
+                          f"{fmt_num(row['High_Low'], 8)} "
+                          f"{fmt_num(row['High_Close'], 10)} "
+                          f"{fmt_num(row['Low_Close'], 9)} "
+                          f"{fmt_num(row['TR'], 8)} "
+                          f"{fmt_num(row['ATR'], 8)} "
+                          f"{fmt_num(row['ATRma'], 8)} "
+                          f"{fmt_num(row['LongPSAR'], 9)} "
+                          f"{fmt_num(row['ShortPSAR'], 10)} "
+                          f"{fmt_num(row['PSAR_EP'], 8)} "
+                          f"{fmt_num(row['PSAR_AF'], 8)} "
+                          f"{fmt_num(row['PSAR_IsLong'], 11, 0)} "
+                          f"{fmt_num(row['oLRSlope'], 9)} "
+                          f"{fmt_num(row['oLRAngle'], 9)} "
+                          f"{fmt_num(row['oLRIntercept'], 12)} "
+                          f"{fmt_num(row['TSF'], 8)} "
+                          f"{fmt_num(row['oLRSlope2'], 10)} "
+                          f"{fmt_num(row['oLRAngle2'], 10)} "
+                          f"{fmt_num(row['oLRIntercept2'], 13)} "
+                          f"{fmt_num(row['TSF5'], 8)} "
+                          f"{fmt_num(row['Value1'], 8)} "
+                          f"{fmt_num(row['ROC'], 8)} "
+                          f"{fmt_num(row['LRV'], 8)} "
+                          f"{fmt_num(row['LinReg'], 8)} "
+                          f"{fmt_num(row['oLRValue'], 9)} "
+                          f"{fmt_num(row['oLRValue2'], 10)} "
+                          f"{fmt_num(row['SwingLow'], 9)} "
+                          f"{fmt_num(row['SwingHigh'], 10)}\n")
+                f.write(row_str)
+                
+        print(f"📄 {symbol}: Saved {len(df)} rows in column format")
     else:
         logger.warning(f"No data to save for {symbol}")
 
 def load_price_data(symbol: str) -> pd.DataFrame:
+    """
+    Load price data from column-formatted files, with fallback to standard CSV.
+    """
     filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
     if os.path.exists(filename):
-        return pd.read_csv(filename, parse_dates=["Date"])
+        try:
+            # Try to read as fixed-width first (new format)
+            with open(filename, 'r') as f:
+                lines = f.readlines()
+                if len(lines) > 1:
+                    # Check if it's fixed-width format (spaces instead of commas)
+                    if ',' not in lines[1] and len(lines[1].split()) > 10:
+                        # Parse fixed-width format
+                        data = []
+                        header = lines[0].strip().split()
+                        
+                        for line in lines[1:]:
+                            if line.strip():
+                                values = line.strip().split()
+                                # Handle date with spaces
+                                if len(values) >= len(ALL_COLUMNS):
+                                    # Reconstruct date from first two values if needed
+                                    if len(values) > len(ALL_COLUMNS):
+                                        date_str = f"{values[0]} {values[1]}"
+                                        values = [date_str] + values[2:]
+                                    
+                                    row_dict = {}
+                                    for i, col in enumerate(ALL_COLUMNS):
+                                        if i < len(values):
+                                            val = values[i]
+                                            if val == 'N/A' or val == 'nan':
+                                                row_dict[col] = np.nan
+                                            else:
+                                                try:
+                                                    if col == 'Date':
+                                                        row_dict[col] = pd.to_datetime(val)
+                                                    else:
+                                                        row_dict[col] = float(val)
+                                                except (ValueError, TypeError):
+                                                    row_dict[col] = np.nan
+                                        else:
+                                            row_dict[col] = np.nan
+                                    data.append(row_dict)
+                        
+                        if data:
+                            return pd.DataFrame(data)
+            
+            # Fallback to standard CSV reading
+            return pd.read_csv(filename, parse_dates=["Date"])
+            
+        except Exception as e:
+            logger.error(f"Error loading {symbol}: {e}")
+            return pd.DataFrame(columns=ALL_COLUMNS)
     else:
         return pd.DataFrame(columns=ALL_COLUMNS)
 
@@ -611,6 +732,45 @@ def get_short_positions() -> List[Dict]:
     except Exception as e:
         logger.error(f"Error getting short positions: {e}")
         return []
+
+def inspect_stock_data(symbol: str):
+    """Inspect a specific stock's data for debugging"""
+    print(f"\n🔍 INSPECTING {symbol}")
+    print("-" * 40)
+    
+    filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
+    
+    if not os.path.exists(filename):
+        print(f"❌ File not found: {filename}")
+        return
+    
+    try:
+        # Read the CSV
+        df = load_price_data(symbol)
+        
+        print(f"📊 Shape: {df.shape[0]} rows × {df.shape[1]} columns")
+        print(f"📊 Date range: {df['Date'].min()} to {df['Date'].max()}")
+        print(f"📊 Columns: {list(df.columns)}")
+        
+        # Show latest data in column format
+        print(f"\n📈 Latest 3 rows:")
+        latest = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']].tail(3)
+        for _, row in latest.iterrows():
+            print(f"  {row['Date'].strftime('%Y-%m-%d')}: O=${row['Open']:.2f} H=${row['High']:.2f} L=${row['Low']:.2f} C=${row['Close']:.2f} V={row['Volume']:,.0f}")
+        
+        # Check indicators
+        indicator_cols = ['BBAvg', 'UpperBB', 'LowerBB', 'ATR']
+        print(f"\n📊 Indicators:")
+        for col in indicator_cols:
+            if col in df.columns:
+                non_null_count = df[col].notna().sum()
+                latest_value = df[col].iloc[-1] if non_null_count > 0 else None
+                print(f"  {col}: {non_null_count}/{len(df)} values, Latest: {latest_value:.2f if pd.notna(latest_value) else 'N/A'}")
+            else:
+                print(f"  {col}: Not found")
+                
+    except Exception as e:
+        print(f"❌ Error reading {symbol}: {e}")
 
 # --- INITIALIZE ---
 def initialize():
