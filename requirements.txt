@@ -20,3 +20,4 @@ typing-extensions>=4.5.0
 
 # Optional - uncomment if needed
 #lxml>=4.9.0
+
