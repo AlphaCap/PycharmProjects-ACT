@@ -136,6 +136,131 @@ def load_price_data(symbol):
         logger.error(f"Error loading data for {symbol}: {e}")
         return pd.DataFrame()
 
+def save_trades(trades_list):
+    """Save trades to CSV file"""
+    try:
+        trades_file = 'data/trades/trade_history.csv'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(trades_file), exist_ok=True)
+        
+        if os.path.exists(trades_file):
+            # Append to existing trades
+            existing_df = pd.read_csv(trades_file)
+            new_df = pd.DataFrame(trades_list)
+            combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+            combined_df.to_csv(trades_file, index=False)
+        else:
+            # Create new file
+            df = pd.DataFrame(trades_list)
+            df.to_csv(trades_file, index=False)
+        
+        logger.info(f"Saved {len(trades_list)} trades to {trades_file}")
+        
+    except Exception as e:
+        logger.error(f"Error saving trades: {e}")
+        raise
+
+def save_positions(positions_list):
+    """Save positions to CSV file"""
+    try:
+        positions_file = 'data/trades/current_positions.csv'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(positions_file), exist_ok=True)
+        
+        df = pd.DataFrame(positions_list)
+        df.to_csv(positions_file, index=False)
+        
+        logger.info(f"Saved {len(positions_list)} positions to {positions_file}")
+        
+    except Exception as e:
+        logger.error(f"Error saving positions: {e}")
+        raise
+
+def save_signals(signals_list):
+    """Save signals to CSV file"""
+    try:
+        signals_file = 'data/trades/recent_signals.csv'
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(signals_file), exist_ok=True)
+        
+        df = pd.DataFrame(signals_list)
+        df.to_csv(signals_file, index=False)
+        
+        logger.info(f"Saved {len(signals_list)} signals to {signals_file}")
+        
+    except Exception as e:
+        logger.error(f"Error saving signals: {e}")
+        raise
+
+def get_positions_df():
+    """Get positions DataFrame"""
+    try:
+        positions_file = 'data/trades/current_positions.csv'
+        
+        if os.path.exists(positions_file):
+            df = pd.read_csv(positions_file)
+            print(f"🔍 Positions CSV shape: {df.shape}, columns: {list(df.columns)}")
+            
+            # Handle comma-separated data in single column (defensive)
+            if len(df.columns) == 1 and not df.empty:
+                first_cell = str(df.iloc[0, 0])
+                if ',' in first_cell:
+                    print("🔧 Splitting comma-separated positions data")
+                    df = df.iloc[:, 0].str.split(',', expand=True)
+                    position_columns = ['symbol', 'shares', 'entry_price', 'entry_date', 'current_price', 
+                                      'current_value', 'profit', 'profit_pct', 'days_held', 'side', 'strategy']
+                    df.columns = position_columns[:len(df.columns)]
+            
+            return df
+        else:
+            print("⚠️ Positions file not found - creating empty DataFrame")
+            return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
+            
+    except Exception as e:
+        print(f"❌ Error reading positions CSV: {e}")
+        logger.error(f"Error in get_positions_df: {e}")
+        return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
+
+def get_positions():
+    """Get current positions as list of dictionaries"""
+    try:
+        df = get_positions_df()
+        return df.to_dict(orient="records") if not df.empty else []
+    except Exception as e:
+        logger.error(f"Error in get_positions: {e}")
+        return []
+
+def get_signals():
+    """Get trading signals DataFrame"""
+    try:
+        signals_file = 'data/trades/recent_signals.csv'
+        
+        if os.path.exists(signals_file):
+            df = pd.read_csv(signals_file)
+            print(f"🔍 Signals CSV shape: {df.shape}, columns: {list(df.columns)}")
+            
+            # Handle comma-separated data in single column (defensive)
+            if len(df.columns) == 1 and not df.empty:
+                first_cell = str(df.iloc[0, 0])
+                if ',' in first_cell:
+                    print("🔧 Splitting comma-separated signals data")
+                    df = df.iloc[:, 0].str.split(',', expand=True)
+                    signal_columns = ['date', 'symbol', 'signal_type', 'direction', 'price', 'strategy']
+                    df.columns = signal_columns[:len(df.columns)]
+            
+            return df
+        else:
+            print("⚠️ Signals file not found - creating empty DataFrame")
+            return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
+            
+    except Exception as e:
+        print(f"❌ Error reading signals CSV: {e}")
+        logger.error(f"Error in get_signals: {e}")
+        return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
+
 def get_portfolio_metrics():
     """Get basic portfolio metrics"""
     try:
@@ -318,99 +443,6 @@ def validate_data_integrity():
     except Exception as e:
         logger.error(f"Data integrity validation failed: {e}")
         return False
-
-# Add missing functions that nGS_Strategy needs
-
-def save_trades(trades_list):
-    """Save trades to CSV file"""
-    try:
-        trades_file = 'data/trades/trade_history.csv'
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(trades_file), exist_ok=True)
-        
-        if os.path.exists(trades_file):
-            # Append to existing trades
-            existing_df = pd.read_csv(trades_file)
-            new_df = pd.DataFrame(trades_list)
-            combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-            combined_df.to_csv(trades_file, index=False)
-        else:
-            # Create new file
-            df = pd.DataFrame(trades_list)
-            df.to_csv(trades_file, index=False)
-        
-        logger.info(f"Saved {len(trades_list)} trades to {trades_file}")
-        
-    except Exception as e:
-        logger.error(f"Error saving trades: {e}")
-        raise
-
-def save_positions(positions_list):
-    """Save positions to CSV file"""
-    try:
-        positions_file = 'data/trades/current_positions.csv'
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(positions_file), exist_ok=True)
-        
-        df = pd.DataFrame(positions_list)
-        df.to_csv(positions_file, index=False)
-        
-        logger.info(f"Saved {len(positions_list)} positions to {positions_file}")
-        
-    except Exception as e:
-        logger.error(f"Error saving positions: {e}")
-        raise
-
-def save_signals(signals_list):
-    """Save signals to CSV file"""
-    try:
-        signals_file = 'data/trades/recent_signals.csv'
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(signals_file), exist_ok=True)
-        
-        df = pd.DataFrame(signals_list)
-        df.to_csv(signals_file, index=False)
-        
-        logger.info(f"Saved {len(signals_list)} signals to {signals_file}")
-        
-    except Exception as e:
-        logger.error(f"Error saving signals: {e}")
-        raise
-
-def get_current_positions():
-    """Get current portfolio positions"""
-    try:
-        positions_file = 'data/trades/current_positions.csv'
-        
-        if os.path.exists(positions_file):
-            positions_df = pd.read_csv(positions_file)
-            return positions_df
-        else:
-            print("⚠️ Positions file not found - creating empty DataFrame")
-            return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
-            
-    except Exception as e:
-        logger.error(f"Error in get_current_positions: {e}")
-        return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
-
-def get_recent_signals():
-    """Get recent trading signals"""
-    try:
-        signals_file = 'data/trades/recent_signals.csv'
-        
-        if os.path.exists(signals_file):
-            signals_df = pd.read_csv(signals_file)
-            return signals_df
-        else:
-            print("⚠️ Signals file not found - creating empty DataFrame")
-            return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
-            
-    except Exception as e:
-        logger.error(f"Error in get_recent_signals: {e}")
-        return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
 
 # Initialize on import
 validate_data_integrity()
