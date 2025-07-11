@@ -341,4 +341,8 @@ st.markdown("""
     <p>🚀 nGS Trading System | Real-time Market Analysis & Automated Trading</p>
     <p>⚡ Powered by Advanced Algorithms | 📊 Live Data Integration</p>
 </div>
+<<<<<<< HEAD
 """, unsafe_allow_html=True)
+=======
+""", unsafe_allow_html=True)
+>>>>>>> a389841400885a00253bbc8a3262df690d8e552d
