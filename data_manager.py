@@ -430,6 +430,30 @@ def load_stock_data(symbol, start_date=None, end_date=None):
         logger.error(f"Error loading data for {symbol}: {e}")
         return pd.DataFrame()
 
+def initialize():
+    """Initialize data manager - create directories and validate setup"""
+    try:
+        # Ensure all required directories exist
+        required_dirs = ['data', 'data/daily', 'data/trades']
+        for dir_path in required_dirs:
+            os.makedirs(dir_path, exist_ok=True)
+        
+        # Validate data integrity
+        validate_data_integrity()
+        
+        logger.info("Data manager initialized successfully")
+        print("✅ Data manager initialized successfully")
+        
+    except Exception as e:
+        logger.error(f"Error initializing data manager: {e}")
+        raise
+
+def ensure_dir(path):
+    """Ensure directory exists for given file path"""
+    directory = os.path.dirname(path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
 def validate_data_integrity():
     """Validate that all data files are properly formatted"""
     try:
