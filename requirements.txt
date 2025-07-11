@@ -17,7 +17,3 @@ seaborn>=0.12.0
 # nGS System dependencies (Polygon API)
 polygon-api-client>=1.12.0
 typing-extensions>=4.5.0
-
-# Optional - uncomment if needed
-#lxml>=4.9.0
-

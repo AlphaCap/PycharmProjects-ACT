@@ -1016,3 +1016,4 @@
 2025-07-09 23:32:53,315 - nGS_Strategy - INFO - Loaded 0 positions from data manager
 2025-07-09 23:33:06,497 - data_manager - INFO - Data manager initialized
 2025-07-09 23:33:06,501 - nGS_Strategy - INFO - Loaded 0 positions from data manager
+2025-07-10 20:48:10,444 - data_manager - INFO - Data integrity validation completed
