@@ -365,4 +365,8 @@ st.markdown("""
     <p>Real-time Analytics | Automated Execution | High-Performance Computing</p>
     <p><em>Disclaimer: Trading involves risk. Past performance does not guarantee future results.</em></p>
 </div>
+<<<<<<< HEAD
 """, unsafe_allow_html=True)
+=======
+""", unsafe_allow_html=True)
+>>>>>>> 327f6f8e1b070fb20c24a096fc54d27ae0fab3bb
