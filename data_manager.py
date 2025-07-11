@@ -225,8 +225,4 @@ def validate_data_integrity():
         return False
 
 # Initialize on import
-<<<<<<< HEAD
 validate_data_integrity()
-=======
-validate_data_integrity()
->>>>>>> a389841400885a00253bbc8a3262df690d8e552d
