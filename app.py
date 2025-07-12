@@ -246,7 +246,7 @@ if DATA_MANAGER_AVAILABLE:
                     hovermode='x unified'
                 )
                 
-                st.plotly_chart(fig, use_container_width=True, key="main_performance_chart")
+                st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("Performance chart will be available once trading data is generated.")
                 
@@ -325,7 +325,7 @@ if DATA_MANAGER_AVAILABLE:
         with activity_col2:
             st.markdown("### Current Positions")
             if not current_positions.empty:
-                st.dataframe(current_positions.head(5), use_container_width=True, key="main_current_positions")
+                st.dataframe(current_positions.head(5), use_container_width=True)
             else:
                 st.info("No current positions")
                 
