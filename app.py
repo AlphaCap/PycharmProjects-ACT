@@ -1,364 +1,206 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
-from datetime import datetime, timedelta
-import warnings
-warnings.filterwarnings('ignore')
+import datetime
+from data_manager import (
+    get_portfolio_metrics,
+    get_strategy_performance,
+    get_portfolio_performance_stats,
+    get_positions,
+    get_long_positions_formatted,
+    get_short_positions_formatted,
+    get_signals,
+    get_system_status
+)
 
 # --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="ACT Trading Dashboard",
-    page_icon=None,
+    page_title="Alpha Capture Technology AI",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS ---
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+# --- HIDE STREAMLIT ELEMENTS ---
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    .stDecoration {display:none;}
+    [data-testid="stToolbar"] {display: none;}
+    [data-testid="stHeader"] {display: none;}
+    .stApp > header {display: none;}
+    
+    /* Hide only the auto-generated page navigation, not our custom sidebar */
+    [data-testid="stSidebarNav"] {display: none;}
+    
+    .stAppViewContainer > .main .block-container {
+        padding-top: 1rem;
     }
-    .sub-header {
-        font-size: 1.5rem;
-        color: #2c3e50;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 1rem;
-        margin: 1rem 0;
-        color: white;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    .system-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        padding: 2rem;
-        border-radius: 1rem;
-        margin: 1rem;
-        color: white;
-        text-align: center;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        transition: transform 0.3s ease;
-    }
-    .system-card:hover {
-        transform: translateY(-5px);
-    }
-    .status-success {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    }
-    .status-warning {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    }
-    .nav-button {
-        width: 100%;
-        margin: 0.5rem 0;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border: none;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    .nav-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Import data manager functions with path fixes
-try:
-    from data_manager import (
-        get_portfolio_metrics,
-        get_strategy_performance,
-        get_portfolio_performance_stats,
-        get_current_positions,  # Correct function name
-        get_recent_signals,     # Correct function name
-        get_trades_history      # Correct function name
-    )
-    DATA_MANAGER_AVAILABLE = True
-except ImportError as e:
-    st.error(f"Data manager import error: {e}")
-    st.info("Please ensure data_manager.py is properly configured.")
-    DATA_MANAGER_AVAILABLE = False
-
-# --- MAIN HEADER ---
-st.markdown('<div class="main-header">ACT Trading Systems Dashboard</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Advanced Algorithmic Trading Platform</div>', unsafe_allow_html=True)
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.title("Navigation")
-    
-    st.markdown("### Trading Systems")
-    
-    # System navigation buttons with unique keys
-    if st.button("nGS Strategy Dashboard", use_container_width=True, key="nav_ngs_system"):
+    st.title("Trading Systems")
+    if st.button("nGulfStream Swing Trader", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
-    if st.button("Portfolio Analysis", use_container_width=True, key="nav_portfolio"):
-        st.info("Portfolio analysis page coming soon!")
-    
-    if st.button("System Settings", use_container_width=True, key="nav_settings"):
-        st.info("Settings page coming soon!")
+    # Disabled placeholder buttons for future systems
+    st.button("Alpha Capture AI", use_container_width=True, disabled=True, help="Coming Soon")
+    st.button("gST DayTrader", use_container_width=True, disabled=True, help="Coming Soon")
     
     st.markdown("---")
+    st.caption("Data last updated:")
+    st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
+
+# --- PAGE HEADER ---
+st.title("Alpha Capture Technology AI")
+st.caption("S&P 500 Long/Short Position Trader")
+
+# --- VARIABLE ACCOUNT SIZE ---
+st.markdown("## Current Portfolio Status")
+initial_value = st.number_input(
+    "Set initial portfolio/account size:",
+    min_value=1000,
+    value=100000,
+    step=1000,
+    format="%d"
+)
+
+# --- PORTFOLIO METRICS ---
+metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+
+# Portfolio Overview Metrics
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    # Remove cents from total value display
+    total_value_clean = metrics['total_value'].replace('.00', '').replace(',', '')
+    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
+with col2:
+    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
+with col3:
+    st.metric(label="M/E Ratio", value=metrics['me_ratio'])
+with col4:
+    st.metric(label="Long Exposure", value=metrics['long_exposure'])
+with col5:
+    st.metric(label="Short Exposure", value=metrics['short_exposure'])
+
+# Net Exposure
+col6, col7, col8 = st.columns(3)
+with col6:
+    st.metric(label="Net Exposure", value=metrics['net_exposure'])
+with col7:
+    st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
+with col8:
+    st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
+
+# --- STRATEGY PERFORMANCE TABLE ---
+st.subheader("Strategy Performance")
+strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
+if not strategy_df.empty:
+    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+else:
+    st.info("No strategy performance data available.")
+
+# --- POSITIONS SECTION ---
+st.markdown("## Current Positions")
+
+# Long Positions
+st.subheader("📈 Long Positions")
+long_positions_df = get_long_positions_formatted()
+if not long_positions_df.empty:
+    st.dataframe(long_positions_df, use_container_width=True, hide_index=True)
     
-    # Quick stats in sidebar
-    st.markdown("### Quick Stats")
+    # Long positions summary
+    long_count = len(long_positions_df)
+    long_total_value = long_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
+    st.caption(f"**Long Summary:** {long_count} positions, Total P&L: ${long_total_value:.2f}")
+else:
+    st.info("No active long positions.")
+
+# Short Positions  
+st.subheader("📉 Short Positions")
+short_positions_df = get_short_positions_formatted()
+if not short_positions_df.empty:
+    st.dataframe(short_positions_df, use_container_width=True, hide_index=True)
     
-    if DATA_MANAGER_AVAILABLE:
-        try:
-            metrics = get_portfolio_metrics()
-            st.metric("Total Trades", f"{metrics.get('total_trades', 0):,}")
-            st.metric("Win Rate", f"{metrics.get('win_rate', 0):.1f}%")
-            
-            profit = metrics.get('total_profit', 0)
-            profit_color = "Positive" if profit > 0 else "Negative" if profit < 0 else "Neutral"
-            st.metric("Total P&L", f"{profit_color} ${profit:,.2f}")
-            
-        except Exception as e:
-            st.error(f"Error loading sidebar metrics: {e}")
-    else:
-        st.info("Metrics unavailable - check data manager")
+    # Short positions summary
+    short_count = len(short_positions_df)
+    short_total_value = short_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
+    st.caption(f"**Short Summary:** {short_count} positions, Total P&L: ${short_total_value:.2f}")
+else:
+    st.info("No active short positions.")
 
-# --- MAIN DASHBOARD CONTENT ---
-
-# System Status Overview
-st.markdown("## System Status Overview")
-
-col1, col2, col3 = st.columns(3)
+# --- SIGNALS AND PERFORMANCE SECTION ---
+col1, col2 = st.columns([1, 2])  # Make signals column narrower
 
 with col1:
-    st.markdown("""
-    <div class="system-card status-success">
-        <h3>nGS System</h3>
-        <p><strong>Status:</strong> Active</p>
-        <p><strong>Mode:</strong> Live Trading</p>
-        <p><strong>Uptime:</strong> 99.8%</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.subheader("Today's Signals")
+    signals_df = get_signals()
+    if not signals_df.empty:
+        # Filter for today's signals if date column exists
+        today = datetime.datetime.now().date()
+        if 'date' in signals_df.columns:
+            signals_df['date'] = pd.to_datetime(signals_df['date']).dt.date
+            todays_signals = signals_df[signals_df['date'] == today]
+        else:
+            todays_signals = signals_df.head(10)  # Show recent signals
+        
+        if not todays_signals.empty:
+            for _, signal in todays_signals.iterrows():
+                st.markdown(
+                    f"- **{signal['date']}** | **{signal['symbol']}** | **{signal['signal_type']}** | {signal['strategy']} at `{signal['price']}`"
+                )
+        else:
+            st.info("No signals generated today.")
+    else:
+        st.info("No recent signals.")
 
 with col2:
-    st.markdown("""
-    <div class="system-card">
-        <h3>Data Feed</h3>
-        <p><strong>Status:</strong> Connected</p>
-        <p><strong>Latency:</strong> 12ms</p>
-        <p><strong>Last Update:</strong> Live</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown("""
-    <div class="system-card status-warning">
-        <h3>Portfolio Monitor</h3>
-        <p><strong>Status:</strong> Monitoring</p>
-        <p><strong>Positions:</strong> Active</p>
-        <p><strong>Risk Level:</strong> Moderate</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Performance Overview
-st.markdown("## Performance Overview")
-
-if DATA_MANAGER_AVAILABLE:
-    try:
-        # Get performance data
-        portfolio_metrics = get_portfolio_metrics()
-        strategy_performance = get_strategy_performance()
-        
-        # Display key metrics
-        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-        
-        with metric_col1:
-            total_profit = portfolio_metrics.get('total_profit', 0)
-            profit_delta = f"{(total_profit/100000)*100:.2f}%" if total_profit != 0 else "0%"
-            st.metric(
-                label="Total Profit/Loss",
-                value=f"${total_profit:,.2f}",
-                delta=profit_delta
-            )
-        
-        with metric_col2:
-            total_trades = portfolio_metrics.get('total_trades', 0)
-            st.metric(
-                label="Total Trades",
-                value=f"{total_trades:,}"
-            )
-        
-        with metric_col3:
-            win_rate = portfolio_metrics.get('win_rate', 0)
-            st.metric(
-                label="Win Rate",
-                value=f"{win_rate:.1f}%",
-                delta=f"{win_rate-50:.1f}% vs 50%"
-            )
-        
-        with metric_col4:
-            sharpe_ratio = strategy_performance.get('sharpe_ratio', 0)
-            st.metric(
-                label="Sharpe Ratio",
-                value=f"{sharpe_ratio:.2f}",
-                delta=f"{sharpe_ratio-1:.2f} vs 1.0"
-            )
-            
-        # Performance Chart
-        st.markdown("### Portfolio Performance Chart")
-        
-        try:
-            performance_stats = get_portfolio_performance_stats()
-            
-            if performance_stats and 'cumulative_returns' in performance_stats:
-                # Create sample performance chart
-                dates = pd.date_range(start='2024-01-01', periods=len(performance_stats['cumulative_returns']), freq='D')
-                returns = performance_stats['cumulative_returns']
-                
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=dates,
-                    y=returns,
-                    mode='lines',
-                    name='Portfolio Performance',
-                    line=dict(color='#1f77b4', width=3),
-                    fill='tonexty' if len(returns) > 1 else None,
-                    fillcolor='rgba(31, 119, 180, 0.1)'
-                ))
-                
-                fig.update_layout(
-                    title="Portfolio Cumulative Returns",
-                    xaxis_title="Date",
-                    yaxis_title="Cumulative Return",
-                    height=400,
-                    showlegend=True,
-                    hovermode='x unified'
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Performance chart will be available once trading data is generated.")
-                
-        except Exception as e:
-            st.error(f"Error creating performance chart: {e}")
-            
-    except Exception as e:
-        st.error(f"Error loading performance data: {e}")
-        st.info("Using sample data for demonstration")
-        
-        # Show sample metrics
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total Profit/Loss", "$12,450.00", "+2.45%")
-        with col2:
-            st.metric("Total Trades", "147")
-        with col3:
-            st.metric("Win Rate", "68.2%", "+18.2%")
-        with col4:
-            st.metric("Sharpe Ratio", "1.34", "+0.34")
-
-else:
-    st.warning("Data manager not available. Please check configuration.")
+    # Split this column for performance stats and equity curve
+    subcol1, subcol2 = st.columns(2)
     
-    # Show placeholder metrics
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Profit/Loss", "---")
-    with col2:
-        st.metric("Total Trades", "---")
-    with col3:
-        st.metric("Win Rate", "---")
-    with col4:
-        st.metric("Sharpe Ratio", "---")
-
-# Current Market Status
-st.markdown("## Current Market Status")
-
-# Sample market data (replace with real data feed)
-market_col1, market_col2, market_col3 = st.columns(3)
-
-with market_col1:
-    st.metric("S&P 500", "4,385.24", "+0.67%")
-
-with market_col2:
-    st.metric("NASDAQ", "13,567.98", "+1.23%")
-
-with market_col3:
-    st.metric("VIX", "18.45", "-2.1%")
-
-# Recent Activity
-if DATA_MANAGER_AVAILABLE:
-    st.markdown("## Recent Activity")
+    with subcol1:
+        st.subheader("Portfolio Performance Stats")
+        perf_stats_df = get_portfolio_performance_stats()
+        if not perf_stats_df.empty:
+            st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No performance statistics available.")
     
-    try:
-        # Get recent data
-        recent_signals = get_recent_signals()
-        recent_trades = get_trades_history()
-        current_positions = get_current_positions()
-        
-        activity_col1, activity_col2 = st.columns(2)
-        
-        with activity_col1:
-            st.markdown("### Recent Signals")
-            if not recent_signals.empty:
-                for idx, signal in recent_signals.head(3).iterrows():
-                    signal_type = signal.get('signal', 'Unknown')
-                    symbol = signal.get('symbol', 'Unknown')
-                    confidence = signal.get('confidence', 0)
-                    
-                    signal_emoji = "Buy" if signal_type.upper() == "BUY" else "Sell" if signal_type.upper() == "SELL" else "Neutral"
-                    st.markdown(f"{signal_emoji} **{signal_type.upper()}** {symbol} - Confidence: {confidence:.1%}")
-            else:
-                st.info("No recent signals")
-        
-        with activity_col2:
-            st.markdown("### Current Positions")
-            if not current_positions.empty:
-                st.dataframe(current_positions.head(5), use_container_width=True)
-            else:
-                st.info("No current positions")
+    with subcol2:
+        st.subheader("Equity Curve")
+        # Create equity curve from trade history
+        trades_df = get_trades_history()
+        if not trades_df.empty:
+            try:
+                # Sort trades by exit date and calculate cumulative profit
+                trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
+                trades_sorted = trades_df.sort_values('exit_date')
+                trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
                 
-    except Exception as e:
-        st.error(f"Error loading recent activity: {e}")
+                # Create the equity curve chart
+                import matplotlib.pyplot as plt
+                fig, ax = plt.subplots(figsize=(8, 4))
+                ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], linewidth=2, color='#1f77b4')
+                ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
+                               where=(trades_sorted['cumulative_profit'] > 0), alpha=0.3, color='green')
+                ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
+                               where=(trades_sorted['cumulative_profit'] <= 0), alpha=0.3, color='red')
+                ax.set_title('Cumulative Profit Over Time')
+                ax.set_xlabel('Date')
+                ax.set_ylabel('Cumulative Profit ($)')
+                ax.grid(True, alpha=0.3)
+                ax.tick_params(axis='x', rotation=45)
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close()
+            except Exception as e:
+                st.error(f"Error creating equity curve: {e}")
+        else:
+            st.info("No trade history for equity curve.")
 
-# Quick Actions
-st.markdown("## Quick Actions")
-
-action_col1, action_col2, action_col3, action_col4 = st.columns(4)
-
-with action_col1:
-    if st.button("Refresh Dashboard", use_container_width=True, key="action_refresh"):
-        st.rerun()
-
-with action_col2:
-    if st.button("View nGS System", use_container_width=True, key="action_view_ngs"):
-        st.switch_page("pages/1_nGS_System.py")
-
-with action_col3:
-    if st.button("Export Data", use_container_width=True, key="action_export"):
-        st.info("Export functionality coming soon!")
-
-with action_col4:
-    if st.button("System Settings", use_container_width=True, key="action_settings"):
-        st.info("Settings panel coming soon!")
-
-# Footer
 st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #7f8c8d; font-size: 0.9em; padding: 2rem;'>
-    <p><strong>ACT Trading Systems</strong> | Advanced Algorithmic Trading Platform</p>
-    <p>Real-time Analytics | Automated Execution | High-Performance Computing</p>
-    <p><em>Disclaimer: Trading involves risk. Past performance does not guarantee future results.</em></p>
-</div>
-""", unsafe_allow_html=True)
+st.caption("Alpha Trading Systems Dashboard - For additional support, please contact the trading desk.")
