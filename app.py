@@ -122,12 +122,12 @@ with st.sidebar:
     if DATA_MANAGER_AVAILABLE:
         try:
             metrics = get_portfolio_metrics()
-            st.metric("Total Trades", f"{metrics.get('total_trades', 0):,}", key="sidebar_total_trades")
-            st.metric("Win Rate", f"{metrics.get('win_rate', 0):.1f}%", key="sidebar_win_rate")
+            st.metric("Total Trades", f"{metrics.get('total_trades', 0):,}")
+            st.metric("Win Rate", f"{metrics.get('win_rate', 0):.1f}%")
             
             profit = metrics.get('total_profit', 0)
             profit_color = "Positive" if profit > 0 else "Negative" if profit < 0 else "Neutral"
-            st.metric("Total P&L", f"{profit_color} ${profit:,.2f}", key="sidebar_pnl")
+            st.metric("Total P&L", f"{profit_color} ${profit:,.2f}")
             
         except Exception as e:
             st.error(f"Error loading sidebar metrics: {e}")
@@ -189,16 +189,14 @@ if DATA_MANAGER_AVAILABLE:
             st.metric(
                 label="Total Profit/Loss",
                 value=f"${total_profit:,.2f}",
-                delta=profit_delta,
-                key="main_total_profit"
+                delta=profit_delta
             )
         
         with metric_col2:
             total_trades = portfolio_metrics.get('total_trades', 0)
             st.metric(
                 label="Total Trades",
-                value=f"{total_trades:,}",
-                key="main_total_trades"
+                value=f"{total_trades:,}"
             )
         
         with metric_col3:
@@ -206,8 +204,7 @@ if DATA_MANAGER_AVAILABLE:
             st.metric(
                 label="Win Rate",
                 value=f"{win_rate:.1f}%",
-                delta=f"{win_rate-50:.1f}% vs 50%",
-                key="main_win_rate"
+                delta=f"{win_rate-50:.1f}% vs 50%"
             )
         
         with metric_col4:
@@ -215,8 +212,7 @@ if DATA_MANAGER_AVAILABLE:
             st.metric(
                 label="Sharpe Ratio",
                 value=f"{sharpe_ratio:.2f}",
-                delta=f"{sharpe_ratio-1:.2f} vs 1.0",
-                key="main_sharpe_ratio"
+                delta=f"{sharpe_ratio-1:.2f} vs 1.0"
             )
             
         # Performance Chart
@@ -264,13 +260,13 @@ if DATA_MANAGER_AVAILABLE:
         # Show sample metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Total Profit/Loss", "$12,450.00", "+2.45%", key="sample_profit")
+            st.metric("Total Profit/Loss", "$12,450.00", "+2.45%")
         with col2:
-            st.metric("Total Trades", "147", key="sample_trades")
+            st.metric("Total Trades", "147")
         with col3:
-            st.metric("Win Rate", "68.2%", "+18.2%", key="sample_win_rate")
+            st.metric("Win Rate", "68.2%", "+18.2%")
         with col4:
-            st.metric("Sharpe Ratio", "1.34", "+0.34", key="sample_sharpe")
+            st.metric("Sharpe Ratio", "1.34", "+0.34")
 
 else:
     st.warning("Data manager not available. Please check configuration.")
@@ -278,13 +274,13 @@ else:
     # Show placeholder metrics
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Profit/Loss", "---", key="placeholder_profit")
+        st.metric("Total Profit/Loss", "---")
     with col2:
-        st.metric("Total Trades", "---", key="placeholder_trades")
+        st.metric("Total Trades", "---")
     with col3:
-        st.metric("Win Rate", "---", key="placeholder_win_rate")
+        st.metric("Win Rate", "---")
     with col4:
-        st.metric("Sharpe Ratio", "---", key="placeholder_sharpe")
+        st.metric("Sharpe Ratio", "---")
 
 # Current Market Status
 st.markdown("## Current Market Status")
@@ -293,13 +289,13 @@ st.markdown("## Current Market Status")
 market_col1, market_col2, market_col3 = st.columns(3)
 
 with market_col1:
-    st.metric("S&P 500", "4,385.24", "+0.67%", key="market_sp500")
+    st.metric("S&P 500", "4,385.24", "+0.67%")
 
 with market_col2:
-    st.metric("NASDAQ", "13,567.98", "+1.23%", key="market_nasdaq")
+    st.metric("NASDAQ", "13,567.98", "+1.23%")
 
 with market_col3:
-    st.metric("VIX", "18.45", "-2.1%", key="market_vix")
+    st.metric("VIX", "18.45", "-2.1%")
 
 # Recent Activity
 if DATA_MANAGER_AVAILABLE:
@@ -359,7 +355,7 @@ with action_col4:
 
 # Footer
 st.markdown("---")
-st.markdown(""")
+st.markdown("""
 <div style='text-align: center; color: #7f8c8d; font-size: 0.9em; padding: 2rem;'>
     <p><strong>ACT Trading Systems</strong> | Advanced Algorithmic Trading Platform</p>
     <p>Real-time Analytics | Automated Execution | High-Performance Computing</p>
