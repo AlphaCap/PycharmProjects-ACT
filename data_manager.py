@@ -1,472 +1,538 @@
-import logging
 import os
-import sys
 import pandas as pd
 import numpy as np
+import json
+import logging
 from datetime import datetime, timedelta
-import warnings
-warnings.filterwarnings('ignore')
+from typing import Dict, List, Optional, Union
 
-# Ensure data directory structure exists
-os.makedirs('data/daily', exist_ok=True)
-os.makedirs('data/trades', exist_ok=True)
+# --- CONFIG ---
+DATA_DIR = "data"
+DAILY_DIR = os.path.join(DATA_DIR, "daily")
+TRADES_DIR = os.path.join(DATA_DIR, "trades")
+POSITIONS_FILE = os.path.join(TRADES_DIR, "positions.csv")
+TRADES_HISTORY_FILE = os.path.join(TRADES_DIR, "trade_history.csv")
+SIGNALS_FILE = os.path.join(TRADES_DIR, "recent_signals.csv")
+SYSTEM_STATUS_FILE = os.path.join(DATA_DIR, "system_status.csv")
+METADATA_FILE = os.path.join(DATA_DIR, "metadata.json")
+SP500_SYMBOLS_FILE = os.path.join(DATA_DIR, "sp500_symbols.csv")
 
-# Create a sample AAPL file if it doesn't exist
-aapl_file = 'data/daily/AAPL.csv'
-if not os.path.exists(aapl_file):
-    # Create a minimal AAPL CSV with required columns
-    sample_data = pd.DataFrame({
-        'Date': pd.date_range('2023-01-01', periods=100),
-        'Open': np.random.randn(100).cumsum() + 100,
-        'High': np.random.randn(100).cumsum() + 105,
-        'Low': np.random.randn(100).cumsum() + 95,
-        'Close': np.random.randn(100).cumsum() + 100,
-        'Volume': np.random.randint(1000000, 10000000, 100)
-    })
-    sample_data.to_csv(aapl_file, index=False)
-    print(f"Created sample {aapl_file}")
-else:
-    print(f"{aapl_file} already exists.")
+RETENTION_DAYS = 180
+PRIMARY_TIER_DAYS = 30
+MAX_THREADS = 8
+HISTORY_DAYS = 200  # Rolling window for daily data
+
+PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume"]
+INDICATOR_COLUMNS = [
+    "BBAvg", "BBSDev", "UpperBB", "LowerBB", 
+    "High_Low", "High_Close", "Low_Close", "TR", "ATR", "ATRma",
+    "LongPSAR", "ShortPSAR", "PSAR_EP", "PSAR_AF", "PSAR_IsLong",
+    "oLRSlope", "oLRAngle", "oLRIntercept", "TSF", 
+    "oLRSlope2", "oLRAngle2", "oLRIntercept2", "TSF5", 
+    "Value1", "ROC", "LRV", "LinReg", 
+    "oLRValue", "oLRValue2", "SwingLow", "SwingHigh"
+]
+ALL_COLUMNS = PRICE_COLUMNS + INDICATOR_COLUMNS
 
 # --- LOGGING ---
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('data_manager.log'),
+        logging.FileHandler("data_manager.log"),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
-def get_sp500_symbols():
-    """Return the complete list of S&P 500 symbols (503 companies as of 2024)"""
-    symbols = [
-        'MMM', 'AOS', 'ABT', 'ABBV', 'ACN', 'ATVI', 'ADBE', 'ADP', 'AAP', 'AES',
-        'AFL', 'A', 'APD', 'AKAM', 'ALK', 'ALB', 'ARE', 'ALGN', 'ALLE', 'LNT',
-        'ALL', 'GOOGL', 'GOOG', 'MO', 'AMZN', 'AMCR', 'AMD', 'AEE', 'AAL', 'AEP',
-        'AXP', 'AIG', 'AMT', 'AWK', 'AMP', 'ABC', 'AME', 'AMGN', 'APH', 'ADI',
-        'ANSS', 'AON', 'APA', 'AAPL', 'AMAT', 'APTV', 'ACGL', 'ANET', 'AJG', 'AIZ',
-        'T', 'ATO', 'ADSK', 'AZO', 'AVB', 'AVY', 'AXON', 'BKR', 'BALL', 'BAC',
-        'BBWI', 'BAX', 'BDX', 'WRB', 'BRK-B', 'BBY', 'BIO', 'TECH', 'BIIB', 'BLK',
-        'BK', 'BA', 'BKNG', 'BWA', 'BXP', 'BSX', 'BMY', 'AVGO', 'BR', 'BRO',
-        'BF-B', 'CHRW', 'CDNS', 'CZR', 'CPT', 'CPB', 'COF', 'CAH', 'KMX', 'CCL',
-        'CARR', 'CTLT', 'CAT', 'CBOE', 'CBRE', 'CDW', 'CE', 'CNC', 'CNP', 'CDAY',
-        'CF', 'CRL', 'SCHW', 'CHTR', 'CVX', 'CMG', 'CB', 'CHD', 'CI', 'CINF',
-        'CTAS', 'CSCO', 'C', 'CFG', 'CLX', 'CME', 'CMS', 'KO', 'CTSH', 'CL',
-        'CMCSA', 'CMA', 'CAG', 'COP', 'ED', 'STZ', 'CEG', 'COO', 'CPRT', 'GLW',
-        'CTVA', 'CSGP', 'COST', 'CTRA', 'CCI', 'CSX', 'CMI', 'CVS', 'DHI', 'DHR',
-        'DRI', 'DVA', 'DE', 'DAL', 'XRAY', 'DVN', 'DXCM', 'FANG', 'DLR', 'DFS',
-        'DISH', 'DIS', 'DG', 'DLTR', 'D', 'DPZ', 'DOV', 'DOW', 'DTE', 'DUK',
-        'DD', 'DXC', 'EMN', 'ETN', 'EBAY', 'ECL', 'EIX', 'EW', 'EA', 'ELV',
-        'LLY', 'EMR', 'ENPH', 'ETR', 'EOG', 'EPAM', 'EQT', 'EFX', 'EQIX', 'EQR',
-        'ESS', 'EL', 'ETSY', 'RE', 'EVRG', 'ES', 'EXC', 'EXPE', 'EXPD', 'EXR',
-        'XOM', 'FFIV', 'FDS', 'FICO', 'FAST', 'FRT', 'FDX', 'FITB', 'FRC', 'FE',
-        'FIS', 'FISV', 'FLT', 'FMC', 'F', 'FTNT', 'FTV', 'FOXA', 'FOX', 'BEN',
-        'FCX', 'GRMN', 'IT', 'GNRC', 'GD', 'GE', 'GIS', 'GM', 'GPC', 'GILD',
-        'GL', 'GPN', 'GS', 'HAL', 'HBI', 'HIG', 'HAS', 'HCA', 'PEAK', 'HSIC',
-        'HSY', 'HES', 'HPE', 'HLT', 'HOLX', 'HD', 'HON', 'HRL', 'HST', 'HWM',
-        'HPQ', 'HUM', 'HBAN', 'HII', 'IBM', 'IEX', 'IDXX', 'ITW', 'ILMN', 'INCY',
-        'IR', 'INTC', 'ICE', 'IFF', 'IP', 'IPG', 'INTU', 'ISRG', 'IVZ', 'INVH',
-        'IQV', 'IRM', 'JBHT', 'JKHY', 'J', 'JNJ', 'JCI', 'JPM', 'JNPR', 'K',
-        'KDP', 'KEY', 'KEYS', 'KMB', 'KIM', 'KMI', 'KLAC', 'KHC', 'KR', 'LHX',
-        'LH', 'LRCX', 'LW', 'LVS', 'LDOS', 'LEN', 'LNC', 'LIN', 'LYV', 'LKQ',
-        'LMT', 'L', 'LOW', 'LULU', 'LYB', 'MTB', 'MRO', 'MPC', 'MKTX', 'MAR',
-        'MMC', 'MLM', 'MAS', 'MA', 'MTCH', 'MKC', 'MCD', 'MCK', 'MDT', 'MRK',
-        'META', 'MET', 'MTD', 'MGM', 'MCHP', 'MU', 'MSFT', 'MAA', 'MRNA', 'MHK',
-        'MOH', 'TAP', 'MDLZ', 'MPWR', 'MNST', 'MCO', 'MS', 'MOS', 'MSI', 'MSCI',
-        'NDAQ', 'NTAP', 'NFLX', 'NWL', 'NEM', 'NWSA', 'NWS', 'NEE', 'NKE', 'NI',
-        'NDSN', 'NSC', 'NTRS', 'NOC', 'NLOK', 'NCLH', 'NRG', 'NUE', 'NVDA', 'NVR',
-        'NXPI', 'ORLY', 'OXY', 'ODFL', 'OMC', 'ON', 'OKE', 'ORCL', 'OTIS', 'PCAR',
-        'PKG', 'PARA', 'PH', 'PAYX', 'PAYC', 'PYPL', 'PNR', 'PEP', 'PKI', 'PFE',
-        'PCG', 'PM', 'PSX', 'PNW', 'PXD', 'PNC', 'POOL', 'PPG', 'PPL', 'PFG',
-        'PG', 'PGR', 'PLD', 'PRU', 'PEG', 'PTC', 'PSA', 'PHM', 'QRVO', 'PWR',
-        'QCOM', 'DGX', 'RL', 'RJF', 'RTX', 'O', 'REG', 'REGN', 'RF', 'RSG',
-        'RMD', 'RHI', 'ROK', 'ROL', 'ROP', 'ROST', 'RCL', 'SPGI', 'CRM', 'SBAC',
-        'SLB', 'STX', 'SEE', 'SRE', 'NOW', 'SHW', 'SPG', 'SWKS', 'SJM', 'SNA',
-        'SEDG', 'SO', 'LUV', 'SWK', 'SBUX', 'STT', 'STLD', 'STE', 'SYK', 'SYF',
-        'SNPS', 'SYY', 'TMUS', 'TROW', 'TTWO', 'TPG', 'TGT', 'TEL', 'TDY', 'TFX',
-        'TER', 'TSLA', 'TXN', 'TXT', 'TMO', 'TJX', 'TSCO', 'TT', 'TDG', 'TRV',
-        'TRMB', 'TFC', 'TYL', 'TSN', 'USB', 'UDR', 'ULTA', 'UNP', 'UAL', 'UPS',
-        'URI', 'UNH', 'UHS', 'VLO', 'VTR', 'VRSN', 'VRSK', 'VZ', 'VRTX', 'VFC',
-        'VICI', 'V', 'VMC', 'WAB', 'WBA', 'WMT', 'WBD', 'WM', 'WAT', 'WEC',
-        'WFC', 'WELL', 'WST', 'WDC', 'WRK', 'WY', 'WHR', 'WMB', 'WTW', 'GWW',
-        'WYNN', 'XEL', 'XYL', 'YUM', 'ZBRA', 'ZBH', 'ZION', 'ZTS'
-    ]
-    
-    print(f"📊 Loaded {len(symbols)} S&P 500 symbols for backfill")
-    return symbols
+# --- FILE UTILS ---
+def ensure_dir(path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
 
-def save_price_data(symbol, df):
-    """Save price data to CSV file"""
-    try:
-        file_path = f'data/daily/{symbol}.csv'
-        
-        # Ensure Date column is properly formatted
-        if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'])
-        
-        # Save to CSV
-        df.to_csv(file_path, index=False)
-        logger.info(f"Saved {len(df)} rows for {symbol} to {file_path}")
-        
-    except Exception as e:
-        logger.error(f"Error saving data for {symbol}: {e}")
-        raise
-
-def load_price_data(symbol):
-    """Load price data from CSV file"""
-    try:
-        file_path = f'data/daily/{symbol}.csv'
-        
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path)
-            
-            # Ensure Date column is properly formatted
-            if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'])
-            
-            logger.info(f"Loaded {len(df)} rows for {symbol} from {file_path}")
-            return df
+# --- S&P 500 SYMBOLS ---
+def get_sp500_symbols() -> list:
+    """
+    Load S&P 500 symbols from the saved CSV file.
+    Returns a list of symbol strings.
+    """
+    if os.path.exists(SP500_SYMBOLS_FILE):
+        df = pd.read_csv(SP500_SYMBOLS_FILE)
+        # Try to auto-detect the symbol column
+        if 'symbol' in df.columns:
+            return df['symbol'].dropna().astype(str).tolist()
         else:
-            logger.warning(f"Data file not found for symbol: {symbol}")
-            return pd.DataFrame()
-            
-    except Exception as e:
-        logger.error(f"Error loading data for {symbol}: {e}")
-        return pd.DataFrame()
-
-def save_trades(trades_list):
-    """Save trades to CSV file"""
-    try:
-        trades_file = 'data/trades/trade_history.csv'
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(trades_file), exist_ok=True)
-        
-        if os.path.exists(trades_file):
-            # Append to existing trades
-            existing_df = pd.read_csv(trades_file)
-            new_df = pd.DataFrame(trades_list)
-            combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-            combined_df.to_csv(trades_file, index=False)
-        else:
-            # Create new file
-            df = pd.DataFrame(trades_list)
-            df.to_csv(trades_file, index=False)
-        
-        logger.info(f"Saved {len(trades_list)} trades to {trades_file}")
-        
-    except Exception as e:
-        logger.error(f"Error saving trades: {e}")
-        raise
-
-def save_positions(positions_list):
-    """Save positions to CSV file"""
-    try:
-        positions_file = 'data/trades/current_positions.csv'
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(positions_file), exist_ok=True)
-        
-        df = pd.DataFrame(positions_list)
-        df.to_csv(positions_file, index=False)
-        
-        logger.info(f"Saved {len(positions_list)} positions to {positions_file}")
-        
-    except Exception as e:
-        logger.error(f"Error saving positions: {e}")
-        raise
-
-def save_signals(signals_list):
-    """Save signals to CSV file"""
-    try:
-        signals_file = 'data/trades/recent_signals.csv'
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(signals_file), exist_ok=True)
-        
-        df = pd.DataFrame(signals_list)
-        df.to_csv(signals_file, index=False)
-        
-        logger.info(f"Saved {len(signals_list)} signals to {signals_file}")
-        
-    except Exception as e:
-        logger.error(f"Error saving signals: {e}")
-        raise
-
-def get_positions_df():
-    """Get positions DataFrame"""
-    try:
-        positions_file = 'data/trades/current_positions.csv'
-        
-        if os.path.exists(positions_file):
-            df = pd.read_csv(positions_file)
-            print(f"🔍 Positions CSV shape: {df.shape}, columns: {list(df.columns)}")
-            
-            # Handle comma-separated data in single column (defensive)
-            if len(df.columns) == 1 and not df.empty:
-                first_cell = str(df.iloc[0, 0])
-                if ',' in first_cell:
-                    print("🔧 Splitting comma-separated positions data")
-                    df = df.iloc[:, 0].str.split(',', expand=True)
-                    position_columns = ['symbol', 'shares', 'entry_price', 'entry_date', 'current_price', 
-                                      'current_value', 'profit', 'profit_pct', 'days_held', 'side', 'strategy']
-                    df.columns = position_columns[:len(df.columns)]
-            
-            return df
-        else:
-            print("⚠️ Positions file not found - creating empty DataFrame")
-            return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
-            
-    except Exception as e:
-        print(f"❌ Error reading positions CSV: {e}")
-        logger.error(f"Error in get_positions_df: {e}")
-        return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
-
-def get_positions():
-    """Get current positions as list of dictionaries"""
-    try:
-        df = get_positions_df()
-        return df.to_dict(orient="records") if not df.empty else []
-    except Exception as e:
-        logger.error(f"Error in get_positions: {e}")
+            # If only one column, use the first column
+            return df.iloc[:, 0].dropna().astype(str).tolist()
+    else:
+        logger.warning(f"S&P 500 symbols file not found: {SP500_SYMBOLS_FILE}")
         return []
 
-def get_signals():
-    """Get trading signals DataFrame"""
-    try:
-        signals_file = 'data/trades/recent_signals.csv'
-        
-        if os.path.exists(signals_file):
-            df = pd.read_csv(signals_file)
-            print(f"🔍 Signals CSV shape: {df.shape}, columns: {list(df.columns)}")
-            
-            # Handle comma-separated data in single column (defensive)
-            if len(df.columns) == 1 and not df.empty:
-                first_cell = str(df.iloc[0, 0])
-                if ',' in first_cell:
-                    print("🔧 Splitting comma-separated signals data")
-                    df = df.iloc[:, 0].str.split(',', expand=True)
-                    signal_columns = ['date', 'symbol', 'signal_type', 'direction', 'price', 'strategy']
-                    df.columns = signal_columns[:len(df.columns)]
-            
-            return df
-        else:
-            print("⚠️ Signals file not found - creating empty DataFrame")
-            return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
-            
-    except Exception as e:
-        print(f"❌ Error reading signals CSV: {e}")
-        logger.error(f"Error in get_signals: {e}")
-        return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
+# --- PRICE + INDICATOR DATA ---
+def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_DAYS):
+    """
+    Save the DataFrame with price + indicator columns for a symbol.
+    Only the most recent `history_days` rows are retained.
+    """
+    filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
+    ensure_dir(filename)
+    if not df.empty:
+        # Ensure correct columns and order
+        for col in ALL_COLUMNS:
+            if col not in df.columns:
+                df[col] = np.nan
+        df = df[ALL_COLUMNS]
+        df = df.sort_values("Date").drop_duplicates(subset=["Date"], keep="last").tail(history_days)
+        df.to_csv(filename, index=False)
+    else:
+        logger.warning(f"No data to save for {symbol}")
 
-def get_portfolio_metrics():
-    """Get basic portfolio metrics"""
-    try:
-        # Check if trades file exists
-        trades_file = 'data/trades/trade_history.csv'
-        
-        print(f"🔍 Looking for trades file at: {trades_file}")
-        print(f"🔍 Current working directory: {os.getcwd()}")
-        print(f"🔍 Files in current directory: {os.listdir('.')}")
-        
-        if os.path.exists('data'):
-            print(f"🔍 Files in data: {os.listdir('data')}")
-            if os.path.exists('data/trades'):
-                print(f"🔍 Files in data/trades: {os.listdir('data/trades')}")
-        
-        if os.path.exists(trades_file):
-            trades_df = pd.read_csv(trades_file)
-            print(f"🔍 Trades CSV shape: {trades_df.shape}, columns: {list(trades_df.columns)}")
-            
-            if not trades_df.empty and 'profit' in trades_df.columns:
-                total_profit = trades_df['profit'].sum()
-                total_trades = len(trades_df)
-                winning_trades = len(trades_df[trades_df['profit'] > 0])
-                win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-                
-                return {
-                    'total_profit': total_profit,
-                    'total_trades': total_trades,
-                    'win_rate': win_rate,
-                    'avg_profit_per_trade': total_profit / total_trades if total_trades > 0 else 0
-                }
-        
-        # Return default metrics if no data
-        return {
-            'total_profit': 0,
-            'total_trades': 0,
-            'win_rate': 0,
-            'avg_profit_per_trade': 0
-        }
-        
-    except Exception as e:
-        logger.error(f"Error in get_portfolio_metrics: {e}")
-        return {
-            'total_profit': 0,
-            'total_trades': 0,
-            'win_rate': 0,
-            'avg_profit_per_trade': 0
-        }
+def load_price_data(symbol: str) -> pd.DataFrame:
+    filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
+    if os.path.exists(filename):
+        return pd.read_csv(filename, parse_dates=["Date"])
+    else:
+        return pd.DataFrame(columns=ALL_COLUMNS)
 
-def get_strategy_performance():
-    """Get strategy performance data"""
-    try:
-        # Return sample performance data
-        return {
-            'sharpe_ratio': 1.2,
-            'max_drawdown': -0.15,
-            'total_return': 0.25,
-            'volatility': 0.18
-        }
-    except Exception as e:
-        logger.error(f"Error in get_strategy_performance: {e}")
-        return {
-            'sharpe_ratio': 0,
-            'max_drawdown': 0,
-            'total_return': 0,
-            'volatility': 0
-        }
+# --- TRADES, POSITIONS, SIGNALS, METADATA, INITIALIZATION ---
 
-def get_portfolio_performance_stats():
-    """Get detailed portfolio performance statistics"""
-    try:
-        # Return sample stats
-        return {
-            'monthly_returns': [0.02, 0.015, -0.01, 0.03, 0.025],
-            'cumulative_returns': [1.02, 1.035, 1.025, 1.055, 1.081],
-            'benchmark_returns': [0.015, 0.012, -0.008, 0.025, 0.02]
-        }
-    except Exception as e:
-        logger.error(f"Error in get_portfolio_performance_stats: {e}")
-        return {
-            'monthly_returns': [],
-            'cumulative_returns': [],
-            'benchmark_returns': []
-        }
+TRADE_COLUMNS = [
+    "symbol", "type", "entry_date", "exit_date", 
+    "entry_price", "exit_price", "shares", "profit", "exit_reason"
+]
+POSITION_COLUMNS = [
+    "symbol", "shares", "entry_price", "entry_date", "current_price", 
+    "current_value", "profit", "profit_pct", "days_held", "side", "strategy"
+]
+SIGNAL_COLUMNS = [
+    "date", "symbol", "signal_type", "direction", "price", "strategy"
+]
+SYSTEM_STATUS_COLUMNS = [
+    "timestamp", "system", "message"
+]
 
-def get_current_positions():
-    """Get current portfolio positions"""
-    try:
-        positions_file = 'data/trades/current_positions.csv'
-        
-        if os.path.exists(positions_file):
-            positions_df = pd.read_csv(positions_file)
-            return positions_df
-        else:
-            print("⚠️ Positions file not found - creating empty DataFrame")
-            return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
-            
-    except Exception as e:
-        logger.error(f"Error in get_current_positions: {e}")
-        return pd.DataFrame(columns=['symbol', 'shares', 'entry_price', 'current_price', 'unrealized_pnl'])
-
-def get_recent_signals():
-    """Get recent trading signals"""
-    try:
-        signals_file = 'data/trades/recent_signals.csv'
-        
-        if os.path.exists(signals_file):
-            signals_df = pd.read_csv(signals_file)
-            return signals_df
-        else:
-            print("⚠️ Signals file not found - creating empty DataFrame")
-            return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
-            
-    except Exception as e:
-        logger.error(f"Error in get_recent_signals: {e}")
-        return pd.DataFrame(columns=['symbol', 'signal', 'timestamp', 'confidence'])
-
+# --- TRADE HISTORY ---
 def get_trades_history():
-    """Get trades history"""
-    try:
-        trades_file = 'data/trades/trade_history.csv'
-        
-        print(f"🔍 Looking for trades file at: {trades_file}")
-        print(f"🔍 Current working directory: {os.getcwd()}")
-        print(f"🔍 Files in current directory: {os.listdir('.')}")
-        
-        if os.path.exists('data'):
-            print(f"🔍 Files in data: {os.listdir('data')}")
-            if os.path.exists('data/trades'):
-                print(f"🔍 Files in data/trades: {os.listdir('data/trades')}")
-        
-        if os.path.exists(trades_file):
-            trades_df = pd.read_csv(trades_file)
-            print(f"🔍 Trades CSV shape: {trades_df.shape}, columns: {list(trades_df.columns)}")
-            return trades_df
-        else:
-            print("⚠️ Trades history file not found - creating empty DataFrame")
-            return pd.DataFrame(columns=['symbol', 'type', 'entry_date', 'exit_date', 'entry_price', 'exit_price', 'shares', 'profit', 'exit_reason'])
-            
-    except Exception as e:
-        logger.error(f"Error in get_trades_history: {e}")
-        return pd.DataFrame(columns=['symbol', 'type', 'entry_date', 'exit_date', 'entry_price', 'exit_price', 'shares', 'profit', 'exit_reason'])
+    if os.path.exists(TRADES_HISTORY_FILE):
+        return pd.read_csv(TRADES_HISTORY_FILE)
+    return pd.DataFrame(columns=TRADE_COLUMNS)
 
-def load_stock_data(symbol, start_date=None, end_date=None):
-    """Load stock data for a given symbol"""
-    try:
-        file_path = f'data/daily/{symbol}.csv'
-        
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path)
-            if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'])
-                df.set_index('Date', inplace=True)
-            
-            # Filter by date range if provided
-            if start_date:
-                df = df[df.index >= start_date]
-            if end_date:
-                df = df[df.index <= end_date]
-                
-            return df
-        else:
-            logger.warning(f"Data file not found for symbol: {symbol}")
-            return pd.DataFrame()
-            
-    except Exception as e:
-        logger.error(f"Error loading data for {symbol}: {e}")
-        return pd.DataFrame()
+def save_trades(trades_list: List[Dict]):
+    ensure_dir(TRADES_HISTORY_FILE)
+    if os.path.exists(TRADES_HISTORY_FILE):
+        # Append to existing trades
+        existing_df = pd.read_csv(TRADES_HISTORY_FILE)
+        new_df = pd.DataFrame(trades_list)
+        combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+        combined_df.to_csv(TRADES_HISTORY_FILE, index=False)
+    else:
+        # Create new file
+        df = pd.DataFrame(trades_list)
+        df.to_csv(TRADES_HISTORY_FILE, index=False)
 
+# --- POSITIONS ---
+def get_positions_df():
+    if os.path.exists(POSITIONS_FILE):
+        return pd.read_csv(POSITIONS_FILE)
+    return pd.DataFrame(columns=POSITION_COLUMNS)
+
+def save_positions(positions_list: List[Dict]):
+    ensure_dir(POSITIONS_FILE)
+    df = pd.DataFrame(positions_list)
+    df.to_csv(POSITIONS_FILE, index=False)
+
+def get_positions():
+    df = get_positions_df()
+    return df.to_dict(orient="records") if not df.empty else []
+
+# --- SIGNALS ---
+def get_signals():
+    if os.path.exists(SIGNALS_FILE):
+        return pd.read_csv(SIGNALS_FILE)
+    return pd.DataFrame(columns=SIGNAL_COLUMNS)
+
+def save_signals(signals: List[Dict]):
+    ensure_dir(SIGNALS_FILE)
+    df = pd.DataFrame(signals)
+    df.to_csv(SIGNALS_FILE, index=False)
+
+# --- SYSTEM STATUS ---
+def get_system_status():
+    if os.path.exists(SYSTEM_STATUS_FILE):
+        return pd.read_csv(SYSTEM_STATUS_FILE)
+    return pd.DataFrame(columns=SYSTEM_STATUS_COLUMNS)
+
+def save_system_status(message: str, system: str = "nGS"):
+    ensure_dir(SYSTEM_STATUS_FILE)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    new_row = pd.DataFrame([{"timestamp": now, "system": system, "message": message}])
+    if os.path.exists(SYSTEM_STATUS_FILE):
+        df = pd.read_csv(SYSTEM_STATUS_FILE)
+        df = pd.concat([new_row, df], ignore_index=True)
+    else:
+        df = new_row
+    df.to_csv(SYSTEM_STATUS_FILE, index=False)
+
+# --- METADATA ---
+def init_metadata():
+    if not os.path.exists(METADATA_FILE):
+        metadata = {
+            "created": datetime.now().isoformat(),
+            "retention_days": RETENTION_DAYS,
+        }
+        with open(METADATA_FILE, "w") as f:
+            json.dump(metadata, f, indent=2)
+    else:
+        with open(METADATA_FILE, "r") as f:
+            metadata = json.load(f)
+    return metadata
+
+def update_metadata(key: str, value):
+    metadata = init_metadata()
+    if "." in key:
+        parts = key.split(".")
+        d = metadata
+        for p in parts[:-1]:
+            if p not in d:
+                d[p] = {}
+            d = d[p]
+        d[parts[-1]] = value
+    else:
+        metadata[key] = value
+    with open(METADATA_FILE, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+# --- DASHBOARD FUNCTIONS FOR LONG/SHORT SYSTEM ---
+
+def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
+    """
+    Calculate portfolio metrics for long/short system.
+    
+    Args:
+        initial_portfolio_value: Starting portfolio value
+        
+    Returns:
+        Dictionary with portfolio metrics including M/E ratio
+    """
+    try:
+        # Get current positions
+        positions_df = get_positions_df()
+        trades_df = get_trades_history()
+        
+        if positions_df.empty:
+            return {
+                'total_value': f"${initial_portfolio_value:.2f}",
+                'total_return_pct': "0.00%",
+                'daily_pnl': "$0.00",
+                'mtd_return': "$0.00",
+                'mtd_delta': "0.00%",
+                'ytd_return': "$0.00",
+                'ytd_delta': "0.00%",
+                'me_ratio': "0.00%",
+                'long_exposure': "$0.00",
+                'short_exposure': "$0.00",
+                'net_exposure': "$0.00"
+            }
+        
+        # Calculate exposures
+        long_positions = positions_df[positions_df['shares'] > 0]
+        short_positions = positions_df[positions_df['shares'] < 0]
+        
+        long_exposure = long_positions['current_value'].sum() if not long_positions.empty else 0
+        short_exposure = abs(short_positions['current_value'].sum()) if not short_positions.empty else 0
+        net_exposure = long_exposure - short_exposure
+        total_margin = long_exposure + short_exposure  # Total margin used
+        
+        # Portfolio calculations
+        total_trade_profit = trades_df['profit'].sum() if not trades_df.empty else 0
+        unrealized_pnl = positions_df['profit'].sum() if not positions_df.empty else 0
+        
+        # Current portfolio value
+        current_portfolio_value = initial_portfolio_value + total_trade_profit + unrealized_pnl
+        
+        # M/E Ratio (Margin to Equity)
+        me_ratio = (total_margin / current_portfolio_value * 100) if current_portfolio_value > 0 else 0
+        
+        # Returns
+        total_return = current_portfolio_value - initial_portfolio_value
+        total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_portfolio_value > 0 else "0.00%"
+        
+        # Daily P&L (unrealized from current positions)
+        daily_pnl = unrealized_pnl
+        
+        # MTD and YTD (simplified)
+        mtd_return = f"${total_return:.2f}"
+        mtd_delta = total_return_pct
+        ytd_return = f"${total_return:.2f}" 
+        ytd_delta = total_return_pct
+        
+        return {
+            'total_value': f"${current_portfolio_value:.2f}",
+            'total_return_pct': total_return_pct,
+            'daily_pnl': f"${daily_pnl:.2f}",
+            'mtd_return': mtd_return,
+            'mtd_delta': mtd_delta,
+            'ytd_return': ytd_return,
+            'ytd_delta': ytd_delta,
+            'me_ratio': f"{me_ratio:.1f}%",
+            'long_exposure': f"${long_exposure:.2f}",
+            'short_exposure': f"${short_exposure:.2f}",
+            'net_exposure': f"${net_exposure:.2f}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calculating portfolio metrics: {e}")
+        return {
+            'total_value': f"${initial_portfolio_value:.2f}",
+            'total_return_pct': "0.00%",
+            'daily_pnl': "$0.00",
+            'mtd_return': "$0.00",
+            'mtd_delta': "0.00%",
+            'ytd_return': "$0.00",
+            'ytd_delta': "0.00%",
+            'me_ratio': "0.00%",
+            'long_exposure': "$0.00",
+            'short_exposure': "$0.00",
+            'net_exposure': "$0.00"
+        }
+
+def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.DataFrame:
+    """
+    Get strategy performance summary.
+    
+    Args:
+        initial_portfolio_value: Starting portfolio value
+        
+    Returns:
+        DataFrame with strategy performance
+    """
+    try:
+        trades_df = get_trades_history()
+        
+        if trades_df.empty:
+            return pd.DataFrame(columns=['Strategy', 'Trades', 'Win Rate', 'Total Profit', 'Avg Profit'])
+        
+        # Group by strategy type (using signal type from trades)
+        strategy_stats = []
+        
+        # Overall nGS Strategy stats
+        total_trades = len(trades_df)
+        winning_trades = len(trades_df[trades_df['profit'] > 0])
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0
+        total_profit = trades_df['profit'].sum()
+        avg_profit = trades_df['profit'].mean()
+        
+        strategy_stats.append({
+            'Strategy': 'nGS System',
+            'Trades': total_trades,
+            'Win Rate': f"{win_rate:.1%}",
+            'Total Profit': f"${total_profit:.2f}",
+            'Avg Profit': f"${avg_profit:.2f}"
+        })
+        
+        # Breakdown by trade type if available
+        if 'type' in trades_df.columns:
+            for trade_type in trades_df['type'].unique():
+                type_trades = trades_df[trades_df['type'] == trade_type]
+                if not type_trades.empty:
+                    type_total = len(type_trades)
+                    type_wins = len(type_trades[type_trades['profit'] > 0])
+                    type_win_rate = type_wins / type_total if type_total > 0 else 0
+                    type_profit = type_trades['profit'].sum()
+                    type_avg = type_trades['profit'].mean()
+                    
+                    strategy_stats.append({
+                        'Strategy': f'nGS {trade_type.title()}',
+                        'Trades': type_total,
+                        'Win Rate': f"{type_win_rate:.1%}",
+                        'Total Profit': f"${type_profit:.2f}",
+                        'Avg Profit': f"${type_avg:.2f}"
+                    })
+        
+        return pd.DataFrame(strategy_stats)
+        
+    except Exception as e:
+        logger.error(f"Error getting strategy performance: {e}")
+        return pd.DataFrame(columns=['Strategy', 'Trades', 'Win Rate', 'Total Profit', 'Avg Profit'])
+
+def get_portfolio_performance_stats() -> pd.DataFrame:
+    """
+    Get detailed portfolio performance statistics for display.
+    
+    Returns:
+        DataFrame with performance statistics
+    """
+    try:
+        trades_df = get_trades_history()
+        positions_df = get_positions_df()
+        
+        if trades_df.empty:
+            return pd.DataFrame(columns=['Metric', 'Value'])
+        
+        # Calculate statistics
+        total_trades = len(trades_df)
+        winning_trades = len(trades_df[trades_df['profit'] > 0])
+        losing_trades = total_trades - winning_trades
+        win_rate = winning_trades / total_trades if total_trades > 0 else 0
+        
+        total_profit = trades_df['profit'].sum()
+        avg_win = trades_df[trades_df['profit'] > 0]['profit'].mean() if winning_trades > 0 else 0
+        avg_loss = trades_df[trades_df['profit'] < 0]['profit'].mean() if losing_trades > 0 else 0
+        
+        # Profit factor
+        total_wins = trades_df[trades_df['profit'] > 0]['profit'].sum()
+        total_losses = abs(trades_df[trades_df['profit'] < 0]['profit'].sum())
+        profit_factor = total_wins / total_losses if total_losses > 0 else float('inf')
+        
+        # Current positions
+        current_positions = len(positions_df) if not positions_df.empty else 0
+        unrealized_pnl = positions_df['profit'].sum() if not positions_df.empty else 0
+        
+        # Create stats DataFrame
+        stats = [
+            ['Total Trades', f"{total_trades}"],
+            ['Win Rate', f"{win_rate:.1%}"],
+            ['Total Profit', f"${total_profit:.2f}"],
+            ['Avg Win', f"${avg_win:.2f}"],
+            ['Avg Loss', f"${avg_loss:.2f}"],
+            ['Profit Factor', f"{profit_factor:.2f}"],
+            ['Open Positions', f"{current_positions}"],
+            ['Unrealized P&L', f"${unrealized_pnl:.2f}"]
+        ]
+        
+        return pd.DataFrame(stats, columns=['Metric', 'Value'])
+        
+    except Exception as e:
+        logger.error(f"Error getting portfolio performance stats: {e}")
+        return pd.DataFrame(columns=['Metric', 'Value'])
+
+def get_long_positions_formatted() -> pd.DataFrame:
+    """
+    Get formatted long positions for dashboard display.
+    
+    Returns:
+        DataFrame with formatted long positions
+    """
+    try:
+        positions_df = get_positions_df()
+        
+        if positions_df.empty:
+            return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+        
+        # Filter for long positions
+        long_positions = positions_df[positions_df['shares'] > 0].copy()
+        
+        if long_positions.empty:
+            return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+        
+        # Format for display
+        formatted = pd.DataFrame({
+            'Symbol': long_positions['symbol'],
+            'Shares': long_positions['shares'].astype(int),
+            'Entry Price': long_positions['entry_price'].apply(lambda x: f"${x:.2f}"),
+            'Current Price': long_positions['current_price'].apply(lambda x: f"${x:.2f}"),
+            'P&L': long_positions['profit'].apply(lambda x: f"${x:.2f}"),
+            'P&L %': long_positions['profit_pct'].apply(lambda x: f"{x:.1f}%"),
+            'Days': long_positions['days_held'].astype(int)
+        })
+        
+        return formatted.reset_index(drop=True)
+        
+    except Exception as e:
+        logger.error(f"Error getting formatted long positions: {e}")
+        return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+
+def get_short_positions_formatted() -> pd.DataFrame:
+    """
+    Get formatted short positions for dashboard display.
+    
+    Returns:
+        DataFrame with formatted short positions
+    """
+    try:
+        positions_df = get_positions_df()
+        
+        if positions_df.empty:
+            return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+        
+        # Filter for short positions
+        short_positions = positions_df[positions_df['shares'] < 0].copy()
+        
+        if short_positions.empty:
+            return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+        
+        # Format for display (show absolute shares for shorts)
+        formatted = pd.DataFrame({
+            'Symbol': short_positions['symbol'],
+            'Shares': short_positions['shares'].abs().astype(int),
+            'Entry Price': short_positions['entry_price'].apply(lambda x: f"${x:.2f}"),
+            'Current Price': short_positions['current_price'].apply(lambda x: f"${x:.2f}"),
+            'P&L': short_positions['profit'].apply(lambda x: f"${x:.2f}"),
+            'P&L %': short_positions['profit_pct'].apply(lambda x: f"{x:.1f}%"),
+            'Days': short_positions['days_held'].astype(int)
+        })
+        
+        return formatted.reset_index(drop=True)
+        
+    except Exception as e:
+        logger.error(f"Error getting formatted short positions: {e}")
+        return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
+
+def get_long_positions() -> List[Dict]:
+    """
+    Get current long positions.
+    
+    Returns:
+        List of long position dictionaries
+    """
+    try:
+        positions_df = get_positions_df()
+        
+        if positions_df.empty:
+            return []
+        
+        # Filter for long positions (positive shares)
+        long_positions = positions_df[positions_df['shares'] > 0]
+        
+        # Convert to list of dictionaries for Streamlit
+        return long_positions.to_dict('records')
+        
+    except Exception as e:
+        logger.error(f"Error getting long positions: {e}")
+        return []
+
+def get_short_positions() -> List[Dict]:
+    """
+    Get current short positions.
+    
+    Returns:
+        List of short position dictionaries
+    """
+    try:
+        positions_df = get_positions_df()
+        
+        if positions_df.empty:
+            return []
+        
+        # Filter for short positions (negative shares)
+        short_positions = positions_df[positions_df['shares'] < 0]
+        
+        # Convert to list of dictionaries for Streamlit
+        return short_positions.to_dict('records')
+        
+    except Exception as e:
+        logger.error(f"Error getting short positions: {e}")
+        return []
+
+# --- INITIALIZE ---
 def initialize():
-    """Initialize data manager - create directories and validate setup"""
-    try:
-        # Ensure all required directories exist
-        required_dirs = ['data', 'data/daily', 'data/trades']
-        for dir_path in required_dirs:
-            os.makedirs(dir_path, exist_ok=True)
-        
-        # Validate data integrity
-        validate_data_integrity()
-        
-        logger.info("Data manager initialized successfully")
-        print("✅ Data manager initialized successfully")
-        
-    except Exception as e:
-        logger.error(f"Error initializing data manager: {e}")
-        raise
+    ensure_dir(POSITIONS_FILE)
+    ensure_dir(TRADES_HISTORY_FILE)
+    ensure_dir(SIGNALS_FILE)
+    ensure_dir(SYSTEM_STATUS_FILE)
+    ensure_dir(METADATA_FILE)
+    init_metadata()
+    logger.info("Data manager initialized")
 
-def ensure_dir(path):
-    """Ensure directory exists for given file path"""
-    directory = os.path.dirname(path)
-    if directory:
-        os.makedirs(directory, exist_ok=True)
-
-def validate_data_integrity():
-    """Validate that all data files are properly formatted"""
-    try:
-        required_dirs = ['data', 'data/daily', 'data/trades']
-        for dir_path in required_dirs:
-            os.makedirs(dir_path, exist_ok=True)
-            
-        logger.info("Data integrity validation completed")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Data integrity validation failed: {e}")
-        return False
-
-# Initialize on import
-validate_data_integrity()
+if __name__ == "__main__":
+    initialize()
+    logger.info("data_manager.py loaded successfully")
