@@ -31,12 +31,15 @@ def calculate_daily_me_ratios_6month(initial_portfolio_value: float = 100000):
         
         logger.info(f"Original trade history: {len(trades_df)} trades")
         
-        # FILTER TO LAST 6 MONTHS ONLY
-        six_months_ago = datetime.now() - timedelta(days=180)
-        
         # Convert dates
         trades_df['entry_date'] = pd.to_datetime(trades_df['entry_date'])
         trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
+        
+        # SAVE ORIGINAL TRADES FOR PORTFOLIO EQUITY CALCULATION
+        original_trades_df = trades_df.copy()
+        
+        # FILTER TO LAST 6 MONTHS ONLY (for position tracking)
+        six_months_ago = datetime.now() - timedelta(days=180)
         
         # Filter to last 6 months (entry date or exit date within 6 months)
         trades_df = trades_df[
@@ -64,17 +67,14 @@ def calculate_daily_me_ratios_6month(initial_portfolio_value: float = 100000):
         daily_data = []
         
         for current_date in date_range:
-            # Find positions open on this date
+            # Find positions open on this date (using 6-month filtered data)
             open_positions = trades_df[
                 (trades_df['entry_date'] <= current_date) & 
                 (trades_df['exit_date'] > current_date)
             ]
             
-            # Calculate portfolio equity up to this date
-            # For 6-month rolling: use trades that closed before this date AND within our window
-            # Calculate portfolio equity up to this date
-            # Use ALL trades that closed before this date (not just 6 months)
-            closed_trades = trades_df[trades_df['exit_date'] <= current_date]
+            # Calculate portfolio equity up to this date (using ALL trades since inception)
+            closed_trades = original_trades_df[original_trades_df['exit_date'] <= current_date]
             cumulative_profit = closed_trades['profit'].sum() if not closed_trades.empty else 0
             portfolio_equity = initial_portfolio_value + cumulative_profit
             
@@ -123,7 +123,8 @@ def calculate_daily_me_ratios_6month(initial_portfolio_value: float = 100000):
             'start_date': start_date.isoformat(),
             'end_date': end_date.isoformat(),
             'total_days': len(me_history_df),
-            'trades_used': len(trades_df),
+            'trades_used_for_positions': len(trades_df),
+            'trades_used_for_equity': len(original_trades_df),
             'average_me_ratio': avg_me,
             'max_me_ratio': max_me,
             'min_me_ratio': min_me,
@@ -140,7 +141,8 @@ def calculate_daily_me_ratios_6month(initial_portfolio_value: float = 100000):
         print(f"Summary saved to {summary_file}")
         print(f"Statistics (6-month rolling window):")
         print(f"   - Total days: {len(me_history_df)}")
-        print(f"   - Trades used: {len(trades_df)}")
+        print(f"   - Trades used for positions: {len(trades_df)}")
+        print(f"   - Trades used for equity: {len(original_trades_df)}")
         print(f"   - Average M/E: {avg_me:.1f}%")
         print(f"   - Max M/E: {max_me:.1f}%")
         print(f"   - Min M/E: {min_me:.1f}%")
@@ -192,7 +194,8 @@ def verify_me_calculation():
         print("M/E ratio calculation verification:")
         print(f"   - History file: {len(me_df)} days of data")
         print(f"   - Date range: {summary['start_date'][:10]} to {summary['end_date'][:10]}")
-        print(f"   - Trades used: {summary['trades_used']}")
+        print(f"   - Trades for positions: {summary['trades_used_for_positions']}")
+        print(f"   - Trades for equity: {summary['trades_used_for_equity']}")
         print(f"   - Average M/E: {summary['average_me_ratio']:.1f}%")
         print(f"   - Rolling window: {summary['rolling_window_days']} days")
         print(f"   - Calculation date: {summary['calculation_date'][:10]}")
