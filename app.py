@@ -9,7 +9,8 @@ from data_manager import (
     get_long_positions_formatted,
     get_short_positions_formatted,
     get_signals,
-    get_system_status
+    get_system_status,
+    get_trades_history  # Added import
 )
 
 # --- PAGE CONFIG ---
@@ -57,7 +58,7 @@ with st.sidebar:
 
 # --- PAGE HEADER ---
 st.title("Alpha Capture Technology AI")
-st.caption("S&P 500 Long/Short Position Trader")
+st.caption("S&P 500 Long/Short Position Trader - Historical Performance")
 
 # --- VARIABLE ACCOUNT SIZE ---
 st.markdown("## Current Portfolio Status")
@@ -72,28 +73,22 @@ initial_value = st.number_input(
 # --- PORTFOLIO METRICS ---
 metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
 
-# Portfolio Overview Metrics
-col1, col2, col3, col4, col5 = st.columns(5)
+# Portfolio Overview Metrics - Only 3 metrics for historical performance
+col1, col2, col3 = st.columns(3)
 with col1:
     # Remove cents from total value display
     total_value_clean = metrics['total_value'].replace('.00', '').replace(',', '')
-    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
+    st.metric(label="Total Portfolio Value", value=total_value_clean)
 with col2:
-    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
+    st.metric(label="Total Return", value=metrics['total_return_pct'])
 with col3:
     st.metric(label="M/E Ratio", value=metrics['me_ratio'])
-with col4:
-    st.metric(label="Long Exposure", value=metrics['long_exposure'])
-with col5:
-    st.metric(label="Short Exposure", value=metrics['short_exposure'])
 
-# Net Exposure
-col6, col7, col8 = st.columns(3)
-with col6:
-    st.metric(label="Net Exposure", value=metrics['net_exposure'])
-with col7:
+# MTD and YTD Returns
+col4, col5 = st.columns(2)
+with col4:
     st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
-with col8:
+with col5:
     st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
 
 # --- STRATEGY PERFORMANCE TABLE ---
