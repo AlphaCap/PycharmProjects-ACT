@@ -1,105 +1,63 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import matplotlib.pyplot as plt
-import sys
-import os
-
-# Add parent directory to path to import data_manager
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from data_manager import (
-    get_trades_history,
     get_portfolio_metrics,
     get_strategy_performance,
-    get_portfolio_performance_stats
+    get_portfolio_performance_stats,
+    get_trades_history
 )
 
 # --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="nGulfStream Swing Trader - Historical Performance",
+    page_title="nGS System - Historical Performance",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- HIDE STREAMLIT ELEMENTS ---
-hide_streamlit_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display:none;}
-    .stDecoration {display:none;}
-    [data-testid="stToolbar"] {display: none;}
-    [data-testid="stHeader"] {display: none;}
-    .stApp > header {display: none;}
-    
-    /* Hide only the auto-generated page navigation, not our custom sidebar */
-    [data-testid="stSidebarNav"] {display: none;}
-    
-    .stAppViewContainer > .main .block-container {
-        padding-top: 1rem;
-    }
-    </style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
-# --- SIDEBAR NAVIGATION ---
-with st.sidebar:
-    st.title("Trading Systems")
-    if st.button("← Back to Main Dashboard", use_container_width=True):
-        st.switch_page("App.py")
-    
-    st.markdown("---")
-    
-    if st.button("nGulfStream Swing Trader", use_container_width=True, type="primary"):
-        st.rerun()
-    
-    # Disabled placeholder buttons
-    st.button("Alpha Capture AI", use_container_width=True, disabled=True, help="Coming Soon")
-    st.button("gST DayTrader", use_container_width=True, disabled=True, help="Coming Soon")
-    
-    st.markdown("---")
-    st.caption("Data last updated:")
-    st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
-
 # --- PAGE HEADER ---
 st.title("nGulfStream Swing Trader")
-st.caption("Historical Trading Performance & Track Record")
+st.caption("Historical Performance Track Record")
 
-# --- ACCOUNT SIZE INPUT ---
+# --- VARIABLE ACCOUNT SIZE ---
+st.markdown("## Historical Performance")
 initial_value = st.number_input(
-    "Portfolio/Account Size:",
+    "Set initial portfolio/account size:",
     min_value=1000,
     value=100000,
     step=1000,
     format="%d"
 )
 
-# --- PORTFOLIO METRICS ---
-metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+# --- PORTFOLIO METRICS - ALL ON ONE ROW ---
+metrics = get_portfolio_metrics(initial_portfolio_value=initial_value, is_historical=True)
 
-# Portfolio Overview Metrics
+# All metrics on one row as requested
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
-    total_value_clean = metrics['total_value'].replace('.00', '').replace(',', '')
-    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
+    st.metric(label="Total Portfolio Value", value=metrics['total_value'])
 with col2:
-    st.metric(label="Total Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
+    st.metric(label="Total Return", value=metrics['total_return_pct'])
 with col3:
-    st.metric(label="M/E Ratio", value=metrics['me_ratio'])
+    st.metric(label="M/E Ratio (Avg)", value=metrics['historical_me_ratio'])
 with col4:
-    st.metric(label="Long Exposure", value=metrics['long_exposure'])
+    st.metric(label="MTD Return", value=metrics['mtd_return'])
 with col5:
-    st.metric(label="Short Exposure", value=metrics['short_exposure'])
+    st.metric(label="YTD Return", value=metrics['ytd_return'])
 
-# --- HISTORICAL PERFORMANCE SECTION ---
-st.markdown("## Historical Performance")
+# --- STRATEGY PERFORMANCE TABLE ---
+st.subheader("Strategy Performance")
+strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
+if not strategy_df.empty:
+    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+else:
+    st.info("No strategy performance data available.")
 
+# --- PERFORMANCE STATS AND EQUITY CURVE ---
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Strategy Statistics")
+    st.subheader("Portfolio Performance Statistics")
     perf_stats_df = get_portfolio_performance_stats()
     if not perf_stats_df.empty:
         st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
@@ -108,34 +66,31 @@ with col1:
 
 with col2:
     st.subheader("Equity Curve")
+    # Create equity curve from trade history
     trades_df = get_trades_history()
     if not trades_df.empty:
         try:
-            # Create equity curve
+            # Sort trades by exit date and calculate cumulative profit
             trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
             trades_sorted = trades_df.sort_values('exit_date')
             trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
             
+            # Create the equity curve chart
+            import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
-                   linewidth=2, color='#1f77b4', marker='o', markersize=3)
+            ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], linewidth=2, color='#1f77b4')
             ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
                            where=(trades_sorted['cumulative_profit'] > 0), alpha=0.3, color='green')
             ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
                            where=(trades_sorted['cumulative_profit'] <= 0), alpha=0.3, color='red')
-            ax.set_title('nGS Strategy Cumulative Profit - Inception to Date', fontsize=14, fontweight='bold')
-            ax.set_xlabel('Date', fontsize=12)
-            ax.set_ylabel('Cumulative Profit ($)', fontsize=12)
+            ax.set_title('Cumulative Profit Over Time')
+            ax.set_xlabel('Date')
+            ax.set_ylabel('Cumulative Profit ($)')
             ax.grid(True, alpha=0.3)
             ax.tick_params(axis='x', rotation=45)
             
-            # Add final value annotation
-            final_profit = trades_sorted['cumulative_profit'].iloc[-1]
-            ax.annotate(f'Total: ${final_profit:.2f}', 
-                       xy=(trades_sorted['exit_date'].iloc[-1], final_profit),
-                       xytext=(10, 10), textcoords='offset points',
-                       bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7),
-                       fontweight='bold')
+            # Format y-axis to show dollars without cents
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
             
             plt.tight_layout()
             st.pyplot(fig)
@@ -143,79 +98,25 @@ with col2:
         except Exception as e:
             st.error(f"Error creating equity curve: {e}")
     else:
-        st.info("No trade history available for equity curve.")
+        st.info("No trade history for equity curve.")
 
-# --- STRATEGY PERFORMANCE TABLE ---
-st.subheader("Strategy Breakdown")
-strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
-if not strategy_df.empty:
-    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
-else:
-    st.info("No strategy performance data available.")
-
-# --- COMPLETE TRADE HISTORY ---
-st.markdown("## Complete Trade History")
-st.caption("All trades from strategy inception - maintained for track record purposes")
-
-trades_df = get_trades_history()
+# --- TRADE HISTORY TABLE ---
+st.subheader("Recent Trades")
 if not trades_df.empty:
-    # Sort by exit date (most recent first)
-    trades_display = trades_df.sort_values('exit_date', ascending=False).copy()
+    # Show last 20 trades
+    recent_trades = trades_df.sort_values('exit_date', ascending=False).head(20)
     
-    # Format for better display
-    trades_display['entry_date'] = pd.to_datetime(trades_display['entry_date']).dt.strftime('%Y-%m-%d')
-    trades_display['exit_date'] = pd.to_datetime(trades_display['exit_date']).dt.strftime('%Y-%m-%d')
-    trades_display['entry_price'] = trades_display['entry_price'].apply(lambda x: f"${x:.2f}")
-    trades_display['exit_price'] = trades_display['exit_price'].apply(lambda x: f"${x:.2f}")
-    trades_display['profit'] = trades_display['profit'].apply(lambda x: f"${x:.2f}")
+    # Format for display
+    display_trades = recent_trades.copy()
+    display_trades['entry_price'] = display_trades['entry_price'].apply(lambda x: f"${x:.2f}")
+    display_trades['exit_price'] = display_trades['exit_price'].apply(lambda x: f"${x:.2f}")
+    display_trades['profit'] = display_trades['profit'].apply(lambda x: f"${x:,.0f}")
     
-    # Rename columns for display
-    display_columns = {
-        'symbol': 'Symbol',
-        'type': 'Type',
-        'entry_date': 'Entry Date',
-        'exit_date': 'Exit Date',
-        'entry_price': 'Entry Price',
-        'exit_price': 'Exit Price',
-        'shares': 'Shares',
-        'profit': 'Profit',
-        'exit_reason': 'Exit Reason'
-    }
-    
-    trades_display = trades_display.rename(columns=display_columns)
-    
-    # Color code profitable vs losing trades
-    def color_profit(val):
-        if val.startswith('-'):
-            return 'color: red'
-        elif val.startswith('$') and float(val.replace('$', '').replace(',', '')) > 0:
-            return 'color: green'
-        else:
-            return ''
-    
-    # Apply styling
-    styled_trades = trades_display.style.applymap(color_profit, subset=['Profit'])
-    
-    st.dataframe(styled_trades, use_container_width=True, hide_index=True)
-    
-    # Trade history summary
-    st.markdown("### Trade History Summary")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Total Trades", len(trades_df))
-    with col2:
-        winning_trades = len(trades_df[trades_df['profit'] > 0])
-        st.metric("Winning Trades", winning_trades)
-    with col3:
-        losing_trades = len(trades_df[trades_df['profit'] <= 0])
-        st.metric("Losing Trades", losing_trades)
-    with col4:
-        win_rate = winning_trades / len(trades_df) if len(trades_df) > 0 else 0
-        st.metric("Win Rate", f"{win_rate:.1%}")
-
+    st.dataframe(display_trades[['symbol', 'type', 'entry_date', 'exit_date', 
+                                'entry_price', 'exit_price', 'shares', 'profit', 'exit_reason']], 
+                use_container_width=True, hide_index=True)
 else:
-    st.info("No historical trades available.")
+    st.info("No trade history available.")
 
 st.markdown("---")
-st.caption("nGulfStream Swing Trader - Neural Grid Strategy for S&P 500 Long/Short Trading")
+st.caption("nGulfStream Swing Trader - Historical Performance Dashboard")
