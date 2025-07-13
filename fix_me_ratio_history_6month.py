@@ -72,10 +72,9 @@ def calculate_daily_me_ratios_6month(initial_portfolio_value: float = 100000):
             
             # Calculate portfolio equity up to this date
             # For 6-month rolling: use trades that closed before this date AND within our window
-            closed_trades = trades_df[
-                (trades_df['exit_date'] <= current_date) &
-                (trades_df['exit_date'] >= six_months_ago)
-            ]
+            # Calculate portfolio equity up to this date
+            # Use ALL trades that closed before this date (not just 6 months)
+            closed_trades = trades_df[trades_df['exit_date'] <= current_date]
             cumulative_profit = closed_trades['profit'].sum() if not closed_trades.empty else 0
             portfolio_equity = initial_portfolio_value + cumulative_profit
             
