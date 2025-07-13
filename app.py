@@ -45,7 +45,8 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.title("Trading Systems")
-    if st.button("nGulfStream Swing Trader", use_container_width=True):
+    # This button now goes to the HISTORICAL performance page
+    if st.button("nGulfStream Swing Trader - Historical", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
     # Disabled placeholder buttons for future systems
@@ -58,7 +59,7 @@ with st.sidebar:
 
 # --- PAGE HEADER ---
 st.title("Alpha Capture Technology AI")
-st.caption("S&P 500 Long/Short Position Trader - Historical Performance")
+st.caption("S&P 500 Long/Short Position Trader - Live Trading")
 
 # --- VARIABLE ACCOUNT SIZE ---
 st.markdown("## Current Portfolio Status")
@@ -71,24 +72,26 @@ initial_value = st.number_input(
 )
 
 # --- PORTFOLIO METRICS ---
-metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
+metrics = get_portfolio_metrics(initial_portfolio_value=initial_value, is_historical=False)
 
-# Portfolio Overview Metrics - Only 3 metrics for historical performance
-col1, col2, col3 = st.columns(3)
+# Current Trading Metrics - Include Daily P&L and current M/E ratio
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    # Remove cents from total value display
-    total_value_clean = metrics['total_value'].replace('.00', '').replace(',', '')
-    st.metric(label="Total Portfolio Value", value=total_value_clean)
+    st.metric(label="Total Portfolio Value", value=metrics['total_value'])
 with col2:
     st.metric(label="Total Return", value=metrics['total_return_pct'])
 with col3:
+    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
+with col4:
     st.metric(label="M/E Ratio", value=metrics['me_ratio'])
 
-# MTD and YTD Returns
-col4, col5 = st.columns(2)
-with col4:
-    st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
+# Net Exposure and Returns
+col5, col6, col7 = st.columns(3)
 with col5:
+    st.metric(label="Net Exposure", value=metrics['net_exposure'])
+with col6:
+    st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
+with col7:
     st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
 
 # --- STRATEGY PERFORMANCE TABLE ---
@@ -111,7 +114,7 @@ if not long_positions_df.empty:
     # Long positions summary
     long_count = len(long_positions_df)
     long_total_value = long_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
-    st.caption(f"**Long Summary:** {long_count} positions, Total P&L: ${long_total_value:.2f}")
+    st.caption(f"**Long Summary:** {long_count} positions, Total P&L: ${long_total_value:,.0f}")
 else:
     st.info("No active long positions.")
 
@@ -124,7 +127,7 @@ if not short_positions_df.empty:
     # Short positions summary
     short_count = len(short_positions_df)
     short_total_value = short_positions_df['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
-    st.caption(f"**Short Summary:** {short_count} positions, Total P&L: ${short_total_value:.2f}")
+    st.caption(f"**Short Summary:** {short_count} positions, Total P&L: ${short_total_value:,.0f}")
 else:
     st.info("No active short positions.")
 
