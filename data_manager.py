@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Union
 
 # --- CONFIG ---
 DATA_DIR = "."  # Use current directory
+DAILY_DIR = os.path.join("data", "daily")  # Added missing DAILY_DIR
 POSITIONS_FILE = "positions.csv"
 TRADES_HISTORY_FILE = "trade_history.csv"
 SIGNALS_FILE = "recent_signals.csv"
@@ -45,22 +46,19 @@ logger = logging.getLogger(__name__)
 
 # --- FILE UTILS ---
 def ensure_dir(path):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    dir_path = os.path.dirname(path)
+    if dir_path and not os.path.exists(dir_path):
+        os.makedirs(dir_path, exist_ok=True)
 
 # --- S&P 500 SYMBOLS ---
 def get_sp500_symbols() -> list:
     """
-    Load S&P 500 symbols from the saved CSV file.
+    Load S&P 500 symbols from the saved txt file.
     Returns a list of symbol strings.
     """
     if os.path.exists(SP500_SYMBOLS_FILE):
-        df = pd.read_csv(SP500_SYMBOLS_FILE)
-        # Try to auto-detect the symbol column
-        if 'symbol' in df.columns:
-            return df['symbol'].dropna().astype(str).tolist()
-        else:
-            # If only one column, use the first column
-            return df.iloc[:, 0].dropna().astype(str).tolist()
+        with open(SP500_SYMBOLS_FILE, 'r') as f:
+            return [line.strip() for line in f if line.strip()]
     else:
         logger.warning(f"S&P 500 symbols file not found: {SP500_SYMBOLS_FILE}")
         return []
@@ -204,6 +202,7 @@ def update_metadata(key: str, value):
 def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
     """
     Calculate portfolio metrics for long/short system.
+    For historical performance page, this calculates from closed trades.
     
     Args:
         initial_portfolio_value: Starting portfolio value
@@ -212,59 +211,52 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
         Dictionary with portfolio metrics including M/E ratio
     """
     try:
-        # Get current positions
+        # Get data
         positions_df = get_positions_df()
         trades_df = get_trades_history()
         
-        if positions_df.empty:
-            return {
-                'total_value': f"${initial_portfolio_value:.2f}",
-                'total_return_pct': "0.00%",
-                'daily_pnl': "$0.00",
-                'mtd_return': "$0.00",
-                'mtd_delta': "0.00%",
-                'ytd_return': "$0.00",
-                'ytd_delta': "0.00%",
-                'me_ratio': "0.00%",
-                'long_exposure': "$0.00",
-                'short_exposure': "$0.00",
-                'net_exposure': "$0.00"
-            }
-        
-        # Calculate exposures
-        long_positions = positions_df[positions_df['shares'] > 0]
-        short_positions = positions_df[positions_df['shares'] < 0]
-        
-        long_exposure = long_positions['current_value'].sum() if not long_positions.empty else 0
-        short_exposure = abs(short_positions['current_value'].sum()) if not short_positions.empty else 0
-        net_exposure = long_exposure - short_exposure
-        total_margin = long_exposure + short_exposure  # Total margin used
-        
-        # Portfolio calculations
+        # Calculate from historical trades (always do this first)
         total_trade_profit = trades_df['profit'].sum() if not trades_df.empty else 0
-        unrealized_pnl = positions_df['profit'].sum() if not positions_df.empty else 0
         
-        # Current portfolio value
-        current_portfolio_value = initial_portfolio_value + total_trade_profit + unrealized_pnl
+        # Current portfolio value from closed trades
+        current_portfolio_value = initial_portfolio_value + total_trade_profit
         
-        # M/E Ratio (Margin to Equity)
-        me_ratio = (total_margin / current_portfolio_value * 100) if current_portfolio_value > 0 else 0
+        # Calculate exposures from open positions
+        if not positions_df.empty:
+            long_positions = positions_df[positions_df['shares'] > 0]
+            short_positions = positions_df[positions_df['shares'] < 0]
+            
+            long_exposure = long_positions['current_value'].sum() if not long_positions.empty else 0
+            short_exposure = abs(short_positions['current_value'].sum()) if not short_positions.empty else 0
+            net_exposure = long_exposure - short_exposure
+            total_margin = long_exposure + short_exposure  # Total margin used
+            
+            # M/E Ratio (Margin to Equity) - historical average
+            me_ratio = (total_margin / current_portfolio_value * 100) if current_portfolio_value > 0 else 0
+            
+            # Daily P&L (unrealized from current positions)
+            daily_pnl = positions_df['profit'].sum()
+        else:
+            # No open positions
+            long_exposure = 0
+            short_exposure = 0
+            net_exposure = 0
+            me_ratio = 0
+            daily_pnl = 0
         
-        # Returns
-        total_return = current_portfolio_value - initial_portfolio_value
+        # Returns based on closed trades
+        total_return = total_trade_profit
         total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_portfolio_value > 0 else "0.00%"
         
-        # Daily P&L (unrealized from current positions)
-        daily_pnl = unrealized_pnl
-        
-        # MTD and YTD (simplified)
+        # MTD and YTD calculations (simplified for now)
+        # In a real system, you'd filter trades by date
         mtd_return = f"${total_return:.2f}"
         mtd_delta = total_return_pct
         ytd_return = f"${total_return:.2f}" 
         ytd_delta = total_return_pct
         
         return {
-            'total_value': f"${current_portfolio_value:.2f}",
+            'total_value': f"${current_portfolio_value:,.2f}",
             'total_return_pct': total_return_pct,
             'daily_pnl': f"${daily_pnl:.2f}",
             'mtd_return': mtd_return,
@@ -280,7 +272,7 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
     except Exception as e:
         logger.error(f"Error calculating portfolio metrics: {e}")
         return {
-            'total_value': f"${initial_portfolio_value:.2f}",
+            'total_value': f"${initial_portfolio_value:,.2f}",
             'total_return_pct': "0.00%",
             'daily_pnl': "$0.00",
             'mtd_return': "$0.00",
@@ -323,7 +315,7 @@ def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.Data
             'Strategy': 'nGS System',
             'Trades': total_trades,
             'Win Rate': f"{win_rate:.1%}",
-            'Total Profit': f"${total_profit:.2f}",
+            'Total Profit': f"${total_profit:,.2f}",
             'Avg Profit': f"${avg_profit:.2f}"
         })
         
@@ -342,7 +334,7 @@ def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.Data
                         'Strategy': f'nGS {trade_type.title()}',
                         'Trades': type_total,
                         'Win Rate': f"{type_win_rate:.1%}",
-                        'Total Profit': f"${type_profit:.2f}",
+                        'Total Profit': f"${type_profit:,.2f}",
                         'Avg Profit': f"${type_avg:.2f}"
                     })
         
@@ -389,10 +381,10 @@ def get_portfolio_performance_stats() -> pd.DataFrame:
         stats = [
             ['Total Trades', f"{total_trades}"],
             ['Win Rate', f"{win_rate:.1%}"],
-            ['Total Profit', f"${total_profit:.2f}"],
+            ['Total Profit', f"${total_profit:,.2f}"],
             ['Avg Win', f"${avg_win:.2f}"],
             ['Avg Loss', f"${avg_loss:.2f}"],
-            ['Profit Factor', f"{profit_factor:.2f}"],
+            ['Profit Factor', f"{profit_factor:.2f}" if profit_factor != float('inf') else "∞"],
             ['Open Positions', f"{current_positions}"],
             ['Unrealized P&L', f"${unrealized_pnl:.2f}"]
         ]
@@ -528,6 +520,7 @@ def initialize():
     ensure_dir(SIGNALS_FILE)
     ensure_dir(SYSTEM_STATUS_FILE)
     ensure_dir(METADATA_FILE)
+    ensure_dir(DAILY_DIR)  # Ensure daily directory exists
     init_metadata()
     logger.info("Data manager initialized")
 
