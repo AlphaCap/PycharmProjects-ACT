@@ -45,7 +45,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 with st.sidebar:
     st.title("Trading Systems")
     # This button now goes to the HISTORICAL performance page
-    if st.button("nGulfStream Swing Trader - Historical", use_container_width=True):
+    if st.button("HOME", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
     # Disabled placeholder buttons for future systems
