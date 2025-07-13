@@ -21,6 +21,10 @@ PRIMARY_TIER_DAYS = 30
 MAX_THREADS = 8
 HISTORY_DAYS = 200  # Rolling window for daily data
 
+# S&P 500 Configuration
+SP500_EXPECTED_COUNT = 500  # Exact count for S&P 500
+SP500_MINIMUM_COUNT = 490   # Minimum acceptable count (allowing for recent changes)
+
 PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume"]
 INDICATOR_COLUMNS = [
     "BBAvg", "BBSDev", "UpperBB", "LowerBB", 
@@ -81,22 +85,73 @@ def get_sp500_symbols() -> list:
         return []
 
 def verify_sp500_coverage():
-    """Verify S&P 500 symbol coverage and log status"""
+    """Verify S&P 500 symbol coverage and log detailed status"""
     symbols = get_sp500_symbols()
     if symbols:
+        symbol_count = len(symbols)
         logger.info(f"S&P 500 symbol verification:")
-        logger.info(f"Total symbols loaded: {len(symbols)}")
-        logger.info(f"Expected S&P 500 count: ~500")
+        logger.info(f"Total symbols loaded: {symbol_count}")
+        logger.info(f"Expected S&P 500 count: {SP500_EXPECTED_COUNT}")
+        logger.info(f"Minimum acceptable count: {SP500_MINIMUM_COUNT}")
         
-        # Check for common symbols
-        common_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA']
-        found_common = [s for s in common_symbols if s in symbols]
-        logger.info(f"Common symbols found: {found_common}")
+        # Check for common blue-chip symbols
+        blue_chip_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BRK.B', 'UNH', 'JNJ']
+        found_blue_chips = [s for s in blue_chip_symbols if s in symbols]
+        logger.info(f"Blue-chip symbols found ({len(found_blue_chips)}/{len(blue_chip_symbols)}): {found_blue_chips}")
         
-        return len(symbols) >= 450  # Allow for some variance
+        # Check for sector representation
+        tech_symbols = ['AAPL', 'MSFT', 'GOOGL', 'META', 'NVDA']
+        finance_symbols = ['JPM', 'BAC', 'WFC', 'GS', 'MS']
+        healthcare_symbols = ['UNH', 'JNJ', 'PFE', 'ABT', 'MRK']
+        
+        tech_found = len([s for s in tech_symbols if s in symbols])
+        finance_found = len([s for s in finance_symbols if s in symbols])
+        healthcare_found = len([s for s in healthcare_symbols if s in symbols])
+        
+        logger.info(f"Sector representation:")
+        logger.info(f"  Technology: {tech_found}/{len(tech_symbols)} symbols")
+        logger.info(f"  Finance: {finance_found}/{len(finance_symbols)} symbols")
+        logger.info(f"  Healthcare: {healthcare_found}/{len(healthcare_symbols)} symbols")
+        
+        # Validate count
+        if symbol_count >= SP500_MINIMUM_COUNT:
+            if symbol_count == SP500_EXPECTED_COUNT:
+                logger.info("✓ S&P 500 symbol count is EXACT and complete")
+            else:
+                logger.info(f"✓ S&P 500 symbol count is ACCEPTABLE ({symbol_count} >= {SP500_MINIMUM_COUNT})")
+            
+            # Check data quality
+            duplicate_count = len(symbols) - len(set(symbols))
+            if duplicate_count > 0:
+                logger.warning(f"Found {duplicate_count} duplicate symbols")
+            else:
+                logger.info("✓ No duplicate symbols found")
+                
+            return True
+        else:
+            logger.error(f"✗ S&P 500 symbol count is TOO LOW ({symbol_count} < {SP500_MINIMUM_COUNT})")
+            logger.error("This may impact system performance and coverage")
+            return False
     else:
-        logger.error("No S&P 500 symbols loaded!")
+        logger.error("✗ No S&P 500 symbols loaded!")
+        logger.error("System will operate with limited functionality")
         return False
+
+def get_sp500_symbol_stats():
+    """Get detailed statistics about S&P 500 symbol coverage"""
+    symbols = get_sp500_symbols()
+    
+    stats = {
+        'total_count': len(symbols),
+        'expected_count': SP500_EXPECTED_COUNT,
+        'minimum_count': SP500_MINIMUM_COUNT,
+        'coverage_complete': len(symbols) == SP500_EXPECTED_COUNT,
+        'coverage_acceptable': len(symbols) >= SP500_MINIMUM_COUNT,
+        'duplicate_count': len(symbols) - len(set(symbols)) if symbols else 0,
+        'sample_symbols': symbols[:10] if symbols else []
+    }
+    
+    return stats
 
 # --- PRICE + INDICATOR DATA ---
 def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_DAYS):
@@ -812,7 +867,18 @@ def initialize():
     init_metadata()
     
     # Verify S&P 500 coverage on initialization
-    verify_sp500_coverage()
+    coverage_ok = verify_sp500_coverage()
+    
+    # Log symbol statistics
+    stats = get_sp500_symbol_stats()
+    logger.info(f"S&P 500 Symbol Statistics:")
+    logger.info(f"  Loaded: {stats['total_count']}/{stats['expected_count']} symbols")
+    logger.info(f"  Coverage Complete: {stats['coverage_complete']}")
+    logger.info(f"  Coverage Acceptable: {stats['coverage_acceptable']}")
+    logger.info(f"  Duplicates: {stats['duplicate_count']}")
+    
+    if not coverage_ok:
+        logger.warning("⚠️  S&P 500 symbol coverage is incomplete - system performance may be affected")
     
     logger.info("Data manager initialized")
 
