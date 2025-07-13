@@ -10,6 +10,13 @@ from data_manager import (
     save_trades, save_positions, load_price_data,
     save_signals, get_positions, initialize as init_data_manager
 )
+# Add M/E ratio tracking imports here
+from me_ratio_calculator import (
+    update_me_ratio_for_trade, 
+    add_realized_profit, 
+    get_current_risk_assessment,
+    get_me_calculator
+)
 
 # Configure logging
 logging.basicConfig(
