@@ -9,8 +9,7 @@ from data_manager import (
     get_long_positions_formatted,
     get_short_positions_formatted,
     get_signals,
-    get_system_status,
-    get_trades_history  # Added import
+    get_system_status
 )
 
 # --- PAGE CONFIG ---
@@ -132,7 +131,7 @@ else:
     st.info("No active short positions.")
 
 # --- SIGNALS AND PERFORMANCE SECTION ---
-col1, col2 = st.columns([1, 2])  # Make signals column narrower
+col1, col2 = st.columns([1, 1])  # Equal columns now
 
 with col1:
     st.subheader("Today's Signals")
@@ -157,48 +156,14 @@ with col1:
         st.info("No recent signals.")
 
 with col2:
-    # Split this column for performance stats and equity curve
-    subcol1, subcol2 = st.columns(2)
-    
-    with subcol1:
-        st.subheader("Portfolio Performance Stats")
-        perf_stats_df = get_portfolio_performance_stats()
-        if not perf_stats_df.empty:
-            st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No performance statistics available.")
-    
-    with subcol2:
-        st.subheader("Equity Curve")
-        # Create equity curve from trade history
-        trades_df = get_trades_history()
-        if not trades_df.empty:
-            try:
-                # Sort trades by exit date and calculate cumulative profit
-                trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
-                trades_sorted = trades_df.sort_values('exit_date')
-                trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
-                
-                # Create the equity curve chart
-                import matplotlib.pyplot as plt
-                fig, ax = plt.subplots(figsize=(8, 4))
-                ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], linewidth=2, color='#1f77b4')
-                ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
-                               where=(trades_sorted['cumulative_profit'] > 0), alpha=0.3, color='green')
-                ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
-                               where=(trades_sorted['cumulative_profit'] <= 0), alpha=0.3, color='red')
-                ax.set_title('Cumulative Profit Over Time')
-                ax.set_xlabel('Date')
-                ax.set_ylabel('Cumulative Profit ($)')
-                ax.grid(True, alpha=0.3)
-                ax.tick_params(axis='x', rotation=45)
-                plt.tight_layout()
-                st.pyplot(fig)
-                plt.close()
-            except Exception as e:
-                st.error(f"Error creating equity curve: {e}")
-        else:
-            st.info("No trade history for equity curve.")
+    st.subheader("Portfolio Performance Stats")
+    perf_stats_df = get_portfolio_performance_stats()
+    if not perf_stats_df.empty:
+        st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No performance statistics available.")
 
+# --- INFO SECTION ---
 st.markdown("---")
+st.info("📊 **View detailed historical analysis, trade history, and performance charts on the Historical page.**")
 st.caption("Alpha Trading Systems Dashboard - For additional support, please contact the trading desk.")
