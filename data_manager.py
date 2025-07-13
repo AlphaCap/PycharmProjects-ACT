@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Union
 DATA_DIR = "."  # Use current directory
 DAILY_DIR = os.path.join("data", "daily")  # Added missing DAILY_DIR
 POSITIONS_FILE = "positions.csv"
-TRADES_HISTORY_FILE = "trade_history.csv"
+TRADES_HISTORY_FILE = "data/trades/trade_history.csv"  # Updated path
 SIGNALS_FILE = "recent_signals.csv"
 SYSTEM_STATUS_FILE = "system_status.csv"
 METADATA_FILE = "metadata.json"
@@ -49,6 +49,17 @@ def ensure_dir(path):
     dir_path = os.path.dirname(path)
     if dir_path and not os.path.exists(dir_path):
         os.makedirs(dir_path, exist_ok=True)
+
+# --- FORMATTING UTILS ---
+def format_dollars(value):
+    """Format dollar amounts without cents"""
+    if isinstance(value, str) and '$' in value:
+        # Already formatted
+        return value
+    try:
+        return f"${float(value):,.0f}"
+    except:
+        return "$0"
 
 # --- S&P 500 SYMBOLS ---
 def get_sp500_symbols() -> list:
@@ -197,15 +208,44 @@ def update_metadata(key: str, value):
     with open(METADATA_FILE, "w") as f:
         json.dump(metadata, f, indent=2)
 
-# --- DASHBOARD FUNCTIONS FOR LONG/SHORT SYSTEM ---
+# --- M/E RATIO CALCULATIONS ---
+def calculate_historical_me_ratio(trades_df: pd.DataFrame) -> float:
+    """
+    Calculate historical M/E ratio as rolling average.
+    This would ideally use historical position data, but we'll estimate
+    based on trade patterns.
+    """
+    if trades_df.empty:
+        return 0.0
+    
+    # Estimate average position sizing based on trades
+    avg_position_value = trades_df['shares'].abs().mean() * trades_df['entry_price'].mean()
+    
+    # Estimate average number of concurrent positions (simplified)
+    # This is a rough estimate - in production you'd track this properly
+    avg_positions = min(len(trades_df) / 30, 20)  # Assume ~30 days avg hold, max 20 positions
+    
+    # Estimate total margin used
+    estimated_margin = avg_position_value * avg_positions
+    
+    # Use average portfolio value (midpoint between start and end)
+    initial_value = 100000  # Default
+    final_value = initial_value + trades_df['profit'].sum()
+    avg_portfolio_value = (initial_value + final_value) / 2
+    
+    # Calculate M/E ratio
+    if avg_portfolio_value > 0:
+        return (estimated_margin / avg_portfolio_value) * 100
+    return 0.0
 
-def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
+# --- DASHBOARD FUNCTIONS FOR LONG/SHORT SYSTEM ---
+def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical: bool = False) -> Dict:
     """
     Calculate portfolio metrics for long/short system.
-    For historical performance page, this calculates from closed trades.
     
     Args:
         initial_portfolio_value: Starting portfolio value
+        is_historical: True for historical page, False for current trading page
         
     Returns:
         Dictionary with portfolio metrics including M/E ratio
@@ -215,7 +255,7 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
         positions_df = get_positions_df()
         trades_df = get_trades_history()
         
-        # Calculate from historical trades (always do this first)
+        # Calculate from historical trades
         total_trade_profit = trades_df['profit'].sum() if not trades_df.empty else 0
         
         # Current portfolio value from closed trades
@@ -231,8 +271,8 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
             net_exposure = long_exposure - short_exposure
             total_margin = long_exposure + short_exposure  # Total margin used
             
-            # M/E Ratio (Margin to Equity) - historical average
-            me_ratio = (total_margin / current_portfolio_value * 100) if current_portfolio_value > 0 else 0
+            # Current M/E Ratio (for live trading page)
+            current_me_ratio = (total_margin / current_portfolio_value * 100) if current_portfolio_value > 0 else 0
             
             # Daily P&L (unrealized from current positions)
             daily_pnl = positions_df['profit'].sum()
@@ -241,48 +281,53 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000) -> Dict:
             long_exposure = 0
             short_exposure = 0
             net_exposure = 0
-            me_ratio = 0
+            current_me_ratio = 0
             daily_pnl = 0
+        
+        # Historical M/E Ratio (rolling average for historical page)
+        historical_me_ratio = calculate_historical_me_ratio(trades_df) if not trades_df.empty else 0
         
         # Returns based on closed trades
         total_return = total_trade_profit
         total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_portfolio_value > 0 else "0.00%"
         
         # MTD and YTD calculations (simplified for now)
-        # In a real system, you'd filter trades by date
-        mtd_return = f"${total_return:.2f}"
-        mtd_delta = total_return_pct
-        ytd_return = f"${total_return:.2f}" 
-        ytd_delta = total_return_pct
+        mtd_return = format_dollars(total_return)
+        ytd_return = format_dollars(total_return)
         
-        return {
-            'total_value': f"${current_portfolio_value:,.2f}",
+        # Format all dollar amounts without cents
+        metrics = {
+            'total_value': format_dollars(current_portfolio_value),
             'total_return_pct': total_return_pct,
-            'daily_pnl': f"${daily_pnl:.2f}",
+            'daily_pnl': format_dollars(daily_pnl),
             'mtd_return': mtd_return,
-            'mtd_delta': mtd_delta,
+            'mtd_delta': total_return_pct,
             'ytd_return': ytd_return,
-            'ytd_delta': ytd_delta,
-            'me_ratio': f"{me_ratio:.1f}%",
-            'long_exposure': f"${long_exposure:.2f}",
-            'short_exposure': f"${short_exposure:.2f}",
-            'net_exposure': f"${net_exposure:.2f}"
+            'ytd_delta': total_return_pct,
+            'me_ratio': f"{current_me_ratio:.1f}%",
+            'historical_me_ratio': f"{historical_me_ratio:.1f}%",
+            'long_exposure': format_dollars(long_exposure),
+            'short_exposure': format_dollars(short_exposure),
+            'net_exposure': format_dollars(net_exposure)
         }
+        
+        return metrics
         
     except Exception as e:
         logger.error(f"Error calculating portfolio metrics: {e}")
         return {
-            'total_value': f"${initial_portfolio_value:,.2f}",
+            'total_value': format_dollars(initial_portfolio_value),
             'total_return_pct': "0.00%",
-            'daily_pnl': "$0.00",
-            'mtd_return': "$0.00",
+            'daily_pnl': "$0",
+            'mtd_return': "$0",
             'mtd_delta': "0.00%",
-            'ytd_return': "$0.00",
+            'ytd_return': "$0",
             'ytd_delta': "0.00%",
-            'me_ratio': "0.00%",
-            'long_exposure': "$0.00",
-            'short_exposure': "$0.00",
-            'net_exposure': "$0.00"
+            'me_ratio': "0.0%",
+            'historical_me_ratio': "0.0%",
+            'long_exposure': "$0",
+            'short_exposure': "$0",
+            'net_exposure': "$0"
         }
 
 def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.DataFrame:
@@ -315,8 +360,8 @@ def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.Data
             'Strategy': 'nGS System',
             'Trades': total_trades,
             'Win Rate': f"{win_rate:.1%}",
-            'Total Profit': f"${total_profit:,.2f}",
-            'Avg Profit': f"${avg_profit:.2f}"
+            'Total Profit': format_dollars(total_profit),
+            'Avg Profit': format_dollars(avg_profit)
         })
         
         # Breakdown by trade type if available
@@ -334,8 +379,8 @@ def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.Data
                         'Strategy': f'nGS {trade_type.title()}',
                         'Trades': type_total,
                         'Win Rate': f"{type_win_rate:.1%}",
-                        'Total Profit': f"${type_profit:,.2f}",
-                        'Avg Profit': f"${type_avg:.2f}"
+                        'Total Profit': format_dollars(type_profit),
+                        'Avg Profit': format_dollars(type_avg)
                     })
         
         return pd.DataFrame(strategy_stats)
@@ -377,16 +422,16 @@ def get_portfolio_performance_stats() -> pd.DataFrame:
         current_positions = len(positions_df) if not positions_df.empty else 0
         unrealized_pnl = positions_df['profit'].sum() if not positions_df.empty else 0
         
-        # Create stats DataFrame
+        # Create stats DataFrame - format without cents
         stats = [
             ['Total Trades', f"{total_trades}"],
             ['Win Rate', f"{win_rate:.1%}"],
-            ['Total Profit', f"${total_profit:,.2f}"],
-            ['Avg Win', f"${avg_win:.2f}"],
-            ['Avg Loss', f"${avg_loss:.2f}"],
+            ['Total Profit', format_dollars(total_profit)],
+            ['Avg Win', format_dollars(avg_win)],
+            ['Avg Loss', format_dollars(avg_loss)],
             ['Profit Factor', f"{profit_factor:.2f}" if profit_factor != float('inf') else "∞"],
             ['Open Positions', f"{current_positions}"],
-            ['Unrealized P&L', f"${unrealized_pnl:.2f}"]
+            ['Unrealized P&L', format_dollars(unrealized_pnl)]
         ]
         
         return pd.DataFrame(stats, columns=['Metric', 'Value'])
@@ -414,13 +459,13 @@ def get_long_positions_formatted() -> pd.DataFrame:
         if long_positions.empty:
             return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
         
-        # Format for display
+        # Format for display - no cents on P&L
         formatted = pd.DataFrame({
             'Symbol': long_positions['symbol'],
             'Shares': long_positions['shares'].astype(int),
             'Entry Price': long_positions['entry_price'].apply(lambda x: f"${x:.2f}"),
             'Current Price': long_positions['current_price'].apply(lambda x: f"${x:.2f}"),
-            'P&L': long_positions['profit'].apply(lambda x: f"${x:.2f}"),
+            'P&L': long_positions['profit'].apply(lambda x: format_dollars(x)),
             'P&L %': long_positions['profit_pct'].apply(lambda x: f"{x:.1f}%"),
             'Days': long_positions['days_held'].astype(int)
         })
@@ -450,13 +495,13 @@ def get_short_positions_formatted() -> pd.DataFrame:
         if short_positions.empty:
             return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
         
-        # Format for display (show absolute shares for shorts)
+        # Format for display (show absolute shares for shorts) - no cents on P&L
         formatted = pd.DataFrame({
             'Symbol': short_positions['symbol'],
             'Shares': short_positions['shares'].abs().astype(int),
             'Entry Price': short_positions['entry_price'].apply(lambda x: f"${x:.2f}"),
             'Current Price': short_positions['current_price'].apply(lambda x: f"${x:.2f}"),
-            'P&L': short_positions['profit'].apply(lambda x: f"${x:.2f}"),
+            'P&L': short_positions['profit'].apply(lambda x: format_dollars(x)),
             'P&L %': short_positions['profit_pct'].apply(lambda x: f"{x:.1f}%"),
             'Days': short_positions['days_held'].astype(int)
         })
