@@ -1,264 +1,309 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import numpy as np
-from datetime import datetime, timedelta
-from data_manager import (
-    get_portfolio_metrics,
-    get_trades_history,
-    get_trades_history_formatted,
-    get_me_ratio_history,
-    format_dollars
-)
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import sys
+import os
+
+# Add the parent directory to the path so we can import data_manager
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    import data_manager as dm
+except ImportError as e:
+    st.error(f"Could not import data_manager: {e}")
+    st.stop()
 
 # --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="nGS Historical Performance",
+    page_title="nGS Performance Analytics", 
+    page_icon="📈", 
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# --- HIDE STREAMLIT ELEMENTS ---
-hide_streamlit_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display:none;}
-    .stDecoration {display:none;}
-    [data-testid="stToolbar"] {display: none;}
-    [data-testid="stHeader"] {display: none;}
-    .stApp > header {display: none;}
-    [data-testid="stSidebarNav"] {display: none;}
-    
-    .stAppViewContainer > .main .block-container {
-        padding-top: 1rem;
+# --- CUSTOM CSS ---
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #1f77b4;
+        text-align: center;
+        margin-bottom: 2rem;
     }
-    </style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+    .metric-container {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border-left: 5px solid #1f77b4;
+    }
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin: 1.5rem 0 1rem 0;
+        border-bottom: 2px solid #1f77b4;
+        padding-bottom: 0.5rem;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.title("Trading Systems")
-   if st.button("HOME", use_container_width=True):
+# --- NAVIGATION ---
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    if st.button("HOME", use_container_width=True):
         st.switch_page("app.py")
+
+# --- HEADER ---
+st.markdown('<h1 class="main-header">📈 nGS System Performance Analytics</h1>', unsafe_allow_html=True)
+
+# --- LOAD DATA ---
+try:
+    # Initialize data manager
+    dm.initialize()
     
-    st.markdown("---")
-    st.caption("Historical Analysis")
-    st.caption(f"Last updated: {datetime.now().strftime('%m/%d/%Y %H:%M')}")
+    # Get portfolio metrics with historical M/E ratio
+    portfolio_metrics = dm.get_portfolio_metrics(initial_portfolio_value=100000, is_historical=True)
+    trades_df = dm.get_trades_history()
+    
+    if trades_df.empty:
+        st.warning("No trade history available yet. Analytics will be displayed once trades are executed.")
+        st.stop()
+        
+except Exception as e:
+    st.error(f"Error loading data: {e}")
+    st.stop()
 
-# --- PAGE HEADER ---
-st.title("nGulfStream - Performance")
-st.caption("Historical analysis and performance metrics")
-
-# --- INITIAL VALUE SETTING ---
-initial_value = st.number_input(
-    "Historical initial portfolio value:",
-    min_value=1000,
-    value=100000,
-    step=1000,
-    format="%d"
-)
-
-# --- HISTORICAL METRICS ---
-st.markdown("## Historical Performance Summary")
-historical_metrics = get_portfolio_metrics(initial_portfolio_value=initial_value, is_historical=True)
+# --- PERFORMANCE OVERVIEW ---
+st.markdown('<div class="section-header">Performance Overview</div>', unsafe_allow_html=True)
 
 col1, col2, col3, col4 = st.columns(4)
+
 with col1:
-    st.metric(label="Total Return", value=historical_metrics['total_return_pct'])
+    st.metric(
+        label="Total Return",
+        value=portfolio_metrics['total_return_pct'],
+        help="Total return since system inception"
+    )
+
 with col2:
-    st.metric(label="Final Portfolio Value", value=historical_metrics['total_value'])
+    st.metric(
+        label="YTD Return", 
+        value=portfolio_metrics['ytd_return'],
+        delta=portfolio_metrics['ytd_delta'],
+        help="Year-to-date performance"
+    )
+
 with col3:
-    st.metric(label="Historical M/E Ratio", value=historical_metrics['historical_me_ratio'])
+    st.metric(
+        label="MTD Return",
+        value=portfolio_metrics['mtd_return'], 
+        delta=portfolio_metrics['mtd_delta'],
+        help="Month-to-date performance"
+    )
+
 with col4:
-    st.metric(label="YTD Return", value=historical_metrics['ytd_return'])
+    st.metric(
+        label="Historical M/E Ratio",
+        value=portfolio_metrics['historical_me_ratio'],
+        help="Historical average Market/Equity ratio"
+    )
 
-# --- CHARTS SECTION ---
-st.markdown("## Performance Charts")
+# --- PERFORMANCE CHARTS ---
+st.markdown('<div class="section-header">Performance Analytics</div>', unsafe_allow_html=True)
 
-# Get data for charts
-trades_df = get_trades_history()
-me_ratio_df = get_me_ratio_history()
+# Create tabs for different chart views
+tab1, tab2, tab3 = st.tabs(["📊 Equity Curve", "📈 M/E Ratio History", "🎯 Trade Analysis"])
 
-# Create two columns for charts
-chart_col1, chart_col2 = st.columns(2)
-
-with chart_col1:
-    st.subheader("📈 Equity Curve")
-    
+with tab1:
+    # Equity Curve Chart
     if not trades_df.empty:
-        try:
-            # Create equity curve
-            trades_sorted = trades_df.copy()
-            trades_sorted['exit_date'] = pd.to_datetime(trades_sorted['exit_date'])
-            trades_sorted = trades_sorted.sort_values('exit_date')
-            trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
-            trades_sorted['portfolio_value'] = initial_value + trades_sorted['cumulative_profit']
-            
-            # Create the chart
-            fig, ax = plt.subplots(figsize=(10, 6))
-            
-            # Plot equity curve
-            ax.plot(trades_sorted['exit_date'], trades_sorted['portfolio_value'], 
-                   linewidth=2, color='#1f77b4', label='Portfolio Value')
-            
-            # Add horizontal line for initial value
-            ax.axhline(y=initial_value, color='gray', linestyle='--', alpha=0.7, 
-                      label=f'Initial Value (${initial_value:,})')
-            
-            # Fill areas
-            ax.fill_between(trades_sorted['exit_date'], trades_sorted['portfolio_value'], initial_value,
-                           where=(trades_sorted['portfolio_value'] > initial_value), 
-                           alpha=0.3, color='green', label='Profit')
-            ax.fill_between(trades_sorted['exit_date'], trades_sorted['portfolio_value'], initial_value,
-                           where=(trades_sorted['portfolio_value'] <= initial_value), 
-                           alpha=0.3, color='red', label='Loss')
-            
-            # Formatting
-            ax.set_title('Portfolio Value Over Time', fontsize=14, fontweight='bold')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Portfolio Value ($)')
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-            
-            # Format y-axis as currency
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
-            
-            # Format x-axis dates
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d/%y'))
-            ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
-            plt.xticks(rotation=45)
-            
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close()
-            
-            # Show key statistics
-            final_value = trades_sorted['portfolio_value'].iloc[-1]
-            total_return = final_value - initial_value
-            total_return_pct = (total_return / initial_value) * 100
-            
-            st.caption(f"**Final Value:** ${final_value:,.0f} | **Total Return:** {format_dollars(total_return)} ({total_return_pct:.1f}%)")
-            
-        except Exception as e:
-            st.error(f"Error creating equity curve: {e}")
+        # Calculate cumulative returns
+        trades_df_sorted = trades_df.sort_values('exit_date')
+        trades_df_sorted['cumulative_pnl'] = trades_df_sorted['profit'].cumsum()
+        trades_df_sorted['portfolio_value'] = 100000 + trades_df_sorted['cumulative_pnl']
+        
+        fig_equity = go.Figure()
+        fig_equity.add_trace(go.Scatter(
+            x=trades_df_sorted['exit_date'],
+            y=trades_df_sorted['portfolio_value'],
+            mode='lines',
+            name='Portfolio Value',
+            line=dict(color='#1f77b4', width=3),
+            hovertemplate='<b>Date:</b> %{x}<br><b>Value:</b> $%{y:,.0f}<extra></extra>'
+        ))
+        
+        fig_equity.update_layout(
+            title="Portfolio Equity Curve",
+            xaxis_title="Date",
+            yaxis_title="Portfolio Value ($)",
+            hovermode='x unified',
+            showlegend=False,
+            height=400
+        )
+        
+        st.plotly_chart(fig_equity, use_container_width=True)
     else:
-        st.info("No trade history available for equity curve.")
+        st.info("Equity curve will be displayed once trades are executed.")
 
-with chart_col2:
-    st.subheader("📊 M/E Ratio History")
+with tab2:
+    # M/E Ratio History Chart
+    me_history = dm.get_me_ratio_history()
     
-    if not me_ratio_df.empty:
-        try:
-            # Create M/E ratio chart
-            fig, ax = plt.subplots(figsize=(10, 6))
-            
-            # Plot M/E ratio
-            ax.plot(me_ratio_df['Date'], me_ratio_df['ME_Ratio'], 
-                   linewidth=2, color='#ff7f0e', label='M/E Ratio')
-            
-            # Add average line
-            avg_me = me_ratio_df['ME_Ratio'].mean()
-            ax.axhline(y=avg_me, color='red', linestyle='--', alpha=0.7, 
-                      label=f'Average ({avg_me:.1f}%)')
-            
-            # Add target zones
-            ax.axhspan(0, 50, alpha=0.1, color='green', label='Conservative (0-50%)')
-            ax.axhspan(50, 100, alpha=0.1, color='yellow', label='Moderate (50-100%)')
-            ax.axhspan(100, me_ratio_df['ME_Ratio'].max(), alpha=0.1, color='red', label='Aggressive (>100%)')
-            
-            # Formatting
-            ax.set_title('Margin-to-Equity Ratio Over Time', fontsize=14, fontweight='bold')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('M/E Ratio (%)')
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-            
-            # Format x-axis dates
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d/%y'))
-            ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
-            plt.xticks(rotation=45)
-            
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close()
-            
-            # Show M/E statistics
-            max_me = me_ratio_df['ME_Ratio'].max()
-            min_me = me_ratio_df['ME_Ratio'].min()
-            
-            st.caption(f"**Average M/E:** {avg_me:.1f}% | **Max:** {max_me:.1f}% | **Min:** {min_me:.1f}%")
-            
-        except Exception as e:
-            st.error(f"Error creating M/E ratio chart: {e}")
+    if not me_history.empty:
+        fig_me = go.Figure()
+        fig_me.add_trace(go.Scatter(
+            x=me_history['Date'],
+            y=me_history['ME_Ratio'],
+            mode='lines',
+            name='M/E Ratio',
+            line=dict(color='#ff7f0e', width=2),
+            hovertemplate='<b>Date:</b> %{x}<br><b>M/E Ratio:</b> %{y:.1f}%<extra></extra>'
+        ))
+        
+        # Add horizontal line for average
+        avg_me = me_history['ME_Ratio'].mean()
+        fig_me.add_hline(
+            y=avg_me, 
+            line_dash="dash", 
+            line_color="red",
+            annotation_text=f"Average: {avg_me:.1f}%"
+        )
+        
+        fig_me.update_layout(
+            title="Historical M/E Ratio Trend",
+            xaxis_title="Date",
+            yaxis_title="M/E Ratio (%)",
+            hovermode='x unified',
+            showlegend=False,
+            height=400
+        )
+        
+        st.plotly_chart(fig_me, use_container_width=True)
     else:
-        st.info("No M/E ratio history available. Run calculate_daily_me_ratio.py to generate.")
+        st.info("M/E ratio history will be displayed once sufficient data is available.")
 
-# --- DETAILED TRADE HISTORY ---
-st.markdown("## Complete Trade History")
-
-trades_formatted = get_trades_history_formatted()
-if not trades_formatted.empty:
-    # Show summary statistics first
-    col1, col2, col3, col4 = st.columns(4)
-    
-    total_trades = len(trades_formatted)
+with tab3:
+    # Trade Analysis Charts
     if not trades_df.empty:
-        winning_trades = len(trades_df[trades_df['profit'] > 0])
-        win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
-        total_profit = trades_df['profit'].sum()
-        avg_profit = trades_df['profit'].mean()
-    else:
-        win_rate = 0
-        total_profit = 0
-        avg_profit = 0
-    
-    with col1:
-        st.metric("Total Trades", total_trades)
-    with col2:
-        st.metric("Win Rate", f"{win_rate:.1f}%")
-    with col3:
-        st.metric("Total Profit", format_dollars(total_profit))
-    with col4:
-        st.metric("Avg Profit/Trade", format_dollars(avg_profit))
-    
-    # Filter options
-    col1, col2 = st.columns(2)
-    with col1:
-        # Trade type filter
-        trade_types = ['All'] + list(trades_formatted['Type'].unique()) if 'Type' in trades_formatted.columns else ['All']
-        selected_type = st.selectbox("Filter by Trade Type:", trade_types)
-    
-    with col2:
-        # Number of trades to show
-        num_trades = st.selectbox("Number of trades to display:", [20, 50, 100, "All"], index=0)
-    
-    # Apply filters
-    filtered_trades = trades_formatted.copy()
-    if selected_type != 'All':
-        filtered_trades = filtered_trades[filtered_trades['Type'] == selected_type]
-    
-    if num_trades != "All":
-        filtered_trades = filtered_trades.head(num_trades)
-    
-    # Display the trades table
-    st.dataframe(filtered_trades, use_container_width=True, hide_index=True)
-    
-    # Download option
-    csv = filtered_trades.to_csv(index=False)
-    st.download_button(
-        label="📥 Download Trade History as CSV",
-        data=csv,
-        file_name=f"ngs_trade_history_{datetime.now().strftime('%Y%m%d')}.csv",
-        mime="text/csv"
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Profit/Loss Distribution
+            fig_dist = go.Figure()
+            fig_dist.add_trace(go.Histogram(
+                x=trades_df['profit'],
+                nbinsx=20,
+                name='Trade P&L',
+                marker_color='#1f77b4',
+                opacity=0.7
+            ))
+            
+            fig_dist.update_layout(
+                title="Trade P&L Distribution",
+                xaxis_title="Profit/Loss ($)",
+                yaxis_title="Number of Trades",
+                height=350
+            )
+            
+            st.plotly_chart(fig_dist, use_container_width=True)
+        
+        with col2:
+            # Monthly Performance
+            trades_df['month'] = pd.to_datetime(trades_df['exit_date']).dt.to_period('M')
+            monthly_pnl = trades_df.groupby('month')['profit'].sum().reset_index()
+            monthly_pnl['month_str'] = monthly_pnl['month'].astype(str)
+            
+            fig_monthly = go.Figure()
+            colors = ['green' if x >= 0 else 'red' for x in monthly_pnl['profit']]
+            
+            fig_monthly.add_trace(go.Bar(
+                x=monthly_pnl['month_str'],
+                y=monthly_pnl['profit'],
+                marker_color=colors,
+                name='Monthly P&L'
+            ))
+            
+            fig_monthly.update_layout(
+                title="Monthly Performance",
+                xaxis_title="Month",
+                yaxis_title="P&L ($)",
+                height=350
+            )
+            
+            st.plotly_chart(fig_monthly, use_container_width=True)
+
+# --- DETAILED STATISTICS ---
+st.markdown('<div class="section-header">Detailed Performance Statistics</div>', unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    # Performance Stats Table
+    performance_stats = dm.get_portfolio_performance_stats()
+    if not performance_stats.empty:
+        st.subheader("📊 Key Metrics")
+        st.dataframe(
+            performance_stats,
+            use_container_width=True,
+            hide_index=True
+        )
+
+with col2:
+    # Strategy Performance
+    strategy_performance = dm.get_strategy_performance()
+    if not strategy_performance.empty:
+        st.subheader("🎯 Strategy Breakdown")
+        st.dataframe(
+            strategy_performance,
+            use_container_width=True,
+            hide_index=True
+        )
+
+# --- RECENT TRADES TABLE ---
+st.markdown('<div class="section-header">Recent Trade History</div>', unsafe_allow_html=True)
+
+# Get formatted trade history
+recent_trades = dm.get_trades_history_formatted()
+
+if not recent_trades.empty:
+    # Show last 20 trades
+    st.dataframe(
+        recent_trades.head(20),
+        use_container_width=True,
+        hide_index=True
     )
     
+    # Summary stats
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Total Trades", len(recent_trades))
+    
+    with col2:
+        winning_trades = len(recent_trades[recent_trades['P&L'].str.replace('$', '').str.replace(',', '').astype(float) > 0])
+        win_rate = winning_trades / len(recent_trades) * 100 if len(recent_trades) > 0 else 0
+        st.metric("Win Rate", f"{win_rate:.1f}%")
+    
+    with col3:
+        avg_days = recent_trades['Days'].mean() if 'Days' in recent_trades.columns else 0
+        st.metric("Avg Hold Time", f"{avg_days:.1f} days")
+    
+    with col4:
+        # Calculate average P&L
+        pnl_values = recent_trades['P&L'].str.replace('$', '').str.replace(',', '').astype(float)
+        avg_pnl = pnl_values.mean()
+        st.metric("Avg P&L", f"${avg_pnl:.0f}")
+
 else:
-    st.info("No trade history available.")
+    st.info("No trade history available yet.")
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("nGS Historical Performance Analysis - For questions about strategy performance, contact the trading desk.")
+st.markdown(
+    "<p style='text-align: center; color: #666;'>nGS Trading System - Performance Analytics Dashboard</p>", 
+    unsafe_allow_html=True
+)
