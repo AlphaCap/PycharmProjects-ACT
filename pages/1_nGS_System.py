@@ -42,7 +42,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("Trading Systems")
-    if st.button("nGulfStream Performance", use_container_width=True):
+   if st.button("HOME", use_container_width=True):
         st.switch_page("app.py")
     
     st.markdown("---")
