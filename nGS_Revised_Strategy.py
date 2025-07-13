@@ -639,27 +639,78 @@ if __name__ == "__main__":
     print("nGS Trading Strategy - Neural Grid System")
     print("=" * 50)
     try:
-        import yfinance as yf
         strategy = NGSStrategy()
+        
+        # Create synthetic test data (no external dependencies)
+        dates = pd.date_range(start='2023-01-01', end='2023-07-01', freq='D')
+        
+        # Generate sample data for testing
         test_symbols = ['AAPL', 'MSFT', 'GOOGL']
         data = {}
+        
         for symbol in test_symbols:
-            print(f"Downloading data for {symbol}...")
-            df = yf.download(symbol, start="2023-01-01", end="2023-07-01")
-            df.reset_index(inplace=True)
-            if not df.empty:
-                data[symbol] = df
+            print(f"Creating test data for {symbol}...")
+            
+            # Generate realistic price movements
+            base_price = {'AAPL': 150, 'MSFT': 300, 'GOOGL': 2500}.get(symbol, 100)
+            prices = [base_price]
+            
+            # Create price series with some volatility
+            for i in range(1, len(dates)):
+                change = np.random.normal(0, 0.015)  # 1.5% daily volatility
+                new_price = max(10, prices[-1] * (1 + change))
+                prices.append(new_price)
+            
+            # Create OHLCV data
+            df_data = []
+            for i, (date, close) in enumerate(zip(dates, prices)):
+                if i == 0:
+                    open_price = close
+                else:
+                    open_price = prices[i-1] * (1 + np.random.normal(0, 0.005))
+                
+                daily_range = close * 0.02  # 2% daily range
+                high = max(open_price, close) + daily_range * np.random.random()
+                low = min(open_price, close) - daily_range * np.random.random()
+                volume = np.random.randint(1000000, 5000000)
+                
+                df_data.append({
+                    'Date': date,
+                    'Open': round(open_price, 2),
+                    'High': round(high, 2),
+                    'Low': round(low, 2),
+                    'Close': round(close, 2),
+                    'Volume': volume
+                })
+            
+            data[symbol] = pd.DataFrame(df_data)
+        
+        # Test M/E integration
+        try:
+            from me_ratio_calculator import get_current_risk_assessment
+            initial_risk = get_current_risk_assessment()
+            print(f"✓ M/E Integration working - Initial risk: {initial_risk['risk_level']}")
+        except ImportError:
+            print("⚠ M/E calculator not found - running without M/E tracking")
+        
         results = strategy.run(data)
+        
         print("\nTrades executed:")
         for trade in strategy.trades:
             print(f"{trade['symbol']}: {trade['type']} from {trade['entry_date']} to {trade['exit_date']}, "
                   f"Profit: ${trade['profit']:.2f}, Reason: {trade['exit_reason']}")
+        
         long_pos, short_pos = strategy.get_current_positions()
         print(f"\nCurrent positions: {len(long_pos)} long, {len(short_pos)} short")
         for pos in long_pos:
             print(f"Long {pos['symbol']}: {pos['shares']} shares at ${pos['entry_price']:.2f} from {pos['entry_date']}")
         for pos in short_pos:
             print(f"Short {pos['symbol']}: {abs(pos['shares'])} shares at ${pos['entry_price']:.2f} from {pos['entry_date']}")
+            
+        print(f"\n✓ Test completed - Final cash: ${strategy.cash:,.2f}")
+        
     except Exception as e:
         logger.error(f"Test failed: {e}")
         print(f"Error during test: {e}")
+        import traceback
+        traceback.print_exc()
