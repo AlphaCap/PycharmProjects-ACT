@@ -29,7 +29,7 @@ INDICATOR_COLUMNS = [
     "oLRSlope", "oLRAngle", "oLRIntercept", "TSF", 
     "oLRSlope2", "oLRAngle2", "oLRIntercept2", "TSF5", 
     "Value1", "ROC", "LRV", "LinReg", 
-    "oLRValue", "oLRValue2", "SwingLow", "SwingHigh"
+    "oLRValue", "oLRValue2", "SwingLow", "SwingHigh", "ME_Ratio" 
 ]
 ALL_COLUMNS = PRICE_COLUMNS + INDICATOR_COLUMNS
 
