@@ -42,7 +42,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("Trading Systems")
-    if st.button("← Back to Live Trading", use_container_width=True):
+    if st.button("nGulfStream Performance", use_container_width=True):
         st.switch_page("app.py")
     
     st.markdown("---")
@@ -50,8 +50,8 @@ with st.sidebar:
     st.caption(f"Last updated: {datetime.now().strftime('%m/%d/%Y %H:%M')}")
 
 # --- PAGE HEADER ---
-st.title("nGulfStream Swing Trader - Historical Performance")
-st.caption("Comprehensive historical analysis and performance metrics")
+st.title("nGulfStream - Performance")
+st.caption("Historical analysis and performance metrics")
 
 # --- INITIAL VALUE SETTING ---
 initial_value = st.number_input(
