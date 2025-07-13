@@ -8,15 +8,20 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from data_manager import (
     save_trades, save_positions, load_price_data,
-    save_signals, get_positions, initialize as init_data_manager
+    save_signals, get_positions, initialize as init_data_manager,
+    RETENTION_DAYS  # Import the 6-month retention setting
 )
 # Add M/E ratio tracking imports here
-from me_ratio_calculator import (
-    update_me_ratio_for_trade, 
-    add_realized_profit, 
-    get_current_risk_assessment,
-    get_me_calculator
-)
+try:
+    from me_ratio_calculator import (
+        update_me_ratio_for_trade, 
+        add_realized_profit, 
+        get_current_risk_assessment,
+        get_me_calculator
+    )
+    ME_TRACKING_AVAILABLE = True
+except ImportError:
+    ME_TRACKING_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(
@@ -29,7 +34,7 @@ logger = logging.getLogger(__name__)
 class NGSStrategy:
     """
     Neural Grid Strategy (nGS) implementation.
-    Handles both signal generation and position management.
+    Handles both signal generation and position management with 6-month data retention.
     """
     def __init__(self, account_size: float = 100000, data_dir: str = 'data'):
         self.account_size = round(float(account_size), 2)
@@ -37,6 +42,9 @@ class NGSStrategy:
         self.positions = {}
         self._trades = []
         self.data_dir = data_dir
+        self.retention_days = RETENTION_DAYS  # Use the 6-month retention from data_manager
+        self.cutoff_date = datetime.now() - timedelta(days=self.retention_days)
+        
         self.inputs = {
             'Length': 25,
             'NumDevs': 2,
@@ -48,17 +56,48 @@ class NGSStrategy:
         }
         init_data_manager()
         self._load_positions()
+        
+        logger.info(f"nGS Strategy initialized with {self.retention_days}-day data retention")
+        logger.info(f"Data cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
+
+    def _filter_recent_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filter DataFrame to only include data from the last 6 months (retention period).
+        """
+        if df is None or df.empty:
+            return df
+            
+        df = df.copy()
+        
+        # Ensure Date column is datetime
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'])
+            
+            # Filter to retention period
+            df = df[df['Date'] >= self.cutoff_date].copy()
+            
+            logger.debug(f"Filtered data to last {self.retention_days} days: {len(df)} rows remaining")
+        
+        return df
 
     def calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         if df is None or df.empty or len(df) < 20:
             logger.warning(f"Insufficient data for indicator calculation: {len(df) if df is not None else 'None'} rows")
             return None
+            
+        # Filter to 6-month retention period
+        df = self._filter_recent_data(df)
+        if df is None or df.empty or len(df) < 20:
+            logger.warning(f"Insufficient data after 6-month filtering: {len(df) if df is not None else 'None'} rows")
+            return None
+            
         df = df.copy()
         required_cols = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
         missing = [col for col in required_cols if col not in df.columns]
         if missing:
             logger.error(f"Missing required columns: {missing}")
             return None
+            
         indicator_columns = [
             'BBAvg', 'BBSDev', 'UpperBB', 'LowerBB', 'High_Low', 'High_Close', 'Low_Close', 'TR', 'ATR', 'ATRma',
             'LongPSAR', 'ShortPSAR', 'PSAR_EP', 'PSAR_AF', 'PSAR_IsLong', 'oLRSlope', 'oLRAngle', 'oLRIntercept',
@@ -68,6 +107,7 @@ class NGSStrategy:
         for col in indicator_columns:
             if col not in df.columns:
                 df[col] = np.nan
+                
         # Bollinger Bands
         try:
             df['BBAvg'] = df['Close'].rolling(window=self.inputs['Length']).mean().round(2)
@@ -76,6 +116,7 @@ class NGSStrategy:
             df['LowerBB'] = (df['BBAvg'] - self.inputs['NumDevs'] * df['BBSDev']).round(2)
         except Exception as e:
             logger.warning(f"Bollinger Bands calculation error: {e}")
+            
         # ATR (Average True Range)
         try:
             df['High_Low'] = (df['High'] - df['Low']).round(2)
@@ -86,16 +127,19 @@ class NGSStrategy:
             df['ATRma'] = df['ATR'].rolling(window=13).mean().round(2)
         except Exception as e:
             logger.warning(f"ATR calculation error: {e}")
+            
         # Parabolic SAR
         try:
             self._calculate_psar(df)
         except Exception as e:
             logger.warning(f"PSAR calculation error: {e}")
+            
         # Linear Regression indicators
         try:
             self._calculate_linear_regression(df)
         except Exception as e:
             logger.warning(f"Linear regression calculation error: {e}")
+            
         # Additional indicators
         try:
             df['Value1'] = (df['Close'].rolling(window=5).mean() - df['Close'].rolling(window=35).mean()).round(2)
@@ -103,12 +147,14 @@ class NGSStrategy:
             self._calculate_lrv(df)
         except Exception as e:
             logger.warning(f"Additional indicators calculation error: {e}")
+            
         # Swing High/Low
         try:
             df['SwingLow'] = df['Close'].rolling(window=4).min().round(2)
             df['SwingHigh'] = df['Close'].rolling(window=4).max().round(2)
         except Exception as e:
             logger.warning(f"Swing High/Low calculation error: {e}")
+            
         return df
 
     def _calculate_psar(self, df: pd.DataFrame) -> None:
@@ -470,29 +516,36 @@ class NGSStrategy:
             (exit_price - position['entry_price']) * position['shares'] if position['shares'] > 0
             else (position['entry_price'] - exit_price) * abs(position['shares'])
         ), 2)
-        trade = {
-            'symbol': symbol,
-            'type': 'long' if position['shares'] > 0 else 'short',
-            'entry_date': position['entry_date'],
-            'exit_date': str(df['Date'].iloc[i])[:10],
-            'entry_price': round(float(position['entry_price']), 2),
-            'exit_price': exit_price,
-            'shares': int(round(abs(position['shares']))),
-            'profit': profit,
-            'exit_reason': df['ExitType'].iloc[i]
-        }
-        if all(k in trade for k in ['symbol', 'type', 'entry_date', 'exit_date', 'entry_price', 'exit_price', 'shares', 'profit', 'exit_reason']):
-            self._trades.append(trade)
-            save_trades([trade])
-        else:
-            logger.warning(f"Invalid trade skipped: {trade}")
+        
+        # Ensure exit date is within retention period
+        exit_date = str(df['Date'].iloc[i])[:10]
+        exit_datetime = datetime.strptime(exit_date, '%Y-%m-%d')
+        
+        if exit_datetime >= self.cutoff_date:
+            trade = {
+                'symbol': symbol,
+                'type': 'long' if position['shares'] > 0 else 'short',
+                'entry_date': position['entry_date'],
+                'exit_date': exit_date,
+                'entry_price': round(float(position['entry_price']), 2),
+                'exit_price': exit_price,
+                'shares': int(round(abs(position['shares']))),
+                'profit': profit,
+                'exit_reason': df['ExitType'].iloc[i]
+            }
+            if all(k in trade for k in ['symbol', 'type', 'entry_date', 'exit_date', 'entry_price', 'exit_price', 'shares', 'profit', 'exit_reason']):
+                self._trades.append(trade)
+                save_trades([trade])
+            else:
+                logger.warning(f"Invalid trade skipped: {trade}")
         
         # Add M/E tracking - close position and add realized profit (no alerts)
-        try:
-            update_me_ratio_for_trade(symbol, 0, 0, 0, 'long')  # Close position
-            add_realized_profit(profit)  # Add realized profit
-        except:
-            pass  # Continue if M/E not available
+        if ME_TRACKING_AVAILABLE:
+            try:
+                update_me_ratio_for_trade(symbol, 0, 0, 0, 'long')  # Close position
+                add_realized_profit(profit)  # Add realized profit
+            except Exception as e:
+                logger.debug(f"M/E tracking error: {e}")
         
         self.cash = round(float(self.cash + position['shares'] * exit_price), 2)
         logger.info(f"Exit {symbol}: {df['ExitType'].iloc[i]} at {exit_price}, profit: {profit}")
@@ -500,26 +553,34 @@ class NGSStrategy:
     def _process_entry(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
         shares = int(round(df['Shares'].iloc[i])) if df['Signal'].iloc[i] > 0 else -int(round(df['Shares'].iloc[i]))
         cost = round(float(shares * df['Close'].iloc[i]), 2)
-        if abs(cost) <= self.cash:
+        
+        # Ensure entry date is within retention period
+        entry_date = str(df['Date'].iloc[i])[:10]
+        entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
+        
+        if entry_datetime >= self.cutoff_date and abs(cost) <= self.cash:
             self.cash = round(float(self.cash - cost), 2)
             position = {
                 'shares': shares,
                 'entry_price': round(float(df['Close'].iloc[i]), 2),
-                'entry_date': str(df['Date'].iloc[i])[:10],
+                'entry_date': entry_date,
                 'bars_since_entry': 0,
                 'profit': 0
             }
             self.positions[symbol] = position
             
             # Add M/E tracking - new position (no alerts)
-            try:
-                current_price = round(float(df['Close'].iloc[i]), 2)
-                trade_type = 'long' if shares > 0 else 'short'
-                update_me_ratio_for_trade(symbol, shares, current_price, current_price, trade_type)
-            except:
-                pass  # Continue if M/E not available
+            if ME_TRACKING_AVAILABLE:
+                try:
+                    current_price = round(float(df['Close'].iloc[i]), 2)
+                    trade_type = 'long' if shares > 0 else 'short'
+                    update_me_ratio_for_trade(symbol, shares, current_price, current_price, trade_type)
+                except Exception as e:
+                    logger.debug(f"M/E tracking error: {e}")
             
             logger.info(f"Entry {symbol}: {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
+        elif entry_datetime < self.cutoff_date:
+            logger.debug(f"Entry {symbol} skipped - outside retention period")
         else:
             logger.warning(f"Insufficient cash for {symbol}: {cost} required, {self.cash} available")
 
@@ -527,15 +588,39 @@ class NGSStrategy:
         positions_list = get_positions()
         for pos in positions_list:
             symbol = pos.get('symbol')
-            if symbol:
-                self.positions[symbol] = {
-                    'shares': int(pos.get('shares', 0)),
-                    'entry_price': float(pos.get('entry_price', 0)),
-                    'entry_date': pos.get('entry_date'),
-                    'bars_since_entry': int(pos.get('days_held', 0)),
-                    'profit': float(pos.get('profit', 0))
-                }
-        logger.info(f"Loaded {len(positions_list)} positions from data manager")
+            entry_date = pos.get('entry_date')
+            
+            # Only load positions within retention period
+            if symbol and entry_date:
+                try:
+                    entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
+                    if entry_datetime >= self.cutoff_date:
+                        self.positions[symbol] = {
+                            'shares': int(pos.get('shares', 0)),
+                            'entry_price': float(pos.get('entry_price', 0)),
+                            'entry_date': entry_date,
+                            'bars_since_entry': int(pos.get('days_held', 0)),
+                            'profit': float(pos.get('profit', 0))
+                        }
+                except ValueError as e:
+                    logger.warning(f"Invalid date format for position {symbol}: {entry_date}")
+        
+        logger.info(f"Loaded {len(self.positions)} positions within {self.retention_days}-day retention period")
+
+    def _filter_trades_by_retention(self) -> None:
+        """Filter trades list to only include trades within retention period"""
+        if self._trades:
+            filtered_trades = []
+            for trade in self._trades:
+                try:
+                    exit_date = datetime.strptime(trade['exit_date'], '%Y-%m-%d')
+                    if exit_date >= self.cutoff_date:
+                        filtered_trades.append(trade)
+                except (ValueError, KeyError):
+                    logger.warning(f"Invalid trade date format: {trade}")
+            
+            self._trades = filtered_trades
+            logger.info(f"Filtered trades to {len(self._trades)} within retention period")
 
     @property
     def trades(self):
@@ -583,15 +668,22 @@ class NGSStrategy:
             return None
 
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+        # Initialize trades for this run
         self.trades = []
+        
+        # Filter trades by retention period
+        self._filter_trades_by_retention()
+        
         results = {}
         for symbol, df in data.items():
             result = self.process_symbol(symbol, df)
             if result is not None and not result.empty:
                 results[symbol] = result
                 logger.info(f"Processed {symbol}: {len(result)} rows")
+        
         long_positions, short_positions = self.get_current_positions()
         all_positions = []
+        
         for pos in long_positions:
             if pos['symbol'] in results and not results[pos['symbol']].empty:
                 current_price = results[pos['symbol']].iloc[-1]['Close']
@@ -606,8 +698,11 @@ class NGSStrategy:
                 'current_value': round(float(current_price * pos['shares']), 2),
                 'profit': round(float((current_price - pos['entry_price']) * pos['shares']), 2),
                 'profit_pct': round(float((current_price / pos['entry_price'] - 1) * 100), 2),
-                'days_held': (datetime.now() - datetime.strptime(pos['entry_date'], '%Y-%m-%d')).days
+                'days_held': (datetime.now() - datetime.strptime(pos['entry_date'], '%Y-%m-%d')).days,
+                'side': 'long',
+                'strategy': 'nGS'
             })
+        
         for pos in short_positions:
             if pos['symbol'] in results and not results[pos['symbol']].empty:
                 current_price = results[pos['symbol']].iloc[-1]['Close']
@@ -624,17 +719,28 @@ class NGSStrategy:
                 'current_value': round(float(current_price * shares_abs), 2),
                 'profit': profit,
                 'profit_pct': round(float((pos['entry_price'] / current_price - 1) * 100), 2),
-                'days_held': (datetime.now() - datetime.strptime(pos['entry_date'], '%Y-%m-%d')).days
+                'days_held': (datetime.now() - datetime.strptime(pos['entry_date'], '%Y-%m-%d')).days,
+                'side': 'short',
+                'strategy': 'nGS'
             })
+        
         save_positions(all_positions)
         logger.info(f"Strategy run complete. Processed {len(data)} symbols, currently have {len(all_positions)} positions")
+        logger.info(f"Data retention: {self.retention_days} days, cutoff: {self.cutoff_date.strftime('%Y-%m-%d')}")
+        
         return results
 
-def load_polygon_data(symbols: List[str], start_date: str = "2023-01-01", end_date: str = "2024-12-31") -> Dict[str, pd.DataFrame]:
+def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
     """
-    Load EOD data from Polygon.io
+    Load EOD data from Polygon.io with automatic 6-month filtering
     Replace this function with your actual Polygon data fetching code
     """
+    # Default to 6-month data range if not specified
+    if end_date is None:
+        end_date = datetime.now().strftime('%Y-%m-%d')
+    if start_date is None:
+        start_date = (datetime.now() - timedelta(days=RETENTION_DAYS + 30)).strftime('%Y-%m-%d')  # Extra buffer for indicators
+    
     data = {}
     
     # EXAMPLE - Replace with your actual Polygon implementation
@@ -646,9 +752,11 @@ def load_polygon_data(symbols: List[str], start_date: str = "2023-01-01", end_da
         # # Initialize client with your API key
         # client = RESTClient("YOUR_POLYGON_API_KEY")
         
+        logger.info(f"Loading data for {len(symbols)} symbols from {start_date} to {end_date}")
+        
         for symbol in symbols:
             try:
-                print(f"Loading {symbol} from Polygon...")
+                logger.debug(f"Loading {symbol} from Polygon...")
                 
                 # REPLACE THIS SECTION WITH YOUR ACTUAL POLYGON CODE:
                 # Example Polygon API call:
@@ -715,22 +823,25 @@ def load_polygon_data(symbols: List[str], start_date: str = "2023-01-01", end_da
                     # Ensure Date column is datetime
                     df['Date'] = pd.to_datetime(df['Date'])
                     data[symbol] = df
-                    print(f"✓ {symbol}: {len(df)} bars loaded")
+                    logger.debug(f"✓ {symbol}: {len(df)} bars loaded")
                 else:
-                    print(f"✗ {symbol}: No data received")
+                    logger.warning(f"✗ {symbol}: No data received")
                     
             except Exception as e:
-                print(f"✗ {symbol}: Error loading - {e}")
+                logger.error(f"✗ {symbol}: Error loading - {e}")
                 
     except Exception as e:
-        print(f"Polygon connection error: {e}")
-        print("Using fallback synthetic data...")
+        logger.error(f"Polygon connection error: {e}")
+        logger.info("Using fallback synthetic data...")
     
     return data
 
 if __name__ == "__main__":
     print("nGS Trading Strategy - Neural Grid System")
     print("=" * 50)
+    print(f"Data Retention: {RETENTION_DAYS} days (6 months)")
+    print("=" * 50)
+    
     try:
         strategy = NGSStrategy(account_size=100000)
         
@@ -742,19 +853,21 @@ if __name__ == "__main__":
         
         print(f"Loading historical data for {len(symbols)} symbols...")
         
-        # Load data using Polygon (or fallback to synthetic)
-        data = load_polygon_data(symbols, start_date="2023-01-01", end_date="2024-12-31")
+        # Load data using Polygon (or fallback to synthetic) - automatically uses 6-month range
+        data = load_polygon_data(symbols)
         
         if not data:
             print("No data loaded - check your Polygon setup")
             exit(1)
         
         # Test M/E integration
-        try:
-            from me_ratio_calculator import get_current_risk_assessment
-            initial_risk = get_current_risk_assessment()
-            print(f"✓ M/E Integration active - Initial risk: {initial_risk['risk_level']}")
-        except ImportError:
+        if ME_TRACKING_AVAILABLE:
+            try:
+                initial_risk = get_current_risk_assessment()
+                print(f"✓ M/E Integration active - Initial risk: {initial_risk['risk_level']}")
+            except Exception as e:
+                print(f"⚠ M/E calculator error: {e}")
+        else:
             print("⚠ M/E calculator not found - running without M/E tracking")
         
         # Run the strategy
@@ -763,7 +876,7 @@ if __name__ == "__main__":
         
         # Results summary
         print(f"\n{'='*70}")
-        print("STRATEGY BACKTEST RESULTS")
+        print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
         print(f"{'='*70}")
         
         total_profit = sum(trade['profit'] for trade in strategy.trades)
@@ -774,6 +887,7 @@ if __name__ == "__main__":
         print(f"Total P&L:            ${total_profit:,.2f}")
         print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
         print(f"Total trades:         {len(strategy.trades)}")
+        print(f"Data period:          {strategy.cutoff_date.strftime('%Y-%m-%d')} to {datetime.now().strftime('%Y-%m-%d')}")
         
         if strategy.trades:
             print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
@@ -808,17 +922,18 @@ if __name__ == "__main__":
             print(f"  Short {pos['symbol']:6s}: {pos['shares']:4d} shares @ ${pos['entry_price']:7.2f}")
         
         # M/E final status
-        try:
-            from me_ratio_calculator import get_me_calculator
-            me_calc = get_me_calculator()
-            final_risk = get_current_risk_assessment()
-            print(f"\nM/E Risk Status:      {final_risk['risk_level']}")
-            print(f"M/E Realized P&L:     ${me_calc.total_realized_pnl:.2f}")
-            print(f"M/E Active Positions: {len(me_calc.positions)}")
-        except:
-            pass
+        if ME_TRACKING_AVAILABLE:
+            try:
+                me_calc = get_me_calculator()
+                final_risk = get_current_risk_assessment()
+                print(f"\nM/E Risk Status:      {final_risk['risk_level']}")
+                print(f"M/E Realized P&L:     ${me_calc.total_realized_pnl:.2f}")
+                print(f"M/E Active Positions: {len(me_calc.positions)}")
+            except Exception as e:
+                logger.debug(f"M/E status error: {e}")
         
         print(f"\n✓ Strategy backtest completed successfully!")
+        print(f"✓ Data retention enforced: {RETENTION_DAYS} days")
         
     except Exception as e:
         logger.error(f"Strategy backtest failed: {e}")
