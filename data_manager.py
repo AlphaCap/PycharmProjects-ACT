@@ -7,15 +7,13 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Union
 
 # --- CONFIG ---
-DATA_DIR = "data"
-DAILY_DIR = os.path.join(DATA_DIR, "daily")
-TRADES_DIR = os.path.join(DATA_DIR, "trades")
-POSITIONS_FILE = os.path.join(TRADES_DIR, "positions.csv")
-TRADES_HISTORY_FILE = "trade_history.csv"  # Read from root directory
-SIGNALS_FILE = os.path.join(TRADES_DIR, "recent_signals.csv")
-SYSTEM_STATUS_FILE = os.path.join(DATA_DIR, "system_status.csv")
-METADATA_FILE = os.path.join(DATA_DIR, "metadata.json")
-SP500_SYMBOLS_FILE = os.path.join(DATA_DIR, "sp500_symbols.csv")
+DATA_DIR = "."  # Use current directory
+POSITIONS_FILE = "positions.csv"
+TRADES_HISTORY_FILE = "trade_history.csv"
+SIGNALS_FILE = "recent_signals.csv"
+SYSTEM_STATUS_FILE = "system_status.csv"
+METADATA_FILE = "metadata.json"
+SP500_SYMBOLS_FILE = "sp500_symbols.txt" 
 
 RETENTION_DAYS = 180
 PRIMARY_TIER_DAYS = 30
