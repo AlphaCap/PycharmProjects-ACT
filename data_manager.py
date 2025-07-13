@@ -119,9 +119,123 @@ SYSTEM_STATUS_COLUMNS = [
 
 # --- TRADE HISTORY ---
 def get_trades_history():
-    if os.path.exists(TRADES_HISTORY_FILE):
-        return pd.read_csv(TRADES_HISTORY_FILE)
-    return pd.DataFrame(columns=TRADE_COLUMNS)
+    """
+    Get trade history with improved error handling and logging.
+    
+    Returns:
+        DataFrame with trade history or empty DataFrame with proper columns
+    """
+    try:
+        # Check if file exists
+        if not os.path.exists(TRADES_HISTORY_FILE):
+            logger.warning(f"Trade history file not found: {TRADES_HISTORY_FILE}")
+            logger.info(f"Looking for file at: {os.path.abspath(TRADES_HISTORY_FILE)}")
+            return pd.DataFrame(columns=TRADE_COLUMNS)
+        
+        # Check file size
+        file_size = os.path.getsize(TRADES_HISTORY_FILE)
+        if file_size == 0:
+            logger.warning(f"Trade history file is empty: {TRADES_HISTORY_FILE}")
+            return pd.DataFrame(columns=TRADE_COLUMNS)
+        
+        logger.info(f"Loading trade history from {TRADES_HISTORY_FILE} ({file_size} bytes)")
+        
+        # Read the file
+        df = pd.read_csv(TRADES_HISTORY_FILE)
+        
+        # Validate columns
+        if df.empty:
+            logger.warning("Trade history file contains no data")
+            return pd.DataFrame(columns=TRADE_COLUMNS)
+        
+        # Check for required columns
+        missing_columns = [col for col in ['symbol', 'entry_date', 'exit_date', 'profit'] if col not in df.columns]
+        if missing_columns:
+            logger.error(f"Missing required columns in trade history: {missing_columns}")
+            logger.info(f"Available columns: {list(df.columns)}")
+            return pd.DataFrame(columns=TRADE_COLUMNS)
+        
+        # Convert dates
+        try:
+            df['entry_date'] = pd.to_datetime(df['entry_date'])
+            df['exit_date'] = pd.to_datetime(df['exit_date'])
+        except Exception as e:
+            logger.error(f"Error parsing dates in trade history: {e}")
+            # Continue anyway, dates might still be usable as strings
+        
+        logger.info(f"Successfully loaded {len(df)} trades from {df['entry_date'].min()} to {df['exit_date'].max()}")
+        return df
+        
+    except FileNotFoundError:
+        logger.warning(f"Trade history file not found: {TRADES_HISTORY_FILE}")
+        return pd.DataFrame(columns=TRADE_COLUMNS)
+    except pd.errors.EmptyDataError:
+        logger.warning(f"Trade history file is empty or contains no valid data: {TRADES_HISTORY_FILE}")
+        return pd.DataFrame(columns=TRADE_COLUMNS)
+    except Exception as e:
+        logger.error(f"Unexpected error loading trade history: {e}")
+        logger.error(f"File path: {os.path.abspath(TRADES_HISTORY_FILE)}")
+        return pd.DataFrame(columns=TRADE_COLUMNS)
+
+def get_trades_history_formatted() -> pd.DataFrame:
+    """
+    Get formatted trade history for dashboard display.
+    
+    Returns:
+        DataFrame with formatted trade history
+    """
+    try:
+        trades_df = get_trades_history()
+        
+        if trades_df.empty:
+            return pd.DataFrame(columns=['Date', 'Symbol', 'Type', 'Shares', 'Entry', 'Exit', 'P&L', 'Days'])
+        
+        # Calculate days held
+        trades_df['entry_date'] = pd.to_datetime(trades_df['entry_date'])
+        trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
+        trades_df['days_held'] = (trades_df['exit_date'] - trades_df['entry_date']).dt.days
+        
+        # Format for display
+        formatted = pd.DataFrame({
+            'Date': trades_df['exit_date'].dt.strftime('%Y-%m-%d'),
+            'Symbol': trades_df['symbol'],
+            'Type': trades_df['type'].str.title() if 'type' in trades_df.columns else 'Long',
+            'Shares': trades_df['shares'].astype(int) if 'shares' in trades_df.columns else 0,
+            'Entry': trades_df['entry_price'].apply(lambda x: f"${x:.2f}") if 'entry_price' in trades_df.columns else '$0.00',
+            'Exit': trades_df['exit_price'].apply(lambda x: f"${x:.2f}") if 'exit_price' in trades_df.columns else '$0.00',
+            'P&L': trades_df['profit'].apply(lambda x: format_dollars(x)),
+            'Days': trades_df['days_held']
+        })
+        
+        # Sort by exit date descending (most recent first)
+        return formatted.sort_values('Date', ascending=False).reset_index(drop=True)
+        
+    except Exception as e:
+        logger.error(f"Error formatting trade history: {e}")
+        return pd.DataFrame(columns=['Date', 'Symbol', 'Type', 'Shares', 'Entry', 'Exit', 'P&L', 'Days'])
+
+def get_me_ratio_history() -> pd.DataFrame:
+    """
+    Get M/E ratio history for charting.
+    
+    Returns:
+        DataFrame with Date and ME_Ratio columns
+    """
+    try:
+        # Try to load pre-calculated M/E ratio history
+        me_file = 'data/me_ratio_history.csv'
+        if os.path.exists(me_file):
+            df = pd.read_csv(me_file, parse_dates=['Date'])
+            logger.info(f"Loaded M/E ratio history: {len(df)} days")
+            return df[['Date', 'ME_Ratio']].copy()
+        else:
+            logger.warning(f"M/E ratio history file not found: {me_file}")
+            logger.info("Run calculate_daily_me_ratio.py to generate M/E ratio history")
+            return pd.DataFrame(columns=['Date', 'ME_Ratio'])
+            
+    except Exception as e:
+        logger.error(f"Error loading M/E ratio history: {e}")
+        return pd.DataFrame(columns=['Date', 'ME_Ratio'])
 
 def save_trades(trades_list: List[Dict]):
     ensure_dir(TRADES_HISTORY_FILE)
