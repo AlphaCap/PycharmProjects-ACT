@@ -556,66 +556,100 @@ class NGSStrategy:
             df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
 
     def _check_long_exits(self, df: pd.DataFrame, i: int, position: Dict) -> None:
+        possible_exits = []
+
+        # Gap out / Target
         if (position['profit'] > 0 and position['bars_since_entry'] > 1 and
             (df['Open'].iloc[i] >= df['Close'].iloc[i-1] * 1.05 or
              (not pd.isna(df['UpperBB'].iloc[i]) and df['Open'].iloc[i] >= df['UpperBB'].iloc[i]))):
-            df.loc[df.index[i], 'ExitSignal'] = -1
-            df.loc[df.index[i], 'ExitType'] = 'Gap out L' if df['Open'].iloc[i] >= df['Close'].iloc[i-1] * 1.05 else 'Target L'
-        elif (not pd.isna(df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()) and
-              df['Close'].iloc[i] >= position['entry_price'] + df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()):
-            df.loc[df.index[i], 'ExitSignal'] = -1
-            df.loc[df.index[i], 'ExitType'] = 'BE L'
-        elif (not pd.isna(df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()) and
-              df['Close'].iloc[i] >= position['entry_price'] + df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max() * 1.5):
-            df.loc[df.index[i], 'ExitSignal'] = -1
-            df.loc[df.index[i], 'ExitType'] = 'L ATR X'
-        elif (position['bars_since_entry'] > 5 and
-              not pd.isna(df['LinReg'].iloc[i]) and not pd.isna(df['LinReg'].iloc[i-1]) and
-              df['LinReg'].iloc[i] < df['LinReg'].iloc[i-1] and
-              position['profit'] < 0 and
-              not pd.isna(df['oLRValue'].iloc[i]) and not pd.isna(df['oLRValue2'].iloc[i]) and
-              df['oLRValue'].iloc[i] < df['oLRValue2'].iloc[i] and
-              not pd.isna(df['ATR'].iloc[i]) and not pd.isna(df['ATRma'].iloc[i]) and
-              df['ATR'].iloc[i] > df['ATRma'].iloc[i]):
-            df.loc[df.index[i], 'ExitSignal'] = -1
-            df.loc[df.index[i], 'ExitType'] = 'S 2 L'
-            df.loc[df.index[i], 'Signal'] = -1
-            df.loc[df.index[i], 'SignalType'] = 'S 2 L'
-            df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] * 2 / df['Close'].iloc[i]))
-        elif df['Close'].iloc[i] < position['entry_price'] * 0.9:
-            df.loc[df.index[i], 'ExitSignal'] = -1
-            df.loc[df.index[i], 'ExitType'] = 'Hard Stop S'
+            exit_type = 'Gap out L' if df['Open'].iloc[i] >= df['Close'].iloc[i-1] * 1.05 else 'Target L'
+            possible_exits.append(('gap_target', exit_type, -1, None))
+
+        # BE L
+        if (not pd.isna(df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()) and
+            df['Close'].iloc[i] >= position['entry_price'] + df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()):
+            possible_exits.append(('be', 'BE L', -1, None))
+
+        # L ATR X
+        if (not pd.isna(df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()) and
+            df['Close'].iloc[i] >= position['entry_price'] + df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max() * 1.5):
+            possible_exits.append(('atr_x', 'L ATR X', -1, None))
+
+        # Reversal S 2 L
+        if (position['bars_since_entry'] > 5 and
+            not pd.isna(df['LinReg'].iloc[i]) and not pd.isna(df['LinReg'].iloc[i-1]) and
+            df['LinReg'].iloc[i] < df['LinReg'].iloc[i-1] and
+            position['profit'] < 0 and
+            not pd.isna(df['oLRValue'].iloc[i]) and not pd.isna(df['oLRValue2'].iloc[i]) and
+            df['oLRValue'].iloc[i] < df['oLRValue2'].iloc[i] and
+            not pd.isna(df['ATR'].iloc[i]) and not pd.isna(df['ATRma'].iloc[i]) and
+            df['ATR'].iloc[i] > df['ATRma'].iloc[i]):
+            possible_exits.append(('reversal', 'S 2 L', -1, -1))
+
+        # Hard Stop
+        if df['Close'].iloc[i] < position['entry_price'] * 0.9:
+            possible_exits.append(('hard_stop', 'Hard Stop S', -1, None))
+
+        # Prioritize: hard_stop > reversal > atr_x > be > gap_target
+        priority_order = ['hard_stop', 'reversal', 'atr_x', 'be', 'gap_target']
+        for prio in priority_order:
+            for exit_type, exit_label, exit_sig, entry_sig in possible_exits:
+                if exit_type == prio:
+                    df.loc[df.index[i], 'ExitSignal'] = exit_sig
+                    df.loc[df.index[i], 'ExitType'] = exit_label
+                    if entry_sig is not None:
+                        df.loc[df.index[i], 'Signal'] = entry_sig
+                        df.loc[df.index[i], 'SignalType'] = exit_label
+                        df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] * 2 / df['Close'].iloc[i]))
+                    return  # Apply first in priority
 
     def _check_short_exits(self, df: pd.DataFrame, i: int, position: Dict) -> None:
+        possible_exits = []
+
+        # Gap out / Target
         if (position['profit'] > 0 and position['bars_since_entry'] > 1 and
             (df['Open'].iloc[i] <= df['Close'].iloc[i-1] * 0.95 or
              (not pd.isna(df['LowerBB'].iloc[i]) and df['Open'].iloc[i] <= df['LowerBB'].iloc[i]))):
-            df.loc[df.index[i], 'ExitSignal'] = 1
-            df.loc[df.index[i], 'ExitType'] = 'Gap out S' if df['Open'].iloc[i] <= df['Close'].iloc[i-1] * 0.95 else 'Target S'
-        elif (not pd.isna(df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()) and
-              df['Close'].iloc[i] <= position['entry_price'] - df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()):
-            df.loc[df.index[i], 'ExitSignal'] = 1
-            df.loc[df.index[i], 'ExitType'] = 'BE S'
-        elif (not pd.isna(df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()) and
-              df['Close'].iloc[i] <= position['entry_price'] - df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max() * 1.5):
-            df.loc[df.index[i], 'ExitSignal'] = 1
-            df.loc[df.index[i], 'ExitType'] = 'S ATR X'
-        elif (position['bars_since_entry'] > 5 and
-              not pd.isna(df['LinReg'].iloc[i]) and not pd.isna(df['LinReg'].iloc[i-1]) and
-              df['LinReg'].iloc[i] > df['LinReg'].iloc[i-1] and
-              position['profit'] < 0 and
-              not pd.isna(df['oLRValue'].iloc[i]) and not pd.isna(df['oLRValue2'].iloc[i]) and
-              df['oLRValue'].iloc[i] > df['oLRValue2'].iloc[i] and
-              not pd.isna(df['ATR'].iloc[i]) and not pd.isna(df['ATRma'].iloc[i]) and
-              df['ATR'].iloc[i] > df['ATRma'].iloc[i]):
-            df.loc[df.index[i], 'ExitSignal'] = 1
-            df.loc[df.index[i], 'ExitType'] = 'L 2 S'
-            df.loc[df.index[i], 'Signal'] = 1
-            df.loc[df.index[i], 'SignalType'] = 'L 2 S'
-            df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] * 2 / df['Close'].iloc[i]))
-        elif df['Close'].iloc[i] > position['entry_price'] * 1.1:
-            df.loc[df.index[i], 'ExitSignal'] = 1
-            df.loc[df.index[i], 'ExitType'] = 'Hard Stop L'
+            exit_type = 'Gap out S' if df['Open'].iloc[i] <= df['Close'].iloc[i-1] * 0.95 else 'Target S'
+            possible_exits.append(('gap_target', exit_type, 1, None))
+
+        # BE S
+        if (not pd.isna(df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()) and
+            df['Close'].iloc[i] <= position['entry_price'] - df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()):
+            possible_exits.append(('be', 'BE S', 1, None))
+
+        # S ATR X
+        if (not pd.isna(df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max()) and
+            df['Close'].iloc[i] <= position['entry_price'] - df['ATR'].iloc[max(0, i-position['bars_since_entry']):i+1].max() * 1.5):
+            possible_exits.append(('atr_x', 'S ATR X', 1, None))
+
+        # Reversal L 2 S
+        if (position['bars_since_entry'] > 5 and
+            not pd.isna(df['LinReg'].iloc[i]) and not pd.isna(df['LinReg'].iloc[i-1]) and
+            df['LinReg'].iloc[i] > df['LinReg'].iloc[i-1] and
+            position['profit'] < 0 and
+            not pd.isna(df['oLRValue'].iloc[i]) and not pd.isna(df['oLRValue2'].iloc[i]) and
+            df['oLRValue'].iloc[i] > df['oLRValue2'].iloc[i] and
+            not pd.isna(df['ATR'].iloc[i]) and not pd.isna(df['ATRma'].iloc[i]) and
+            df['ATR'].iloc[i] > df['ATRma'].iloc[i]):
+            possible_exits.append(('reversal', 'L 2 S', 1, 1))
+
+        # Hard Stop
+        if df['Close'].iloc[i] > position['entry_price'] * 1.1:
+            possible_exits.append(('hard_stop', 'Hard Stop L', 1, None))
+
+        # Prioritize: hard_stop > reversal > atr_x > be > gap_target
+        priority_order = ['hard_stop', 'reversal', 'atr_x', 'be', 'gap_target']
+        for prio in priority_order:
+            for exit_type, exit_label, exit_sig, entry_sig in possible_exits:
+                if exit_type == prio:
+                    df.loc[df.index[i], 'ExitSignal'] = exit_sig
+                    df.loc[df.index[i], 'ExitType'] = exit_label
+                    if entry_sig is not None:
+                        df.loc[df.index[i], 'Signal'] = entry_sig
+                        df.loc[df.index[i], 'SignalType'] = exit_label
+                        df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] * 2 / df['Close'].iloc[i]))
+                    return  # Apply first in priority
 
     def _process_exit(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
         exit_price = round(float(df['Close'].iloc[i]), 2)
@@ -724,7 +758,7 @@ class NGSStrategy:
             if df['ExitSignal'].iloc[i] != 0:
                 self._process_exit(df, i, symbol, position)
                 position = {'shares': 0, 'entry_price': 0, 'entry_date': None, 'bars_since_entry': 0, 'profit': 0}
-            elif df['Signal'].iloc[i] != 0:
+            if df['Signal'].iloc[i] != 0:
                 self._process_entry(df, i, symbol, position)
                 position = self.positions.get(symbol, {'shares': 0, 'entry_price': 0, 'entry_date': None, 'bars_since_entry': 0, 'profit': 0})
             else:
