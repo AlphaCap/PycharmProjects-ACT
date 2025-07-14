@@ -45,9 +45,8 @@ class NGSStrategy:
         self.retention_days = RETENTION_DAYS  # Use the 6-month retention from data_manager
         self.cutoff_date = datetime.now() - timedelta(days=self.retention_days)
         
-        # Add M/E tracking
-        self.current_me_ratio = 0.0  # Current M/E ratio percentage
-        self.daily_me_ratios = []    # List to store daily M/E values
+        # Add M/E tracking - separate current vs historical
+        self.historical_me_ratios = []    # Historical daily M/E values during backtest
         
         self.inputs = {
             'Length': 25,
@@ -64,52 +63,71 @@ class NGSStrategy:
         logger.info(f"nGS Strategy initialized with {self.retention_days}-day data retention")
         logger.info(f"Data cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
 
-    def calculate_me_ratio(self, current_prices: Dict[str, float] = None) -> float:
+    def calculate_current_me_ratio(self) -> float:
         """
-        Calculate M/E ratio: (Total Open Trade Equity / Account Value) × 100
-        
-        Args:
-            current_prices: Dict of {symbol: current_price} - optional, uses entry prices if not provided
-        
-        Returns:
-            M/E ratio as percentage
+        Calculate CURRENT M/E ratio for all existing positions.
+        This is the live M/E ratio for portfolio management.
         """
         total_open_trade_equity = 0.0
         
-        # Calculate Total Open Trade Equity = sum of (price × shares) for all positions
+        # Calculate Total Open Trade Equity for all current positions
         for symbol, position in self.positions.items():
             if position['shares'] != 0:
-                # Use current price if available, otherwise use entry price
+                # Use entry price for current calculation
+                current_price = position['entry_price']
+                position_equity = current_price * abs(position['shares'])
+                total_open_trade_equity += position_equity
+        
+        # Current Account Value = current cash
+        account_value = self.cash
+        
+        # Current M/E Ratio = Total Open Trade Equity / Account Value × 100
+        me_ratio_pct = (total_open_trade_equity / account_value * 100) if account_value > 0 else 0.0
+        
+        return round(me_ratio_pct, 2)
+
+    def calculate_historical_me_ratio(self, current_prices: Dict[str, float] = None) -> float:
+        """
+        Calculate HISTORICAL M/E ratio during backtest for daily tracking.
+        This tracks M/E progression during the 6-month backtest period.
+        """
+        total_open_trade_equity = 0.0
+        
+        # Calculate Total Open Trade Equity for positions during backtest
+        for symbol, position in self.positions.items():
+            if position['shares'] != 0:
+                # Use current price if available, otherwise entry price
                 if current_prices and symbol in current_prices:
                     current_price = current_prices[symbol]
                 else:
                     current_price = position['entry_price']
                 
-                # Position equity = current_price × shares (always positive for M/E calculation)
                 position_equity = current_price * abs(position['shares'])
                 total_open_trade_equity += position_equity
         
-        # Account Value = current account equity (cash + unrealized P&L)
-        # For now, use cash as proxy for account value
+        # Historical Account Value = cash at that point in time
         account_value = self.cash
         
-        # M/E Ratio = Total Open Trade Equity / Account Value × 100
+        # Historical M/E Ratio = Total Open Trade Equity / Account Value × 100
         me_ratio_pct = (total_open_trade_equity / account_value * 100) if account_value > 0 else 0.0
         
         return round(me_ratio_pct, 2)
 
-    def record_daily_me_ratio(self, date_str: str, trade_occurred: bool = False, current_prices: Dict[str, float] = None):
+    def record_historical_me_ratio(self, date_str: str, trade_occurred: bool = False, current_prices: Dict[str, float] = None):
         """
-        Record daily M/E ratio. Only recalculates when trades occur, otherwise carries forward last value.
+        Record daily M/E ratio for historical tracking during backtest.
         """
         if trade_occurred and current_prices:
-            # Recalculate M/E ratio because a trade happened
-            self.current_me_ratio = self.calculate_me_ratio(current_prices)
+            # Recalculate M/E ratio because a trade happened during backtest
+            historical_me = self.calculate_historical_me_ratio(current_prices)
+        else:
+            # No trade - carry forward last value (0.0 if no previous trades)
+            historical_me = self.historical_me_ratios[-1]['me_ratio_pct'] if self.historical_me_ratios else 0.0
         
-        # Record the current M/E ratio for this date (whether new or carried forward)
-        self.daily_me_ratios.append({
+        # Record the historical M/E ratio for this date
+        self.historical_me_ratios.append({
             'date': date_str,
-            'me_ratio_pct': self.current_me_ratio,
+            'me_ratio_pct': historical_me,
             'trade_occurred': trade_occurred
         })
 
@@ -548,9 +566,9 @@ class NGSStrategy:
         
         self.cash = round(float(self.cash + position['shares'] * exit_price), 2)
         
-        # *** RECALCULATE M/E RATIO AFTER EXIT ***
+        # *** RECORD HISTORICAL M/E RATIO AFTER EXIT ***
         current_prices = {symbol: exit_price}  # At minimum, we have this symbol's price
-        self.record_daily_me_ratio(exit_date, trade_occurred=True, current_prices=current_prices)
+        self.record_historical_me_ratio(exit_date, trade_occurred=True, current_prices=current_prices)
         
         logger.info(f"Exit {symbol}: {df['ExitType'].iloc[i]} at {exit_price}, profit: {profit}")
 
@@ -582,9 +600,9 @@ class NGSStrategy:
                 except Exception as e:
                     logger.debug(f"M/E tracking error: {e}")
             
-            # *** RECALCULATE M/E RATIO AFTER ENTRY ***
+            # *** RECORD HISTORICAL M/E RATIO AFTER ENTRY ***
             current_prices = {symbol: df['Close'].iloc[i]}  # At minimum, we have this symbol's price
-            self.record_daily_me_ratio(entry_date, trade_occurred=True, current_prices=current_prices)
+            self.record_historical_me_ratio(entry_date, trade_occurred=True, current_prices=current_prices)
             
             logger.info(f"Entry {symbol}: {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
         elif entry_datetime < self.cutoff_date:
@@ -632,8 +650,8 @@ class NGSStrategy:
                 self._process_entry(df, i, symbol, position)
                 position = self.positions.get(symbol, {'shares': 0, 'entry_price': 0, 'entry_date': None, 'bars_since_entry': 0, 'profit': 0})
             else:
-                # No trade occurred - record M/E ratio carrying forward previous value
-                self.record_daily_me_ratio(current_date, trade_occurred=False)
+                # No trade occurred - record historical M/E ratio carrying forward previous value
+                self.record_historical_me_ratio(current_date, trade_occurred=False)
         
         self.positions[symbol] = position
         return df
@@ -762,12 +780,34 @@ class NGSStrategy:
         # Filter trades by retention period
         self._filter_trades_by_retention()
         
+        # Calculate initial M/E ratio for any existing positions
+        if self.positions:
+            self.current_me_ratio = self.calculate_me_ratio()
+            logger.info(f"Initial M/E ratio with {len(self.positions)} existing positions: {self.current_me_ratio:.2f}%")
+        
         results = {}
         for symbol, df in data.items():
             result = self.process_symbol(symbol, df)
             if result is not None and not result.empty:
                 results[symbol] = result
                 logger.info(f"Processed {symbol}: {len(result)} rows")
+        
+        # Calculate final M/E ratio after strategy run
+        final_me_ratio = self.calculate_me_ratio()
+        if self.daily_me_ratios:
+            # Update the last entry with final M/E calculation
+            if len(self.daily_me_ratios) > 0:
+                self.daily_me_ratios[-1]['me_ratio_pct'] = final_me_ratio
+                self.current_me_ratio = final_me_ratio
+        else:
+            # If no daily entries, create one final entry
+            from datetime import datetime
+            self.daily_me_ratios.append({
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'me_ratio_pct': final_me_ratio,
+                'trade_occurred': False
+            })
+            self.current_me_ratio = final_me_ratio
         
         # Save daily M/E ratios to file
         if self.daily_me_ratios:
@@ -839,9 +879,20 @@ class NGSStrategy:
         
         save_positions(all_positions)
         
-        # Final M/E status
-        if self.daily_me_ratios:
-            print(f"\nFinal M/E Status: {self.current_me_ratio:.2f}%")
+        # Final M/E status with position details for verification
+        print(f"\nFinal M/E Status: {self.current_me_ratio:.2f}%")
+        
+        # Debug: Show M/E calculation details
+        total_equity = 0
+        for symbol, position in self.positions.items():
+            if position['shares'] != 0:
+                equity = position['entry_price'] * abs(position['shares'])
+                total_equity += equity
+        
+        print(f"\nM/E Calculation Details:")
+        print(f"Total Open Trade Equity: ${total_equity:,.2f}")
+        print(f"Account Value (Cash): ${self.cash:,.2f}")
+        print(f"Calculated M/E: {(total_equity/self.cash*100):.2f}% (should match Final M/E Status)")
         
         # Final M/E status
         if ME_TRACKING_AVAILABLE:
