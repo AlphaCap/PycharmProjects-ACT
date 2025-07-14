@@ -1,4 +1,41 @@
-#!/usr/bin/env python3
+def check_data_manager_config():
+    """Check what data_manager.py is expecting"""
+    print(f"\n" + "-" * 40)
+    print("DATA MANAGER CONFIGURATION CHECK")
+    print("-" * 40)
+    
+    try:
+        # Try to import data_manager to see its configuration
+        import data_manager as dm
+        
+        # Check the SP500_SYMBOLS_FILE path
+        if hasattr(dm, 'SP500_SYMBOLS_FILE'):
+            expected_path = dm.SP500_SYMBOLS_FILE
+            print(f"data_manager expects: {expected_path}")
+            print(f"Full path: {os.path.abspath(expected_path)}")
+            print(f"File exists: {os.path.exists(expected_path)}")
+            
+            if os.path.exists(expected_path):
+                print("✓ data_manager can find its S&P 500 file")
+            else:
+                print("❌ data_manager CANNOT find its S&P 500 file")
+        
+        # Test the actual function
+        try:
+            symbols = dm.get_sp500_symbols()
+            print(f"dm.get_sp500_symbols() returns: {len(symbols)} symbols")
+            if symbols:
+                print(f"Sample symbols: {symbols[:5]}")
+                print("✓ data_manager can load S&P 500 symbols successfully")
+            else:
+                print("❌ data_manager returns empty symbol list")
+        except Exception as e:
+            print(f"❌ Error calling dm.get_sp500_symbols(): {e}")
+            
+    except ImportError as e:
+        print(f"❌ Cannot import data_manager: {e}")
+    except Exception as e:
+        print(f"❌ Error checking data_manager: {e}")#!/usr/bin/env python3
 """
 M/E Ratio Diagnostic Tool
 Run from command prompt to check M/E ratio indicator data
@@ -101,26 +138,77 @@ def check_me_ratio_data():
         print(f"\n✓ SUCCESS: M/E ratio data found in {valid_me_values} files")
         print("   M/E ratio indicator appears to be working correctly")
     
-    # Check S&P 500 symbols file
+    # Run additional diagnostics
+    find_sp500_file()
+    check_data_manager_config()
+    
+def find_sp500_file():
+    """Find the S&P 500 symbols file in various locations"""
     print(f"\n" + "-" * 40)
-    print("S&P 500 SYMBOLS CHECK")
+    print("FINDING S&P 500 SYMBOLS FILE")
     print("-" * 40)
     
-    sp500_file = "sp500_symbols.txt"
-    if os.path.exists(sp500_file):
-        with open(sp500_file, 'r') as f:
-            symbols = [line.strip() for line in f if line.strip()]
-        print(f"✓ S&P 500 symbols file found: {len(symbols)} symbols")
+    # Get current working directory
+    current_dir = os.getcwd()
+    print(f"Current directory: {current_dir}")
+    
+    # Check multiple possible locations and file types
+    possible_files = [
+        "sp500_symbols.txt",
+        "sp500_symbols.csv", 
+        os.path.join("data", "sp500_symbols.txt"),
+        os.path.join("data", "sp500_symbols.csv"),
+        os.path.join("..", "sp500_symbols.txt"),
+        os.path.join("..", "sp500_symbols.csv"),
+        os.path.join(".", "sp500_symbols.txt"),
+        os.path.join(".", "sp500_symbols.csv")
+    ]
+    
+    found_files = []
+    
+    for file_path in possible_files:
+        abs_path = os.path.abspath(file_path)
+        if os.path.exists(file_path):
+            found_files.append((file_path, abs_path))
+            print(f"✓ FOUND: {file_path}")
+            print(f"   Full path: {abs_path}")
+            
+            # Try to read and count symbols
+            try:
+                if file_path.endswith('.txt'):
+                    with open(file_path, 'r') as f:
+                        symbols = [line.strip() for line in f if line.strip()]
+                elif file_path.endswith('.csv'):
+                    import pandas as pd
+                    df = pd.read_csv(file_path)
+                    if 'Symbol' in df.columns:
+                        symbols = df['Symbol'].tolist()
+                    else:
+                        symbols = df.iloc[:, 0].tolist()  # First column
+                
+                print(f"   Contains: {len(symbols)} symbols")
+                print(f"   Sample: {symbols[:5]}")
+                
+            except Exception as e:
+                print(f"   Error reading: {e}")
+    
+    if not found_files:
+        print("❌ No S&P 500 symbols file found in any location")
         
-        # Check how many symbol files we have vs S&P 500 list
-        symbol_names = [f.replace('.csv', '') for f in symbol_files]
-        sp500_with_data = [s for s in symbols if s in symbol_names]
-        print(f"✓ S&P 500 symbols with data files: {len(sp500_with_data)}")
-        
-        if len(sp500_with_data) < 50:
-            print("⚠️  WARNING: Very few S&P 500 symbols have data files")
-    else:
-        print(f"❌ S&P 500 symbols file not found: {sp500_file}")
+        # List all files in current directory for debugging
+        print(f"\n📁 Files in current directory:")
+        try:
+            files = os.listdir(current_dir)
+            txt_csv_files = [f for f in files if f.endswith(('.txt', '.csv'))]
+            if txt_csv_files:
+                for f in txt_csv_files[:10]:  # Show first 10
+                    print(f"   {f}")
+            else:
+                print("   No .txt or .csv files found")
+        except Exception as e:
+            print(f"   Error listing files: {e}")
+    
+    return found_files
 
 def check_specific_symbol(symbol):
     """Check a specific symbol's M/E ratio data"""
