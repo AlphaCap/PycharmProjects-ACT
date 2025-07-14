@@ -59,6 +59,8 @@ st.markdown("""
 with st.sidebar:
     st.markdown("---")
     
+    initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
+    
     if st.button("🏠 HOME", use_container_width=True):
         st.switch_page("app.py")
 
@@ -71,7 +73,7 @@ try:
     dm.initialize()
     
     # Get portfolio metrics with historical M/E ratio
-    portfolio_metrics = dm.get_portfolio_metrics(initial_portfolio_value=100000, is_historical=True)
+    portfolio_metrics = dm.get_portfolio_metrics(initial_portfolio_value=initial_account_size, is_historical=True)
     trades_df = dm.get_trades_history()
     
     if trades_df.empty:
@@ -129,7 +131,7 @@ with tab1:
         # Calculate cumulative returns
         trades_df_sorted = trades_df.sort_values('exit_date')
         trades_df_sorted['cumulative_pnl'] = trades_df_sorted['profit'].cumsum()
-        trades_df_sorted['portfolio_value'] = 100000 + trades_df_sorted['cumulative_pnl']
+        trades_df_sorted['portfolio_value'] = initial_account_size + trades_df_sorted['cumulative_pnl']
         
         fig_equity = go.Figure()
         fig_equity.add_trace(go.Scatter(
