@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timedelta
 import os
 from typing import Dict, List, Optional, Tuple, Union
+import sys
 
 from data_manager import (
     save_trades, save_positions, load_price_data,
@@ -23,13 +24,19 @@ try:
 except ImportError:
     ME_TRACKING_AVAILABLE = False
 
-# Configure logging
+# Configure logging with UTF-8 encoding for Windows
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    handlers=[logging.StreamHandler()]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
+
+# Set encoding for Windows console to handle Unicode
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 class NGSStrategy:
     """
@@ -47,6 +54,7 @@ class NGSStrategy:
         
         # Add M/E tracking - separate current vs historical
         self.historical_me_ratios = []    # Historical daily M/E values during backtest
+        self.current_me_ratio = 0.0       # Add this property
         
         self.inputs = {
             'Length': 25,
@@ -686,10 +694,20 @@ class NGSStrategy:
             # Only load positions within retention period
             if symbol and entry_date:
                 try:
-                    # Handle both string and Timestamp formats
+                    # Handle multiple date formats
                     if isinstance(entry_date, str):
-                        entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
-                        entry_date_str = entry_date
+                        # Try multiple date formats
+                        for fmt in ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S']:
+                            try:
+                                entry_datetime = datetime.strptime(entry_date.split()[0], '%Y-%m-%d')  # Just take date part
+                                entry_date_str = entry_datetime.strftime('%Y-%m-%d')
+                                break
+                            except ValueError:
+                                continue
+                        else:
+                            # If no format worked, skip this position
+                            logger.warning(f"Could not parse date for position {symbol}: {entry_date}")
+                            continue
                     else:
                         # Assume it's a pandas Timestamp
                         entry_datetime = entry_date.to_pydatetime() if hasattr(entry_date, 'to_pydatetime') else entry_date
@@ -774,7 +792,7 @@ class NGSStrategy:
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         # Initialize for this run
         self.trades = []
-        self.daily_me_ratios = []  # Reset daily M/E tracking
+        self.historical_me_ratios = []  # Reset historical M/E tracking
         self.current_me_ratio = 0.0  # Start with 0% M/E ratio
         
         # Filter trades by retention period
@@ -793,16 +811,16 @@ class NGSStrategy:
                 logger.info(f"Processed {symbol}: {len(result)} rows")
         
         # Calculate final M/E ratio after strategy run
-        final_me_ratio = self.calculate_me_ratio()
-        if self.daily_me_ratios:
+        final_me_ratio = self.calculate_current_me_ratio()  # FIXED: Was calculate_me_ratio()
+        if self.historical_me_ratios:
             # Update the last entry with final M/E calculation
-            if len(self.daily_me_ratios) > 0:
-                self.daily_me_ratios[-1]['me_ratio_pct'] = final_me_ratio
+            if len(self.historical_me_ratios) > 0:
+                self.historical_me_ratios[-1]['me_ratio_pct'] = final_me_ratio
                 self.current_me_ratio = final_me_ratio
         else:
             # If no daily entries, create one final entry
             from datetime import datetime
-            self.daily_me_ratios.append({
+            self.historical_me_ratios.append({
                 'date': datetime.now().strftime('%Y-%m-%d'),
                 'me_ratio_pct': final_me_ratio,
                 'trade_occurred': False
@@ -810,14 +828,14 @@ class NGSStrategy:
             self.current_me_ratio = final_me_ratio
         
         # Save daily M/E ratios to file
-        if self.daily_me_ratios:
-            me_df = pd.DataFrame(self.daily_me_ratios)
+        if self.historical_me_ratios:
+            me_df = pd.DataFrame(self.historical_me_ratios)
             me_file = os.path.join(self.data_dir, 'daily_me_ratios.csv')
             os.makedirs(self.data_dir, exist_ok=True)
             me_df.to_csv(me_file, index=False)
             
             print(f"\n[M/E] Daily M/E Ratios saved to: {me_file}")
-            print(f"M/E data covers {len(self.daily_me_ratios)} trading days")
+            print(f"M/E data covers {len(self.historical_me_ratios)} trading days")
             
             # Show recent M/E values
             print("\nRecent M/E Ratio values:")
