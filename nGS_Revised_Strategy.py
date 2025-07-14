@@ -1053,10 +1053,13 @@ if __name__ == "__main__":
     try:
         strategy = NGSStrategy(account_size=100000)
         
-        # Define your trading universe
-        symbols = [
-            'AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN', 'META', 'NVDA',
-            'JPM', 'JNJ', 'PG', 'UNH', 'HD', 'BAC', 'XOM', 'CVX', 'PFE'
+        # Define your trading universe - ALL S&P 500 symbols
+        from data_manager import get_sp500_symbols
+        symbols = get_sp500_symbols()
+        
+        print(f"\nTrading Universe: ALL S&P 500 symbols")
+        print(f"Total symbols to process: {len(symbols)}")
+        print(f"Sample symbols: {symbols[:10]}...")
         ]
         
         print(f"Loading historical data for {len(symbols)} symbols...")
