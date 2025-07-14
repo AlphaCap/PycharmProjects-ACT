@@ -661,24 +661,39 @@ class NGSStrategy:
 
     def _load_positions(self) -> None:
         positions_list = get_positions()
+        logger.info(f"Attempting to load {len(positions_list)} positions from data manager")
+        
         for pos in positions_list:
             symbol = pos.get('symbol')
             entry_date = pos.get('entry_date')
             
+            logger.debug(f"Processing position: {symbol}, entry_date: {entry_date} (type: {type(entry_date)})")
+            
             # Only load positions within retention period
             if symbol and entry_date:
                 try:
-                    entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
+                    # Handle both string and Timestamp formats
+                    if isinstance(entry_date, str):
+                        entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
+                        entry_date_str = entry_date
+                    else:
+                        # Assume it's a pandas Timestamp
+                        entry_datetime = entry_date.to_pydatetime() if hasattr(entry_date, 'to_pydatetime') else entry_date
+                        entry_date_str = entry_datetime.strftime('%Y-%m-%d')
+                    
                     if entry_datetime >= self.cutoff_date:
                         self.positions[symbol] = {
                             'shares': int(pos.get('shares', 0)),
                             'entry_price': float(pos.get('entry_price', 0)),
-                            'entry_date': entry_date,
+                            'entry_date': entry_date_str,
                             'bars_since_entry': int(pos.get('days_held', 0)),
                             'profit': float(pos.get('profit', 0))
                         }
-                except ValueError as e:
-                    logger.warning(f"Invalid date format for position {symbol}: {entry_date}")
+                        logger.debug(f"Loaded position for {symbol}")
+                    else:
+                        logger.debug(f"Position {symbol} outside retention period: {entry_datetime} < {self.cutoff_date}")
+                except (ValueError, AttributeError, TypeError) as e:
+                    logger.warning(f"Invalid date format for position {symbol}: {entry_date} - {e}")
         
         logger.info(f"Loaded {len(self.positions)} positions within {self.retention_days}-day retention period")
 
@@ -765,7 +780,7 @@ class NGSStrategy:
             os.makedirs(self.data_dir, exist_ok=True)
             me_df.to_csv(me_file, index=False)
             
-            print(f"\n📊 Daily M/E Ratios saved to: {me_file}")
+            print(f"\n[M/E] Daily M/E Ratios saved to: {me_file}")
             print(f"M/E data covers {len(self.daily_me_ratios)} trading days")
             
             # Show recent M/E values
@@ -982,11 +997,11 @@ if __name__ == "__main__":
         if ME_TRACKING_AVAILABLE:
             try:
                 initial_risk = get_current_risk_assessment()
-                print(f"✓ M/E Integration active - Initial risk: {initial_risk['risk_level']}")
+                print(f"+ M/E Integration active - Initial risk: {initial_risk['risk_level']}")
             except Exception as e:
-                print(f"⚠ M/E calculator error: {e}")
+                print(f"! M/E calculator error: {e}")
         else:
-            print("⚠ M/E calculator not found - running without M/E tracking")
+            print("! M/E calculator not found - running without M/E tracking")
         
         # Run the strategy
         print(f"Running nGS strategy on {len(data)} symbols...")
@@ -1039,8 +1054,8 @@ if __name__ == "__main__":
         for pos in short_pos:
             print(f"  Short {pos['symbol']:6s}: {pos['shares']:4d} shares @ ${pos['entry_price']:7.2f}")
         
-        print(f"\n✓ Strategy backtest completed successfully!")
-        print(f"✓ Data retention enforced: {RETENTION_DAYS} days")
+        print(f"\n+ Strategy backtest completed successfully!")
+        print(f"+ Data retention enforced: {RETENTION_DAYS} days")
         
     except Exception as e:
         logger.error(f"Strategy backtest failed: {e}")
