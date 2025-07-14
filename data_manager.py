@@ -54,6 +54,31 @@ def get_cutoff_date():
     """Get the cutoff date for 6-month retention"""
     return datetime.now() - timedelta(days=RETENTION_DAYS)
 
+def parse_date_flexibly(date_str):
+    """
+    Parse date string flexibly, handling both 'YYYY-MM-DD' and 'YYYY-MM-DD HH:MM:SS' formats.
+    Returns a datetime object.
+    """
+    if pd.isna(date_str):
+        return pd.NaT
+    
+    # Convert to string if not already
+    date_str = str(date_str)
+    
+    # Take only date part if time is included
+    date_part = date_str.split()[0]
+    
+    try:
+        # Try parsing as date only
+        return pd.to_datetime(date_part, format='%Y-%m-%d')
+    except:
+        try:
+            # Fallback to pandas flexible parsing
+            return pd.to_datetime(date_str)
+        except:
+            logger.warning(f"Could not parse date: {date_str}")
+            return pd.NaT
+
 def filter_by_retention_period(df: pd.DataFrame, date_column: str = 'Date') -> pd.DataFrame:
     """Filter DataFrame to only include data within retention period"""
     if df is None or df.empty:
@@ -65,7 +90,14 @@ def filter_by_retention_period(df: pd.DataFrame, date_column: str = 'Date') -> p
     
     cutoff_date = get_cutoff_date()
     df = df.copy()
-    df[date_column] = pd.to_datetime(df[date_column])
+    
+    # Handle mixed date formats
+    try:
+        # Apply flexible date parsing
+        df[date_column] = df[date_column].apply(parse_date_flexibly)
+    except Exception as e:
+        logger.warning(f"Could not parse dates in column {date_column}: {e}")
+        return df
     
     original_count = len(df)
     df = df[df[date_column] >= cutoff_date].copy()
@@ -265,10 +297,10 @@ def get_trades_history():
             logger.info(f"Available columns: {list(df.columns)}")
             return pd.DataFrame(columns=TRADE_COLUMNS)
         
-        # Convert dates
+        # Convert dates with flexible parsing
         try:
-            df['entry_date'] = pd.to_datetime(df['entry_date'])
-            df['exit_date'] = pd.to_datetime(df['exit_date'])
+            df['entry_date'] = df['entry_date'].apply(parse_date_flexibly)
+            df['exit_date'] = df['exit_date'].apply(parse_date_flexibly)
         except Exception as e:
             logger.error(f"Error parsing dates in trade history: {e}")
             # Continue anyway, dates might still be usable as strings
@@ -401,11 +433,17 @@ def save_trades(trades_list: List[Dict]):
     
     for trade in trades_list:
         try:
-            exit_date = pd.to_datetime(trade['exit_date'])
+            # Handle date format flexibly
+            exit_date = parse_date_flexibly(trade['exit_date'])
+            
             if exit_date >= cutoff_date:
-                filtered_trades.append(trade)
-        except (KeyError, ValueError):
-            logger.warning(f"Invalid trade date in trade: {trade}")
+                # Ensure dates are in consistent format
+                trade_copy = trade.copy()
+                trade_copy['exit_date'] = exit_date.strftime('%Y-%m-%d')
+                trade_copy['entry_date'] = parse_date_flexibly(trade['entry_date']).strftime('%Y-%m-%d')
+                filtered_trades.append(trade_copy)
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Invalid trade date in trade: {trade} - {e}")
     
     if not filtered_trades:
         logger.info("No trades within retention period to save")
@@ -414,6 +452,14 @@ def save_trades(trades_list: List[Dict]):
     if os.path.exists(TRADES_HISTORY_FILE):
         # Append to existing trades
         existing_df = pd.read_csv(TRADES_HISTORY_FILE)
+        
+        # Convert existing dates to consistent format
+        if not existing_df.empty:
+            if 'exit_date' in existing_df.columns:
+                existing_df['exit_date'] = existing_df['exit_date'].apply(parse_date_flexibly).dt.strftime('%Y-%m-%d')
+            if 'entry_date' in existing_df.columns:
+                existing_df['entry_date'] = existing_df['entry_date'].apply(parse_date_flexibly).dt.strftime('%Y-%m-%d')
+        
         # Filter existing trades to retention period too
         existing_df = filter_by_retention_period(existing_df, 'exit_date')
         
@@ -446,11 +492,14 @@ def save_positions(positions_list: List[Dict]):
     
     for pos in positions_list:
         try:
-            entry_date = pd.to_datetime(pos['entry_date'])
+            entry_date = parse_date_flexibly(pos['entry_date'])
             if entry_date >= cutoff_date:
-                filtered_positions.append(pos)
-        except (KeyError, ValueError):
-            logger.warning(f"Invalid entry date in position: {pos}")
+                # Ensure date is in consistent format
+                pos_copy = pos.copy()
+                pos_copy['entry_date'] = entry_date.strftime('%Y-%m-%d')
+                filtered_positions.append(pos_copy)
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Invalid entry date in position: {pos} - {e}")
     
     df = pd.DataFrame(filtered_positions)
     df.to_csv(POSITIONS_FILE, index=False)
@@ -479,11 +528,14 @@ def save_signals(signals: List[Dict]):
     
     for signal in signals:
         try:
-            signal_date = pd.to_datetime(signal['date'])
+            signal_date = parse_date_flexibly(signal['date'])
             if signal_date >= cutoff_date:
-                filtered_signals.append(signal)
-        except (KeyError, ValueError):
-            logger.warning(f"Invalid date in signal: {signal}")
+                # Ensure date is in consistent format
+                signal_copy = signal.copy()
+                signal_copy['date'] = signal_date.strftime('%Y-%m-%d')
+                filtered_signals.append(signal_copy)
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Invalid date in signal: {signal} - {e}")
     
     df = pd.DataFrame(filtered_signals)
     df.to_csv(SIGNALS_FILE, index=False)
@@ -496,7 +548,7 @@ def get_system_status():
         # Filter system status to retention period
         if not df.empty and 'timestamp' in df.columns:
             # Convert timestamp to datetime for filtering
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            df['timestamp'] = df['timestamp'].apply(parse_date_flexibly)
             df = filter_by_retention_period(df, 'timestamp')
             # Convert back to string for display
             df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
@@ -516,7 +568,7 @@ def save_system_status(message: str, system: str = "nGS"):
             df = pd.read_csv(SYSTEM_STATUS_FILE)
             # Filter existing status to retention period
             if not df.empty:
-                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df['timestamp'] = df['timestamp'].apply(parse_date_flexibly)
                 df = df[df['timestamp'] >= cutoff_date].copy()
                 df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
             df = pd.concat([new_row, df], ignore_index=True)
@@ -1031,8 +1083,11 @@ def cleanup_old_data():
             df = pd.read_csv(TRADES_HISTORY_FILE)
             if not df.empty:
                 original_count = len(df)
-                df['exit_date'] = pd.to_datetime(df['exit_date'])
+                df['exit_date'] = df['exit_date'].apply(parse_date_flexibly)
                 df = df[df['exit_date'] >= cutoff_date]
+                # Convert dates back to string format for CSV
+                df['exit_date'] = df['exit_date'].dt.strftime('%Y-%m-%d')
+                df['entry_date'] = df['entry_date'].apply(parse_date_flexibly).dt.strftime('%Y-%m-%d')
                 df.to_csv(TRADES_HISTORY_FILE, index=False)
                 removed = original_count - len(df)
                 cleanup_count += removed
@@ -1046,8 +1101,10 @@ def cleanup_old_data():
             df = pd.read_csv(POSITIONS_FILE)
             if not df.empty:
                 original_count = len(df)
-                df['entry_date'] = pd.to_datetime(df['entry_date'])
+                df['entry_date'] = df['entry_date'].apply(parse_date_flexibly)
                 df = df[df['entry_date'] >= cutoff_date]
+                # Convert dates back to string format for CSV
+                df['entry_date'] = df['entry_date'].dt.strftime('%Y-%m-%d')
                 df.to_csv(POSITIONS_FILE, index=False)
                 removed = original_count - len(df)
                 cleanup_count += removed
@@ -1061,8 +1118,10 @@ def cleanup_old_data():
             df = pd.read_csv(SIGNALS_FILE)
             if not df.empty:
                 original_count = len(df)
-                df['date'] = pd.to_datetime(df['date'])
+                df['date'] = df['date'].apply(parse_date_flexibly)
                 df = df[df['date'] >= cutoff_date]
+                # Convert dates back to string format for CSV
+                df['date'] = df['date'].dt.strftime('%Y-%m-%d')
                 df.to_csv(SIGNALS_FILE, index=False)
                 removed = original_count - len(df)
                 cleanup_count += removed
@@ -1076,7 +1135,7 @@ def cleanup_old_data():
             df = pd.read_csv(SYSTEM_STATUS_FILE)
             if not df.empty:
                 original_count = len(df)
-                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df['timestamp'] = df['timestamp'].apply(parse_date_flexibly)
                 df = df[df['timestamp'] >= cutoff_date]
                 df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
                 df.to_csv(SYSTEM_STATUS_FILE, index=False)
