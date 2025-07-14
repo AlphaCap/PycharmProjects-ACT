@@ -125,7 +125,7 @@ with st.sidebar:
     st.info(f"📅 Data retention: {dm.RETENTION_DAYS} days")
 
 # --- HEADER ---
-st.markdown('<h1 class="main-header">🚀 nGS Trading System Dashboard</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">🚀 nGulfStream</h1>', unsafe_allow_html=True)
 
 # --- LOAD DATA ---
 try:
