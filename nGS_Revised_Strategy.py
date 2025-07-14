@@ -938,10 +938,11 @@ class NGSStrategy:
         
         return results
 
-def load_sp500_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
+def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
     """
     Load EOD data using your existing data_manager functions.
     This function uses your automated/manual download data.
+    NOTE: load_price_data only takes symbol as argument - date filtering is done by data_manager.
     """
     # Default to 6-month data range if not specified
     if end_date is None:
@@ -950,7 +951,8 @@ def load_sp500_data(symbols: List[str], start_date: str = None, end_date: str = 
         start_date = (datetime.now() - timedelta(days=RETENTION_DAYS + 30)).strftime('%Y-%m-%d')  # Extra buffer for indicators
     
     data = {}
-    logger.info(f"Loading data for {len(symbols)} symbols from {start_date} to {end_date}")
+    logger.info(f"Loading data for {len(symbols)} symbols")
+    logger.info(f"Note: data_manager automatically filters to 6-month retention period")
     
     # Progress tracking for large symbol lists
     batch_size = 50
@@ -966,14 +968,21 @@ def load_sp500_data(symbols: List[str], start_date: str = None, end_date: str = 
         for i, symbol in enumerate(batch_symbols):
             try:
                 # Use your existing load_price_data function from data_manager
-                df = load_price_data(symbol, start_date, end_date)
+                # It only takes symbol as argument and returns 6-month filtered data
+                df = load_price_data(symbol)  # FIXED: Only pass symbol
                 
                 if df is not None and not df.empty:
                     # Ensure Date column is datetime
                     df['Date'] = pd.to_datetime(df['Date'])
-                    data[symbol] = df
-                    if (start_idx + i + 1) % 10 == 0:
-                        logger.info(f"Progress: {start_idx + i + 1}/{len(symbols)} symbols loaded")
+                    
+                    # Data is already 6-month filtered by data_manager
+                    # Just verify it has enough data
+                    if len(df) >= 20:  # Minimum needed for indicators
+                        data[symbol] = df
+                        if (start_idx + i + 1) % 10 == 0:
+                            logger.info(f"Progress: {start_idx + i + 1}/{len(symbols)} symbols loaded")
+                    else:
+                        logger.warning(f"Insufficient data for {symbol}: only {len(df)} rows")
                 else:
                     logger.warning(f"No data available for {symbol}")
                     
@@ -1016,7 +1025,7 @@ if __name__ == "__main__":
         print("This may take several minutes for 500+ symbols...")
         
         # Load data using your existing data_manager functions
-        data = load_sp500_data(symbols)
+        data = load_polygon_data(symbols)
         
         if not data:
             print("No data loaded - check your data files")
