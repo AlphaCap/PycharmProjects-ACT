@@ -234,7 +234,7 @@ if total_positions > 0:
         st.metric("🔴 Short Exposure", portfolio_metrics['short_exposure'])
 
 # --- TODAY'S TRADES ---
-st.markdown('<div class="section-header">Today\'s Trades</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">Today&apos;s Trades</div>', unsafe_allow_html=True)
 
 try:
     # Get today's trades (entries and exits)
@@ -289,7 +289,7 @@ try:
         st.info("No trading activity today yet")
         
 except Exception as e:
-    st.warning(f"Could not load today's trades: {e}")
+    st.warning(f"Could not load today&apos;s trades: {e}")
 
 # --- FOOTER ---
 st.markdown("---")
