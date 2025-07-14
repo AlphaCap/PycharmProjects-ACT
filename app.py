@@ -19,8 +19,7 @@ except ImportError as e:
 
 # --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="nGS Trading Dashboard", 
-    page_icon="🚀", 
+    page_title="nGulfStream", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -87,7 +86,7 @@ st.markdown("""
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.markdown("## 🚀 nGS Dashboard")
+    st.markdown("## nGulfStream")
     st.markdown("---")
     
     initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
