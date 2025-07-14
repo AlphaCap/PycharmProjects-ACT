@@ -92,39 +92,12 @@ with st.sidebar:
     
     initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
     
-    if st.button("📊 Performance Analytics", use_container_width=True):
+    if st.button("Performance Analytics nGS", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
-    st.markdown("---")
-    st.markdown("### System Status")
+    st.button("Performance Analytics ACTai", disabled=True, use_container_width=True)
     
-    try:
-        system_status = dm.get_system_status()
-        if not system_status.empty:
-            latest_status = system_status.iloc[0]
-            st.success(f"✅ {latest_status['system']}: {latest_status['message']}")
-            st.caption(f"Last updated: {latest_status['timestamp']}")
-        else:
-            st.info("No system status available")
-    except Exception as e:
-        st.warning(f"Status check failed: {e}")
-    
-    st.markdown("---")
-    st.markdown("### Quick Stats")
-    
-    # Get S&P 500 symbol count
-    try:
-        symbols = dm.get_sp500_symbols()
-        symbol_count = len(symbols)
-        if symbol_count >= 490:
-            st.success(f"📈 {symbol_count} S&P 500 symbols loaded")
-        else:
-            st.warning(f"⚠️ Only {symbol_count} symbols loaded")
-    except:
-        st.error("❌ Symbol loading failed")
-    
-    # Data retention info
-    st.info(f"📅 Data retention: {dm.RETENTION_DAYS} days")
+    st.button("Performance Analytics gSTrader", disabled=True, use_container_width=True)
 
 # --- HEADER ---
 st.markdown('<h1 class="main-header">🚀 nGulfStream</h1>', unsafe_allow_html=True)
@@ -236,7 +209,7 @@ if total_positions > 0:
         st.metric("🔴 Short Exposure", portfolio_metrics['short_exposure'])
 
 # --- TODAY'S TRADES ---
-st.markdown('<div class="section-header">Today&apos;s Trades</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">Today's Trades</div>', unsafe_allow_html=True)
 
 try:
     # Get today's trades (entries and exits)
@@ -290,7 +263,7 @@ try:
         st.info("No trading activity today yet")
         
 except Exception as e:
-    st.warning(f"Could not load today&apos;s trades: {e}")
+    st.warning(f"Could not load today's trades: {e}")
 
 # --- FOOTER ---
 st.markdown("---")
