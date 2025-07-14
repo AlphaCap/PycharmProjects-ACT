@@ -368,60 +368,35 @@ def get_trades_history_formatted() -> pd.DataFrame:
 
 def get_me_ratio_history() -> pd.DataFrame:
     """
-    Get M/E ratio history from daily indicator data across symbols.
+    Get M/E ratio history from dedicated portfolio ME file.
     
     Returns:
         DataFrame with Date and ME_Ratio columns
     """
     try:
-        # Get S&P 500 symbols to extract M/E ratio from their daily data
-        symbols = get_sp500_symbols()
+        filename = os.path.join(DAILY_DIR, "portfolio_ME.csv")
         
-        if not symbols:
-            logger.warning("No S&P 500 symbols found for M/E ratio history")
+        if not os.path.exists(filename):
+            logger.warning(f"Portfolio M/E history file not found: {filename}")
             return pd.DataFrame(columns=['Date', 'ME_Ratio'])
         
-        all_me_data = []
-        symbols_processed = 0
+        df = pd.read_csv(filename, parse_dates=['Date'])
         
-        # Sample symbols to avoid performance issues (every 10th symbol)
-        sample_symbols = symbols[::10]
-        logger.info(f"Loading M/E ratio history from {len(sample_symbols)} symbols")
+        # Filter to last 6 months
+        df = filter_by_retention_period(df, 'Date')
         
-        for symbol in sample_symbols:
-            try:
-                # Load daily price data (already 6-month filtered)
-                df = load_price_data(symbol)
-                
-                if not df.empty and 'ME_Ratio' in df.columns and 'Date' in df.columns:
-                    # Extract valid M/E ratio data
-                    me_data = df[['Date', 'ME_Ratio']].copy()
-                    me_data = me_data[me_data['ME_Ratio'].notna() & (me_data['ME_Ratio'] > 0)]
-                    
-                    if not me_data.empty:
-                        all_me_data.append(me_data)
-                        symbols_processed += 1
-                        
-            except Exception as e:
-                logger.debug(f"Could not load M/E data for {symbol}: {e}")
-                continue
-        
-        if all_me_data:
-            # Combine all M/E data
-            combined_df = pd.concat(all_me_data, ignore_index=True)
-            
-            # Group by date and take the average M/E ratio for each day
-            daily_me = combined_df.groupby('Date')['ME_Ratio'].mean().reset_index()
-            daily_me = daily_me.sort_values('Date').reset_index(drop=True)
-            
-            logger.info(f"M/E ratio history created: {len(daily_me)} days from {symbols_processed} symbols")
-            return daily_me
-        else:
-            logger.warning("No M/E ratio data found in daily indicators")
+        if df.empty:
+            logger.warning("No M/E ratio data after filtering")
             return pd.DataFrame(columns=['Date', 'ME_Ratio'])
-            
+        
+        # Select only needed columns and sort
+        history_df = df[['Date', 'ME_Ratio']].sort_values('Date').reset_index(drop=True)
+        
+        logger.info(f"Loaded M/E ratio history: {len(history_df)} days")
+        return history_df
+        
     except Exception as e:
-        logger.error(f"Error creating M/E ratio history: {e}")
+        logger.error(f"Error loading M/E ratio history: {e}")
         return pd.DataFrame(columns=['Date', 'ME_Ratio'])
 
 def save_trades(trades_list: List[Dict]):
