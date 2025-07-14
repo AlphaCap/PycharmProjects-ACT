@@ -90,6 +90,8 @@ with st.sidebar:
     st.markdown("## 🚀 nGS Dashboard")
     st.markdown("---")
     
+    initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
+    
     if st.button("📊 Performance Analytics", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
@@ -133,7 +135,7 @@ try:
     dm.initialize()
     
     # Get portfolio metrics (current M/E ratio for main page)
-    portfolio_metrics = dm.get_portfolio_metrics(initial_portfolio_value=100000, is_historical=False)
+    portfolio_metrics = dm.get_portfolio_metrics(initial_portfolio_value=initial_account_size, is_historical=False)
     
 except Exception as e:
     st.error(f"Error loading portfolio data: {e}")
