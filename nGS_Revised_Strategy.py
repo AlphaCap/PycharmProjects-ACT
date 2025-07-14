@@ -45,6 +45,10 @@ class NGSStrategy:
         self.retention_days = RETENTION_DAYS  # Use the 6-month retention from data_manager
         self.cutoff_date = datetime.now() - timedelta(days=self.retention_days)
         
+        # Add M/E tracking
+        self.current_me_ratio = 0.0  # Current M/E ratio percentage
+        self.daily_me_ratios = []    # List to store daily M/E values
+        
         self.inputs = {
             'Length': 25,
             'NumDevs': 2,
@@ -59,6 +63,59 @@ class NGSStrategy:
         
         logger.info(f"nGS Strategy initialized with {self.retention_days}-day data retention")
         logger.info(f"Data cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
+
+    def calculate_me_ratio(self, current_prices: Dict[str, float]) -> float:
+        """
+        Calculate M/E ratio only when trades occur.
+        
+        M/E Ratio = (Total Open Trade Equity / Account Value) × 100
+        
+        Args:
+            current_prices: Dict of {symbol: current_price} for all symbols
+        
+        Returns:
+            M/E ratio as percentage
+        """
+        total_open_trade_equity = 0.0
+        unrealized_pnl = 0.0
+        
+        # Calculate Total Open Trade Equity = sum of (price × shares) for all positions
+        for symbol, position in self.positions.items():
+            if position['shares'] != 0 and symbol in current_prices:
+                current_price = current_prices[symbol]
+                # Always use current market price × shares (absolute value for equity calculation)
+                position_equity = current_price * abs(position['shares'])
+                total_open_trade_equity += position_equity
+                
+                # Calculate unrealized P&L for account value
+                if position['shares'] > 0:  # Long position
+                    unrealized_pnl += (current_price - position['entry_price']) * position['shares']
+                else:  # Short position  
+                    unrealized_pnl += (position['entry_price'] - current_price) * abs(position['shares'])
+        
+        # Account Value = Cash + Position Market Values + Unrealized P&L
+        # This is the total portfolio value
+        account_value = self.cash + total_open_trade_equity + unrealized_pnl
+        
+        # M/E Ratio as percentage
+        me_ratio_pct = (total_open_trade_equity / account_value * 100) if account_value > 0 else 0.0
+        
+        return round(me_ratio_pct, 2)
+
+    def record_daily_me_ratio(self, date_str: str, trade_occurred: bool = False, current_prices: Dict[str, float] = None):
+        """
+        Record daily M/E ratio. Only recalculates when trades occur, otherwise carries forward last value.
+        """
+        if trade_occurred and current_prices:
+            # Recalculate M/E ratio because a trade happened
+            self.current_me_ratio = self.calculate_me_ratio(current_prices)
+        
+        # Record the current M/E ratio for this date (whether new or carried forward)
+        self.daily_me_ratios.append({
+            'date': date_str,
+            'me_ratio_pct': self.current_me_ratio,
+            'trade_occurred': trade_occurred
+        })
 
     def _filter_recent_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -456,60 +513,6 @@ class NGSStrategy:
             df.loc[df.index[i], 'ExitSignal'] = 1
             df.loc[df.index[i], 'ExitType'] = 'Hard Stop L'
 
-    def manage_positions(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
-        if df is None or df.empty:
-            return df
-        df = df.copy()
-        df['ExitSignal'] = 0
-        df['ExitType'] = ''
-        position = self.positions.get(symbol, {
-            'shares': 0,
-            'entry_price': 0,
-            'entry_date': None,
-            'bars_since_entry': 0,
-            'profit': 0
-        })
-        for i in range(1, len(df)):
-            if pd.isna(df['Close'].iloc[i]) or pd.isna(df['Open'].iloc[i]) or pd.isna(df['ATR'].iloc[i]):
-                continue
-            if position['shares'] != 0:
-                position['bars_since_entry'] += 1
-                position['profit'] = round(
-                    (df['Close'].iloc[i] - position['entry_price']) * position['shares']
-                    if position['shares'] > 0 else
-                    (position['entry_price'] - df['Close'].iloc[i]) * abs(position['shares']),
-                    2
-                )
-                if position['shares'] > 0:
-                    self._check_long_exits(df, i, position)
-                elif position['shares'] < 0:
-                    self._check_short_exits(df, i, position)
-            if df['ExitSignal'].iloc[i] != 0:
-                self._process_exit(df, i, symbol, position)
-                position = {'shares': 0, 'entry_price': 0, 'entry_date': None, 'bars_since_entry': 0, 'profit': 0}
-            if df['Signal'].iloc[i] != 0:
-                self._process_entry(df, i, symbol, position)
-                position = self.positions.get(symbol, {'shares': 0, 'entry_price': 0, 'entry_date': None, 'bars_since_entry': 0, 'profit': 0})
-        self.positions[symbol] = position
-        return df
-
-    def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df is None or df.empty:
-            logger.warning("Empty dataframe provided to generate_signals")
-            return df
-        df = df.copy()
-        df['Signal'] = 0
-        df['SignalType'] = ''
-        df['Shares'] = 0
-        for i in range(1, len(df)):
-            if pd.isna(df['Open'].iloc[i]) or pd.isna(df['Close'].iloc[i]) or pd.isna(df['High'].iloc[i]) or pd.isna(df['Low'].iloc[i]):
-                continue
-            if not (df['Open'].iloc[i] > self.inputs['MinPrice'] and df['Open'].iloc[i] < self.inputs['MaxPrice']):
-                continue
-            self._check_long_signals(df, i)
-            self._check_short_signals(df, i)
-        return df
-
     def _process_exit(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
         exit_price = round(float(df['Close'].iloc[i]), 2)
         profit = round(float(
@@ -548,6 +551,11 @@ class NGSStrategy:
                 logger.debug(f"M/E tracking error: {e}")
         
         self.cash = round(float(self.cash + position['shares'] * exit_price), 2)
+        
+        # *** RECALCULATE M/E RATIO AFTER EXIT ***
+        current_prices = {symbol: exit_price}  # At minimum, we have this symbol's price
+        self.record_daily_me_ratio(exit_date, trade_occurred=True, current_prices=current_prices)
+        
         logger.info(f"Exit {symbol}: {df['ExitType'].iloc[i]} at {exit_price}, profit: {profit}")
 
     def _process_entry(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
@@ -578,11 +586,78 @@ class NGSStrategy:
                 except Exception as e:
                     logger.debug(f"M/E tracking error: {e}")
             
+            # *** RECALCULATE M/E RATIO AFTER ENTRY ***
+            current_prices = {symbol: df['Close'].iloc[i]}  # At minimum, we have this symbol's price
+            self.record_daily_me_ratio(entry_date, trade_occurred=True, current_prices=current_prices)
+            
             logger.info(f"Entry {symbol}: {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
         elif entry_datetime < self.cutoff_date:
             logger.debug(f"Entry {symbol} skipped - outside retention period")
         else:
             logger.warning(f"Insufficient cash for {symbol}: {cost} required, {self.cash} available")
+
+    def manage_positions(self, df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+        if df is None or df.empty:
+            return df
+        df = df.copy()
+        df['ExitSignal'] = 0
+        df['ExitType'] = ''
+        position = self.positions.get(symbol, {
+            'shares': 0,
+            'entry_price': 0,
+            'entry_date': None,
+            'bars_since_entry': 0,
+            'profit': 0
+        })
+        
+        for i in range(1, len(df)):
+            if pd.isna(df['Close'].iloc[i]) or pd.isna(df['Open'].iloc[i]) or pd.isna(df['ATR'].iloc[i]):
+                continue
+                
+            current_date = str(df['Date'].iloc[i])[:10]
+            
+            if position['shares'] != 0:
+                position['bars_since_entry'] += 1
+                position['profit'] = round(
+                    (df['Close'].iloc[i] - position['entry_price']) * position['shares']
+                    if position['shares'] > 0 else
+                    (position['entry_price'] - df['Close'].iloc[i]) * abs(position['shares']),
+                    2
+                )
+                if position['shares'] > 0:
+                    self._check_long_exits(df, i, position)
+                elif position['shares'] < 0:
+                    self._check_short_exits(df, i, position)
+            
+            if df['ExitSignal'].iloc[i] != 0:
+                self._process_exit(df, i, symbol, position)
+                position = {'shares': 0, 'entry_price': 0, 'entry_date': None, 'bars_since_entry': 0, 'profit': 0}
+            elif df['Signal'].iloc[i] != 0:
+                self._process_entry(df, i, symbol, position)
+                position = self.positions.get(symbol, {'shares': 0, 'entry_price': 0, 'entry_date': None, 'bars_since_entry': 0, 'profit': 0})
+            else:
+                # No trade occurred - record M/E ratio carrying forward previous value
+                self.record_daily_me_ratio(current_date, trade_occurred=False)
+        
+        self.positions[symbol] = position
+        return df
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
+        if df is None or df.empty:
+            logger.warning("Empty dataframe provided to generate_signals")
+            return df
+        df = df.copy()
+        df['Signal'] = 0
+        df['SignalType'] = ''
+        df['Shares'] = 0
+        for i in range(1, len(df)):
+            if pd.isna(df['Open'].iloc[i]) or pd.isna(df['Close'].iloc[i]) or pd.isna(df['High'].iloc[i]) or pd.isna(df['Low'].iloc[i]):
+                continue
+            if not (df['Open'].iloc[i] > self.inputs['MinPrice'] and df['Open'].iloc[i] < self.inputs['MaxPrice']):
+                continue
+            self._check_long_signals(df, i)
+            self._check_short_signals(df, i)
+        return df
 
     def _load_positions(self) -> None:
         positions_list = get_positions()
@@ -668,8 +743,10 @@ class NGSStrategy:
             return None
 
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
-        # Initialize trades for this run
+        # Initialize for this run
         self.trades = []
+        self.daily_me_ratios = []  # Reset daily M/E tracking
+        self.current_me_ratio = 0.0  # Start with 0% M/E ratio
         
         # Filter trades by retention period
         self._filter_trades_by_retention()
@@ -680,6 +757,31 @@ class NGSStrategy:
             if result is not None and not result.empty:
                 results[symbol] = result
                 logger.info(f"Processed {symbol}: {len(result)} rows")
+        
+        # Save daily M/E ratios to file
+        if self.daily_me_ratios:
+            me_df = pd.DataFrame(self.daily_me_ratios)
+            me_file = os.path.join(self.data_dir, 'daily_me_ratios.csv')
+            os.makedirs(self.data_dir, exist_ok=True)
+            me_df.to_csv(me_file, index=False)
+            
+            print(f"\n📊 Daily M/E Ratios saved to: {me_file}")
+            print(f"M/E data covers {len(self.daily_me_ratios)} trading days")
+            
+            # Show recent M/E values
+            print("\nRecent M/E Ratio values:")
+            recent_me = me_df.tail(10)
+            for _, row in recent_me.iterrows():
+                trade_flag = " *TRADE*" if row['trade_occurred'] else ""
+                print(f"{row['date']}: {row['me_ratio_pct']:6.2f}%{trade_flag}")
+            
+            # Show M/E statistics
+            print(f"\nM/E Ratio Statistics:")
+            print(f"Average M/E Ratio: {me_df['me_ratio_pct'].mean():.2f}%")
+            print(f"Max M/E Ratio: {me_df['me_ratio_pct'].max():.2f}%")
+            print(f"Min M/E Ratio: {me_df['me_ratio_pct'].min():.2f}%")
+            print(f"Days with trades: {me_df['trade_occurred'].sum()}")
+            print(f"Current M/E Ratio: {self.current_me_ratio:.2f}%")
         
         long_positions, short_positions = self.get_current_positions()
         all_positions = []
@@ -725,6 +827,22 @@ class NGSStrategy:
             })
         
         save_positions(all_positions)
+        
+        # Final M/E status
+        if self.daily_me_ratios:
+            print(f"\nFinal M/E Status: {self.current_me_ratio:.2f}%")
+        
+        # Final M/E status
+        if ME_TRACKING_AVAILABLE:
+            try:
+                me_calc = get_me_calculator()
+                final_risk = get_current_risk_assessment()
+                print(f"M/E Risk Status:      {final_risk['risk_level']}")
+                print(f"M/E Realized P&L:     ${me_calc.total_realized_pnl:.2f}")
+                print(f"M/E Active Positions: {len(me_calc.positions)}")
+            except Exception as e:
+                logger.debug(f"M/E status error: {e}")
+        
         logger.info(f"Strategy run complete. Processed {len(data)} symbols, currently have {len(all_positions)} positions")
         logger.info(f"Data retention: {self.retention_days} days, cutoff: {self.cutoff_date.strftime('%Y-%m-%d')}")
         
@@ -920,17 +1038,6 @@ if __name__ == "__main__":
             print(f"  Long  {pos['symbol']:6s}: {pos['shares']:4d} shares @ ${pos['entry_price']:7.2f}")
         for pos in short_pos:
             print(f"  Short {pos['symbol']:6s}: {pos['shares']:4d} shares @ ${pos['entry_price']:7.2f}")
-        
-        # M/E final status
-        if ME_TRACKING_AVAILABLE:
-            try:
-                me_calc = get_me_calculator()
-                final_risk = get_current_risk_assessment()
-                print(f"\nM/E Risk Status:      {final_risk['risk_level']}")
-                print(f"M/E Realized P&L:     ${me_calc.total_realized_pnl:.2f}")
-                print(f"M/E Active Positions: {len(me_calc.positions)}")
-            except Exception as e:
-                logger.debug(f"M/E status error: {e}")
         
         print(f"\n✓ Strategy backtest completed successfully!")
         print(f"✓ Data retention enforced: {RETENTION_DAYS} days")
