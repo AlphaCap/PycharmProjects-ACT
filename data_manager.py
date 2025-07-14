@@ -16,7 +16,7 @@ SYSTEM_STATUS_FILE = "system_status.csv"
 METADATA_FILE = "metadata.json"
 SP500_SYMBOLS_FILE = "sp500_symbols.txt" 
 
-RETENTION_DAYS = 180
+RETENTION_DAYS = 180  # 6 months data retention
 PRIMARY_TIER_DAYS = 30
 MAX_THREADS = 8
 HISTORY_DAYS = 200  # Rolling window for daily data
@@ -48,6 +48,32 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# --- UTILITY FUNCTIONS ---
+def get_cutoff_date():
+    """Get the cutoff date for 6-month retention"""
+    return datetime.now() - timedelta(days=RETENTION_DAYS)
+
+def filter_by_retention_period(df: pd.DataFrame, date_column: str = 'Date') -> pd.DataFrame:
+    """Filter DataFrame to only include data within retention period"""
+    if df is None or df.empty:
+        return df
+    
+    if date_column not in df.columns:
+        logger.warning(f"Date column '{date_column}' not found in DataFrame")
+        return df
+    
+    cutoff_date = get_cutoff_date()
+    df = df.copy()
+    df[date_column] = pd.to_datetime(df[date_column])
+    
+    original_count = len(df)
+    df = df[df[date_column] >= cutoff_date].copy()
+    filtered_count = len(df)
+    
+    logger.debug(f"Filtered {date_column}: {original_count} → {filtered_count} rows (cutoff: {cutoff_date.strftime('%Y-%m-%d')})")
+    
+    return df
 
 # --- FILE UTILS ---
 def ensure_dir(path):
@@ -162,6 +188,9 @@ def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_D
     filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
     ensure_dir(filename)
     if not df.empty:
+        # Apply 6-month filtering first
+        df = filter_by_retention_period(df, 'Date')
+        
         # Ensure correct columns and order
         for col in ALL_COLUMNS:
             if col not in df.columns:
@@ -175,7 +204,9 @@ def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_D
 def load_price_data(symbol: str) -> pd.DataFrame:
     filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
     if os.path.exists(filename):
-        return pd.read_csv(filename, parse_dates=["Date"])
+        df = pd.read_csv(filename, parse_dates=["Date"])
+        # Apply 6-month filtering when loading
+        return filter_by_retention_period(df, 'Date')
     else:
         return pd.DataFrame(columns=ALL_COLUMNS)
 
@@ -199,10 +230,10 @@ SYSTEM_STATUS_COLUMNS = [
 # --- TRADE HISTORY ---
 def get_trades_history():
     """
-    Get trade history with improved error handling and logging.
+    Get trade history with 6-month filtering and improved error handling.
     
     Returns:
-        DataFrame with trade history or empty DataFrame with proper columns
+        DataFrame with trade history filtered to last 6 months
     """
     try:
         # Check if file exists
@@ -242,7 +273,17 @@ def get_trades_history():
             logger.error(f"Error parsing dates in trade history: {e}")
             # Continue anyway, dates might still be usable as strings
         
-        logger.info(f"Successfully loaded {len(df)} trades from {df['entry_date'].min()} to {df['exit_date'].max()}")
+        # Apply 6-month filtering based on exit_date
+        cutoff_date = get_cutoff_date()
+        original_count = len(df)
+        df = df[df['exit_date'] >= cutoff_date].copy()
+        filtered_count = len(df)
+        
+        logger.info(f"Trade history filtered: {original_count} → {filtered_count} trades (cutoff: {cutoff_date.strftime('%Y-%m-%d')})")
+        
+        if not df.empty:
+            logger.info(f"Trade date range: {df['exit_date'].min()} to {df['exit_date'].max()}")
+        
         return df
         
     except FileNotFoundError:
@@ -258,13 +299,13 @@ def get_trades_history():
 
 def get_trades_history_formatted() -> pd.DataFrame:
     """
-    Get formatted trade history for dashboard display.
+    Get formatted trade history for dashboard display (6-month filtered).
     
     Returns:
         DataFrame with formatted trade history
     """
     try:
-        trades_df = get_trades_history()
+        trades_df = get_trades_history()  # Already 6-month filtered
         
         if trades_df.empty:
             return pd.DataFrame(columns=['Date', 'Symbol', 'Type', 'Shares', 'Entry', 'Exit', 'P&L', 'Days'])
@@ -295,7 +336,7 @@ def get_trades_history_formatted() -> pd.DataFrame:
 
 def get_me_ratio_history() -> pd.DataFrame:
     """
-    Get M/E ratio history for charting.
+    Get M/E ratio history for charting (6-month filtered).
     
     Returns:
         DataFrame with Date and ME_Ratio columns
@@ -305,7 +346,9 @@ def get_me_ratio_history() -> pd.DataFrame:
         me_file = 'data/me_ratio_history.csv'
         if os.path.exists(me_file):
             df = pd.read_csv(me_file, parse_dates=['Date'])
-            logger.info(f"Loaded M/E ratio history: {len(df)} days")
+            # Apply 6-month filtering
+            df = filter_by_retention_period(df, 'Date')
+            logger.info(f"Loaded M/E ratio history: {len(df)} days (6-month filtered)")
             return df[['Date', 'ME_Ratio']].copy()
         else:
             logger.warning(f"M/E ratio history file not found: {me_file}")
@@ -318,27 +361,67 @@ def get_me_ratio_history() -> pd.DataFrame:
 
 def save_trades(trades_list: List[Dict]):
     ensure_dir(TRADES_HISTORY_FILE)
+    
+    # Filter new trades to retention period
+    cutoff_date = get_cutoff_date()
+    filtered_trades = []
+    
+    for trade in trades_list:
+        try:
+            exit_date = pd.to_datetime(trade['exit_date'])
+            if exit_date >= cutoff_date:
+                filtered_trades.append(trade)
+        except (KeyError, ValueError):
+            logger.warning(f"Invalid trade date in trade: {trade}")
+    
+    if not filtered_trades:
+        logger.info("No trades within retention period to save")
+        return
+    
     if os.path.exists(TRADES_HISTORY_FILE):
         # Append to existing trades
         existing_df = pd.read_csv(TRADES_HISTORY_FILE)
-        new_df = pd.DataFrame(trades_list)
+        # Filter existing trades to retention period too
+        existing_df = filter_by_retention_period(existing_df, 'exit_date')
+        
+        new_df = pd.DataFrame(filtered_trades)
         combined_df = pd.concat([existing_df, new_df], ignore_index=True)
         combined_df.to_csv(TRADES_HISTORY_FILE, index=False)
+        logger.info(f"Saved {len(filtered_trades)} new trades, total: {len(combined_df)}")
     else:
         # Create new file
-        df = pd.DataFrame(trades_list)
+        df = pd.DataFrame(filtered_trades)
         df.to_csv(TRADES_HISTORY_FILE, index=False)
+        logger.info(f"Created new trade history with {len(filtered_trades)} trades")
 
 # --- POSITIONS ---
 def get_positions_df():
     if os.path.exists(POSITIONS_FILE):
-        return pd.read_csv(POSITIONS_FILE)
+        df = pd.read_csv(POSITIONS_FILE)
+        # Filter positions to retention period based on entry_date
+        if not df.empty and 'entry_date' in df.columns:
+            df = filter_by_retention_period(df, 'entry_date')
+        return df
     return pd.DataFrame(columns=POSITION_COLUMNS)
 
 def save_positions(positions_list: List[Dict]):
     ensure_dir(POSITIONS_FILE)
-    df = pd.DataFrame(positions_list)
+    
+    # Filter positions to retention period
+    cutoff_date = get_cutoff_date()
+    filtered_positions = []
+    
+    for pos in positions_list:
+        try:
+            entry_date = pd.to_datetime(pos['entry_date'])
+            if entry_date >= cutoff_date:
+                filtered_positions.append(pos)
+        except (KeyError, ValueError):
+            logger.warning(f"Invalid entry date in position: {pos}")
+    
+    df = pd.DataFrame(filtered_positions)
     df.to_csv(POSITIONS_FILE, index=False)
+    logger.info(f"Saved {len(filtered_positions)} positions within retention period")
 
 def get_positions():
     df = get_positions_df()
@@ -347,30 +430,66 @@ def get_positions():
 # --- SIGNALS ---
 def get_signals():
     if os.path.exists(SIGNALS_FILE):
-        return pd.read_csv(SIGNALS_FILE)
+        df = pd.read_csv(SIGNALS_FILE)
+        # Filter signals to retention period
+        if not df.empty and 'date' in df.columns:
+            df = filter_by_retention_period(df, 'date')
+        return df
     return pd.DataFrame(columns=SIGNAL_COLUMNS)
 
 def save_signals(signals: List[Dict]):
     ensure_dir(SIGNALS_FILE)
-    df = pd.DataFrame(signals)
+    
+    # Filter signals to retention period
+    cutoff_date = get_cutoff_date()
+    filtered_signals = []
+    
+    for signal in signals:
+        try:
+            signal_date = pd.to_datetime(signal['date'])
+            if signal_date >= cutoff_date:
+                filtered_signals.append(signal)
+        except (KeyError, ValueError):
+            logger.warning(f"Invalid date in signal: {signal}")
+    
+    df = pd.DataFrame(filtered_signals)
     df.to_csv(SIGNALS_FILE, index=False)
+    logger.info(f"Saved {len(filtered_signals)} signals within retention period")
 
 # --- SYSTEM STATUS ---
 def get_system_status():
     if os.path.exists(SYSTEM_STATUS_FILE):
-        return pd.read_csv(SYSTEM_STATUS_FILE)
+        df = pd.read_csv(SYSTEM_STATUS_FILE)
+        # Filter system status to retention period
+        if not df.empty and 'timestamp' in df.columns:
+            # Convert timestamp to datetime for filtering
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            df = filter_by_retention_period(df, 'timestamp')
+            # Convert back to string for display
+            df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
+        return df
     return pd.DataFrame(columns=SYSTEM_STATUS_COLUMNS)
 
 def save_system_status(message: str, system: str = "nGS"):
     ensure_dir(SYSTEM_STATUS_FILE)
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    new_row = pd.DataFrame([{"timestamp": now, "system": system, "message": message}])
-    if os.path.exists(SYSTEM_STATUS_FILE):
-        df = pd.read_csv(SYSTEM_STATUS_FILE)
-        df = pd.concat([new_row, df], ignore_index=True)
-    else:
-        df = new_row
-    df.to_csv(SYSTEM_STATUS_FILE, index=False)
+    now = datetime.now()
+    
+    # Only save if within retention period (should always be true for new status)
+    cutoff_date = get_cutoff_date()
+    if now >= cutoff_date:
+        new_row = pd.DataFrame([{"timestamp": now.strftime("%Y-%m-%d %H:%M"), "system": system, "message": message}])
+        
+        if os.path.exists(SYSTEM_STATUS_FILE):
+            df = pd.read_csv(SYSTEM_STATUS_FILE)
+            # Filter existing status to retention period
+            if not df.empty:
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df = df[df['timestamp'] >= cutoff_date].copy()
+                df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
+            df = pd.concat([new_row, df], ignore_index=True)
+        else:
+            df = new_row
+        df.to_csv(SYSTEM_STATUS_FILE, index=False)
 
 # --- METADATA ---
 def init_metadata():
@@ -378,12 +497,19 @@ def init_metadata():
         metadata = {
             "created": datetime.now().isoformat(),
             "retention_days": RETENTION_DAYS,
+            "last_cleanup": datetime.now().isoformat()
         }
         with open(METADATA_FILE, "w") as f:
             json.dump(metadata, f, indent=2)
     else:
         with open(METADATA_FILE, "r") as f:
             metadata = json.load(f)
+        # Update retention days if changed
+        if metadata.get("retention_days") != RETENTION_DAYS:
+            metadata["retention_days"] = RETENTION_DAYS
+            metadata["last_cleanup"] = datetime.now().isoformat()
+            with open(METADATA_FILE, "w") as f:
+                json.dump(metadata, f, indent=2)
     return metadata
 
 def update_metadata(key: str, value):
@@ -435,7 +561,7 @@ def calculate_current_me_ratio(positions_df: pd.DataFrame, portfolio_value: floa
 
 def calculate_historical_me_ratio(trades_df: pd.DataFrame, initial_value: float = 100000) -> float:
     """
-    FIXED: Get historical M/E ratio from stored daily indicator data across all S&P 500 symbols.
+    Get historical M/E ratio from stored daily indicator data across all S&P 500 symbols.
     """
     try:
         # Get all S&P 500 symbols for comprehensive M/E history
@@ -456,7 +582,7 @@ def calculate_historical_me_ratio(trades_df: pd.DataFrame, initial_value: float 
         
         for symbol in sample_symbols:
             try:
-                df = load_price_data(symbol)
+                df = load_price_data(symbol)  # Already 6-month filtered
                 if not df.empty and 'ME_Ratio' in df.columns:
                     # Get valid M/E ratios (greater than 0)
                     valid_me = df['ME_Ratio'][df['ME_Ratio'] > 0]
@@ -482,8 +608,7 @@ def calculate_historical_me_ratio(trades_df: pd.DataFrame, initial_value: float 
 
 def calculate_ytd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple:
     """
-    FIXED: Calculate Year-to-Date return from closed trades
-    If no previous year trades exist, YTD should equal Total Return
+    Calculate Year-to-Date return from closed trades (6-month filtered).
     """
     if trades_df.empty:
         return "$0", "0.00%"
@@ -516,7 +641,7 @@ def calculate_ytd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
         return "$0", "0.00%"
 
 def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple:
-    """Calculate Month-to-Date return from closed trades"""
+    """Calculate Month-to-Date return from closed trades (6-month filtered)"""
     if trades_df.empty:
         return "$0", "0.00%"
     
@@ -538,7 +663,7 @@ def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
 # --- DASHBOARD FUNCTIONS FOR LONG/SHORT SYSTEM ---
 def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical: bool = False) -> Dict:
     """
-    CORRECTED: Calculate portfolio metrics with proper current vs historical M/E ratios.
+    Calculate portfolio metrics with proper current vs historical M/E ratios (6-month filtered).
     
     Args:
         initial_portfolio_value: Starting portfolio value
@@ -548,7 +673,7 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical
         Dictionary with portfolio metrics including proper M/E ratios
     """
     try:
-        # Get data
+        # Get data (already 6-month filtered)
         positions_df = get_positions_df()
         trades_df = get_trades_history()
         
@@ -630,7 +755,7 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical
 
 def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.DataFrame:
     """
-    Get strategy performance summary.
+    Get strategy performance summary (6-month filtered).
     
     Args:
         initial_portfolio_value: Starting portfolio value
@@ -639,7 +764,7 @@ def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.Data
         DataFrame with strategy performance
     """
     try:
-        trades_df = get_trades_history()
+        trades_df = get_trades_history()  # Already 6-month filtered
         
         if trades_df.empty:
             return pd.DataFrame(columns=['Strategy', 'Trades', 'Win Rate', 'Total Profit', 'Avg Profit'])
@@ -689,14 +814,14 @@ def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.Data
 
 def get_portfolio_performance_stats() -> pd.DataFrame:
     """
-    Get detailed portfolio performance statistics for display.
+    Get detailed portfolio performance statistics for display (6-month filtered).
     
     Returns:
         DataFrame with performance statistics
     """
     try:
-        trades_df = get_trades_history()
-        positions_df = get_positions_df()
+        trades_df = get_trades_history()  # Already 6-month filtered
+        positions_df = get_positions_df()  # Already 6-month filtered
         
         if trades_df.empty:
             return pd.DataFrame(columns=['Metric', 'Value'])
@@ -740,13 +865,13 @@ def get_portfolio_performance_stats() -> pd.DataFrame:
 
 def get_long_positions_formatted() -> pd.DataFrame:
     """
-    Get formatted long positions for dashboard display.
+    Get formatted long positions for dashboard display (6-month filtered).
     
     Returns:
         DataFrame with formatted long positions
     """
     try:
-        positions_df = get_positions_df()
+        positions_df = get_positions_df()  # Already 6-month filtered
         
         if positions_df.empty:
             return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
@@ -776,13 +901,13 @@ def get_long_positions_formatted() -> pd.DataFrame:
 
 def get_short_positions_formatted() -> pd.DataFrame:
     """
-    Get formatted short positions for dashboard display.
+    Get formatted short positions for dashboard display (6-month filtered).
     
     Returns:
         DataFrame with formatted short positions
     """
     try:
-        positions_df = get_positions_df()
+        positions_df = get_positions_df()  # Already 6-month filtered
         
         if positions_df.empty:
             return pd.DataFrame(columns=['Symbol', 'Shares', 'Entry Price', 'Current Price', 'P&L', 'P&L %', 'Days'])
@@ -812,13 +937,13 @@ def get_short_positions_formatted() -> pd.DataFrame:
 
 def get_long_positions() -> List[Dict]:
     """
-    Get current long positions.
+    Get current long positions (6-month filtered).
     
     Returns:
         List of long position dictionaries
     """
     try:
-        positions_df = get_positions_df()
+        positions_df = get_positions_df()  # Already 6-month filtered
         
         if positions_df.empty:
             return []
@@ -835,13 +960,13 @@ def get_long_positions() -> List[Dict]:
 
 def get_short_positions() -> List[Dict]:
     """
-    Get current short positions.
+    Get current short positions (6-month filtered).
     
     Returns:
         List of short position dictionaries
     """
     try:
-        positions_df = get_positions_df()
+        positions_df = get_positions_df()  # Already 6-month filtered
         
         if positions_df.empty:
             return []
@@ -855,6 +980,85 @@ def get_short_positions() -> List[Dict]:
     except Exception as e:
         logger.error(f"Error getting short positions: {e}")
         return []
+
+# --- DATA CLEANUP ---
+def cleanup_old_data():
+    """
+    Remove data older than retention period from all files.
+    This function should be called periodically to maintain the 6-month limit.
+    """
+    cutoff_date = get_cutoff_date()
+    logger.info(f"Starting data cleanup for retention period: {RETENTION_DAYS} days (cutoff: {cutoff_date.strftime('%Y-%m-%d')})")
+    
+    cleanup_count = 0
+    
+    # Clean trade history
+    try:
+        if os.path.exists(TRADES_HISTORY_FILE):
+            df = pd.read_csv(TRADES_HISTORY_FILE)
+            if not df.empty:
+                original_count = len(df)
+                df['exit_date'] = pd.to_datetime(df['exit_date'])
+                df = df[df['exit_date'] >= cutoff_date]
+                df.to_csv(TRADES_HISTORY_FILE, index=False)
+                removed = original_count - len(df)
+                cleanup_count += removed
+                logger.info(f"Trade history: removed {removed} old records")
+    except Exception as e:
+        logger.error(f"Error cleaning trade history: {e}")
+    
+    # Clean positions
+    try:
+        if os.path.exists(POSITIONS_FILE):
+            df = pd.read_csv(POSITIONS_FILE)
+            if not df.empty:
+                original_count = len(df)
+                df['entry_date'] = pd.to_datetime(df['entry_date'])
+                df = df[df['entry_date'] >= cutoff_date]
+                df.to_csv(POSITIONS_FILE, index=False)
+                removed = original_count - len(df)
+                cleanup_count += removed
+                logger.info(f"Positions: removed {removed} old records")
+    except Exception as e:
+        logger.error(f"Error cleaning positions: {e}")
+    
+    # Clean signals
+    try:
+        if os.path.exists(SIGNALS_FILE):
+            df = pd.read_csv(SIGNALS_FILE)
+            if not df.empty:
+                original_count = len(df)
+                df['date'] = pd.to_datetime(df['date'])
+                df = df[df['date'] >= cutoff_date]
+                df.to_csv(SIGNALS_FILE, index=False)
+                removed = original_count - len(df)
+                cleanup_count += removed
+                logger.info(f"Signals: removed {removed} old records")
+    except Exception as e:
+        logger.error(f"Error cleaning signals: {e}")
+    
+    # Clean system status
+    try:
+        if os.path.exists(SYSTEM_STATUS_FILE):
+            df = pd.read_csv(SYSTEM_STATUS_FILE)
+            if not df.empty:
+                original_count = len(df)
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df = df[df['timestamp'] >= cutoff_date]
+                df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
+                df.to_csv(SYSTEM_STATUS_FILE, index=False)
+                removed = original_count - len(df)
+                cleanup_count += removed
+                logger.info(f"System status: removed {removed} old records")
+    except Exception as e:
+        logger.error(f"Error cleaning system status: {e}")
+    
+    # Update metadata with cleanup info
+    update_metadata("last_cleanup", datetime.now().isoformat())
+    update_metadata("last_cleanup_removed", cleanup_count)
+    
+    logger.info(f"Data cleanup complete: removed {cleanup_count} total old records")
+    return cleanup_count
 
 # --- INITIALIZE ---
 def initialize():
@@ -880,10 +1084,17 @@ def initialize():
     if not coverage_ok:
         logger.warning("⚠️  S&P 500 symbol coverage is incomplete - system performance may be affected")
     
-    logger.info("Data manager initialized")
+    # Log retention policy
+    logger.info(f"Data retention policy: {RETENTION_DAYS} days (6 months)")
+    logger.info(f"Current cutoff date: {get_cutoff_date().strftime('%Y-%m-%d')}")
+    
+    # Perform data cleanup on initialization
+    cleanup_old_data()
+    
+    logger.info("Data manager initialized with 6-month retention enforced")
 
 if __name__ == "__main__":
     initialize()
-    logger.info("data_manager.py loaded successfully")
+    logger.info("data_manager.py loaded successfully with 6-month data retention")
     
 # END OF FILE - data_manager.py
