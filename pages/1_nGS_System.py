@@ -49,44 +49,18 @@ st.markdown("""
         border-bottom: 2px solid #1f77b4;
         padding-bottom: 0.5rem;
     }
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.markdown("## 📈 Performance Analytics")
     st.markdown("---")
     
     if st.button("🏠 HOME", use_container_width=True):
         st.switch_page("app.py")
-    
-    st.markdown("---")
-    st.markdown("### Analytics Tools")
-    
-    st.info("📊 Current page: Performance Analytics")
-    
-    st.markdown("---")
-    st.markdown("### Data Info")
-    
-    # Get data retention info
-    st.info(f"📅 Analysis period: {dm.RETENTION_DAYS} days")
-    
-    # Get trade count info
-    try:
-        trades_df = dm.get_trades_history()
-        if not trades_df.empty:
-            # Filter to 6 months
-            cutoff_date = datetime.now() - timedelta(days=dm.RETENTION_DAYS)
-            trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
-            filtered_trades = trades_df[trades_df['exit_date'] >= cutoff_date]
-            st.success(f"📈 {len(filtered_trades)} trades analyzed")
-        else:
-            st.warning("No trade data available")
-    except Exception as e:
-        st.error(f"Data loading error: {e}")
-    
-    st.markdown("---")
-    st.caption("Navigate back to main dashboard using HOME button")
 
 # --- HEADER ---
 st.markdown('<h1 class="main-header">📈 nGS System Performance Analytics</h1>', unsafe_allow_html=True)
@@ -282,52 +256,6 @@ with tab3:
             st.plotly_chart(fig_monthly, use_container_width=True)
     else:
         st.info("Trade analysis will be displayed once trades are executed.")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Profit/Loss Distribution
-            fig_dist = go.Figure()
-            fig_dist.add_trace(go.Histogram(
-                x=trades_df['profit'],
-                nbinsx=20,
-                name='Trade P&L',
-                marker_color='#1f77b4',
-                opacity=0.7
-            ))
-            
-            fig_dist.update_layout(
-                title="Trade P&L Distribution",
-                xaxis_title="Profit/Loss ($)",
-                yaxis_title="Number of Trades",
-                height=350
-            )
-            
-            st.plotly_chart(fig_dist, use_container_width=True)
-        
-        with col2:
-            # Monthly Performance
-            trades_df['month'] = pd.to_datetime(trades_df['exit_date']).dt.to_period('M')
-            monthly_pnl = trades_df.groupby('month')['profit'].sum().reset_index()
-            monthly_pnl['month_str'] = monthly_pnl['month'].astype(str)
-            
-            fig_monthly = go.Figure()
-            colors = ['green' if x >= 0 else 'red' for x in monthly_pnl['profit']]
-            
-            fig_monthly.add_trace(go.Bar(
-                x=monthly_pnl['month_str'],
-                y=monthly_pnl['profit'],
-                marker_color=colors,
-                name='Monthly P&L'
-            ))
-            
-            fig_monthly.update_layout(
-                title="Monthly Performance",
-                xaxis_title="Month",
-                yaxis_title="P&L ($)",
-                height=350
-            )
-            
-            st.plotly_chart(fig_monthly, use_container_width=True)
 
 # --- DETAILED STATISTICS ---
 st.markdown('<div class="section-header">Detailed Performance Statistics</div>', unsafe_allow_html=True)
