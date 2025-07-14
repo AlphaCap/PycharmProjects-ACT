@@ -804,11 +804,11 @@ class NGSStrategy:
             logger.info(f"Initial M/E ratio with {len(self.positions)} existing positions: {initial_me_ratio:.2f}%")
         
         results = {}
-        for symbol, df in data.items():
+        for i, (symbol, df) in enumerate(data.items()):
             result = self.process_symbol(symbol, df)
             if result is not None and not result.empty:
                 results[symbol] = result
-                logger.info(f"Processed {symbol}: {len(result)} rows")
+                logger.info(f"Processed {symbol}: {len(result)} rows ({i+1}/{len(data)})")
         
         # Calculate final M/E ratio after strategy run
         final_me_ratio = self.calculate_current_me_ratio()  # FIXED: Was calculate_me_ratio()
@@ -938,10 +938,10 @@ class NGSStrategy:
         
         return results
 
-def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
+def load_sp500_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
     """
-    Load EOD data from Polygon.io with automatic 6-month filtering
-    Replace this function with your actual Polygon data fetching code
+    Load EOD data using your existing data_manager functions.
+    This function uses your automated/manual download data.
     """
     # Default to 6-month data range if not specified
     if end_date is None:
@@ -950,98 +950,37 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
         start_date = (datetime.now() - timedelta(days=RETENTION_DAYS + 30)).strftime('%Y-%m-%d')  # Extra buffer for indicators
     
     data = {}
+    logger.info(f"Loading data for {len(symbols)} symbols from {start_date} to {end_date}")
     
-    # EXAMPLE - Replace with your actual Polygon implementation
-    try:
-        # Example using polygon library (install with: pip install polygon-api-client)
-        # import polygon
-        # from polygon import RESTClient
-        # 
-        # # Initialize client with your API key
-        # client = RESTClient("YOUR_POLYGON_API_KEY")
+    # Progress tracking for large symbol lists
+    batch_size = 50
+    total_batches = (len(symbols) + batch_size - 1) // batch_size
+    
+    for batch_num in range(total_batches):
+        start_idx = batch_num * batch_size
+        end_idx = min((batch_num + 1) * batch_size, len(symbols))
+        batch_symbols = symbols[start_idx:end_idx]
         
-        logger.info(f"Loading data for {len(symbols)} symbols from {start_date} to {end_date}")
+        print(f"\nLoading batch {batch_num + 1}/{total_batches} ({len(batch_symbols)} symbols)...")
         
-        for symbol in symbols:
+        for i, symbol in enumerate(batch_symbols):
             try:
-                logger.debug(f"Loading {symbol} from Polygon...")
-                
-                # REPLACE THIS SECTION WITH YOUR ACTUAL POLYGON CODE:
-                # Example Polygon API call:
-                # aggs = client.get_aggs(
-                #     ticker=symbol,
-                #     multiplier=1,
-                #     timespan="day", 
-                #     from_=start_date,
-                #     to=end_date
-                # )
-                # 
-                # # Convert to DataFrame
-                # df_data = []
-                # for agg in aggs:
-                #     df_data.append({
-                #         'Date': pd.to_datetime(agg.timestamp, unit='ms'),
-                #         'Open': agg.open,
-                #         'High': agg.high,
-                #         'Low': agg.low,
-                #         'Close': agg.close,
-                #         'Volume': agg.volume
-                #     })
-                # 
-                # df = pd.DataFrame(df_data)
-                # df = df.sort_values('Date').reset_index(drop=True)
-                
-                # FOR NOW - Using synthetic data as fallback
-                # Remove this when you implement real Polygon loading
-                dates = pd.date_range(start=start_date, end=end_date, freq='D')
-                base_prices = {'AAPL': 150, 'MSFT': 300, 'GOOGL': 2500, 'TSLA': 200, 'AMZN': 100, 'META': 250, 'NVDA': 400}
-                base_price = base_prices.get(symbol, 100)
-                
-                # Generate realistic price series
-                returns = np.random.normal(0, 0.015, len(dates))  # 1.5% daily volatility
-                prices = [base_price]
-                for ret in returns[1:]:
-                    prices.append(max(1, prices[-1] * (1 + ret)))
-                
-                df_data = []
-                for i, (date, close) in enumerate(zip(dates, prices)):
-                    if i == 0:
-                        open_price = close
-                    else:
-                        open_price = prices[i-1] * (1 + np.random.normal(0, 0.005))
-                    
-                    daily_range = close * 0.025  # 2.5% daily range
-                    high = max(open_price, close) + daily_range * np.random.random()
-                    low = min(open_price, close) - daily_range * np.random.random()
-                    volume = np.random.randint(1000000, 10000000)
-                    
-                    df_data.append({
-                        'Date': date,
-                        'Open': round(open_price, 2),
-                        'High': round(high, 2),
-                        'Low': round(low, 2),
-                        'Close': round(close, 2),
-                        'Volume': volume
-                    })
-                
-                df = pd.DataFrame(df_data)
-                # END SYNTHETIC DATA SECTION
+                # Use your existing load_price_data function from data_manager
+                df = load_price_data(symbol, start_date, end_date)
                 
                 if df is not None and not df.empty:
                     # Ensure Date column is datetime
                     df['Date'] = pd.to_datetime(df['Date'])
                     data[symbol] = df
-                    logger.debug(f"✓ {symbol}: {len(df)} bars loaded")
+                    if (start_idx + i + 1) % 10 == 0:
+                        logger.info(f"Progress: {start_idx + i + 1}/{len(symbols)} symbols loaded")
                 else:
-                    logger.warning(f"✗ {symbol}: No data received")
+                    logger.warning(f"No data available for {symbol}")
                     
             except Exception as e:
-                logger.error(f"✗ {symbol}: Error loading - {e}")
-                
-    except Exception as e:
-        logger.error(f"Polygon connection error: {e}")
-        logger.info("Using fallback synthetic data...")
+                logger.error(f"Error loading {symbol}: {e}")
     
+    logger.info(f"\nCompleted loading data. Successfully loaded {len(data)} out of {len(symbols)} symbols")
     return data
 
 if __name__ == "__main__":
@@ -1053,23 +992,37 @@ if __name__ == "__main__":
     try:
         strategy = NGSStrategy(account_size=100000)
         
-        # Define your trading universe - ALL S&P 500 symbols
-        from data_manager import get_sp500_symbols
-        symbols = get_sp500_symbols()
+        # Load ALL S&P 500 symbols from your data files
+        sp500_file = os.path.join('data', 'sp500_symbols.txt')
+        try:
+            with open(sp500_file, 'r') as f:
+                symbols = [line.strip() for line in f if line.strip()]
+            
+            print(f"\nTrading Universe: ALL S&P 500 symbols")
+            print(f"Total symbols loaded: {len(symbols)}")
+            print(f"First 10 symbols: {', '.join(symbols[:10])}...")
+            print(f"Last 10 symbols: {', '.join(symbols[-10:])}...")
+            
+        except FileNotFoundError:
+            print(f"\nWARNING: {sp500_file} not found. Using sample symbols instead.")
+            # Fallback to sample symbols if file not found
+            symbols = [
+                'AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN', 'META', 'NVDA',
+                'JPM', 'JNJ', 'PG', 'UNH', 'HD', 'BAC', 'XOM', 'CVX', 'PFE'
+            ]
+            print(f"Using {len(symbols)} sample symbols")
         
-        print(f"\nTrading Universe: ALL S&P 500 symbols")
-        print(f"Total symbols to process: {len(symbols)}")
-        print(f"Sample symbols: {symbols[:10]}...")
-        ]
+        print(f"\nLoading historical data for {len(symbols)} symbols...")
+        print("This may take several minutes for 500+ symbols...")
         
-        print(f"Loading historical data for {len(symbols)} symbols...")
-        
-        # Load data using Polygon (or fallback to synthetic) - automatically uses 6-month range
-        data = load_polygon_data(symbols)
+        # Load data using your existing data_manager functions
+        data = load_sp500_data(symbols)
         
         if not data:
-            print("No data loaded - check your Polygon setup")
+            print("No data loaded - check your data files")
             exit(1)
+        
+        print(f"\nSuccessfully loaded data for {len(data)} symbols")
         
         # Test M/E integration
         if ME_TRACKING_AVAILABLE:
@@ -1082,7 +1035,9 @@ if __name__ == "__main__":
             print("! M/E calculator not found - running without M/E tracking")
         
         # Run the strategy
-        print(f"Running nGS strategy on {len(data)} symbols...")
+        print(f"\nRunning nGS strategy on {len(data)} symbols...")
+        print("Processing signals and managing positions...")
+        
         results = strategy.run(data)
         
         # Results summary
@@ -1098,6 +1053,7 @@ if __name__ == "__main__":
         print(f"Total P&L:            ${total_profit:,.2f}")
         print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
         print(f"Total trades:         {len(strategy.trades)}")
+        print(f"Symbols processed:    {len(data)}")
         print(f"Data period:          {strategy.cutoff_date.strftime('%Y-%m-%d')} to {datetime.now().strftime('%Y-%m-%d')}")
         
         if strategy.trades:
@@ -1112,6 +1068,24 @@ if __name__ == "__main__":
             print(f"Average trade:        ${avg_profit:.2f}")
             print(f"Best trade:           ${max_win:.2f}")
             print(f"Worst trade:          ${max_loss:.2f}")
+            
+            # Symbol performance
+            symbol_profits = {}
+            for trade in strategy.trades:
+                symbol = trade['symbol']
+                if symbol not in symbol_profits:
+                    symbol_profits[symbol] = 0
+                symbol_profits[symbol] += trade['profit']
+            
+            # Top performers
+            sorted_symbols = sorted(symbol_profits.items(), key=lambda x: x[1], reverse=True)
+            print(f"\nTop 5 performing symbols:")
+            for symbol, profit in sorted_symbols[:5]:
+                print(f"  {symbol:6s}: ${profit:+8.2f}")
+            
+            print(f"\nBottom 5 performing symbols:")
+            for symbol, profit in sorted_symbols[-5:]:
+                print(f"  {symbol:6s}: ${profit:+8.2f}")
         
         # Show recent trades
         if strategy.trades:
@@ -1127,12 +1101,16 @@ if __name__ == "__main__":
         total_positions = len(long_pos) + len(short_pos)
         print(f"\nCurrent positions: {total_positions} total ({len(long_pos)} long, {len(short_pos)} short)")
         
-        for pos in long_pos:
-            print(f"  Long  {pos['symbol']:6s}: {pos['shares']:4d} shares @ ${pos['entry_price']:7.2f}")
-        for pos in short_pos:
-            print(f"  Short {pos['symbol']:6s}: {pos['shares']:4d} shares @ ${pos['entry_price']:7.2f}")
+        if total_positions > 0:
+            print(f"\nSample positions (first 10):")
+            all_pos = long_pos[:5] + short_pos[:5]
+            for pos in all_pos[:10]:
+                side = "Long " if pos in long_pos else "Short"
+                shares = pos['shares'] if pos in long_pos else pos['shares']
+                print(f"  {side} {pos['symbol']:6s}: {shares:4d} shares @ ${pos['entry_price']:7.2f}")
         
         print(f"\n+ Strategy backtest completed successfully!")
+        print(f"+ Processed all {len(data)} S&P 500 symbols")
         print(f"+ Data retention enforced: {RETENTION_DAYS} days")
         
     except Exception as e:
