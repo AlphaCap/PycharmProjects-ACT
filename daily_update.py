@@ -625,7 +625,7 @@ def inspect_stock_data(symbol: str):
     
     try:
         # Read the CSV
-        df = pd.read_csv(filename, parse_dates=["Date"])
+        df = pd.read_csv(filename, parse_dates=['Date'])
         
         print(f"📊 Shape: {df.shape[0]} rows × {df.shape[1]} columns")
         print(f"📊 Date range: {df['Date'].min()} to {df['Date'].max()}")
