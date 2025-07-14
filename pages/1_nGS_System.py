@@ -182,30 +182,33 @@ with tab1:
 
 with tab2:
     # M/E Ratio History Chart
-    me_history = dm.get_me_ratio_history()
+    with st.spinner("Calculating historical M/E ratios..."):
+        me_history = dm.get_me_ratio_history()
     
     if not me_history.empty:
         fig_me = go.Figure()
         fig_me.add_trace(go.Scatter(
             x=me_history['Date'],
             y=me_history['ME_Ratio'],
-            mode='lines',
+            mode='lines+markers',
             name='M/E Ratio',
             line=dict(color='#ff7f0e', width=2),
+            marker=dict(size=4),
             hovertemplate='<b>Date:</b> %{x}<br><b>M/E Ratio:</b> %{y:.1f}%<extra></extra>'
         ))
         
         # Add horizontal line for average
-        avg_me = me_history['ME_Ratio'].mean()
-        fig_me.add_hline(
-            y=avg_me, 
-            line_dash="dash", 
-            line_color="red",
-            annotation_text=f"Average: {avg_me:.1f}%"
-        )
+        if len(me_history) > 1:
+            avg_me = me_history['ME_Ratio'].mean()
+            fig_me.add_hline(
+                y=avg_me, 
+                line_dash="dash", 
+                line_color="red",
+                annotation_text=f"Average: {avg_me:.1f}%"
+            )
         
         fig_me.update_layout(
-            title="Historical M/E Ratio Trend",
+            title="Historical M/E Ratio (Risk Exposure Over Time)",
             xaxis_title="Date",
             yaxis_title="M/E Ratio (%)",
             hovermode='x unified',
@@ -214,12 +217,71 @@ with tab2:
         )
         
         st.plotly_chart(fig_me, use_container_width=True)
+        
+        # Show summary stats
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Days Tracked", len(me_history))
+        with col2:
+            st.metric("Average M/E", f"{me_history['ME_Ratio'].mean():.1f}%")
+        with col3:
+            st.metric("Max M/E", f"{me_history['ME_Ratio'].max():.1f}%")
+        with col4:
+            st.metric("Current M/E", portfolio_metrics['me_ratio'])
     else:
-        st.info("M/E ratio history will be displayed once sufficient data is available.")
+        st.info("M/E ratio history will be calculated once sufficient trade data is available.")
 
 with tab3:
     # Trade Analysis Charts
     if not trades_df.empty:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Profit/Loss Distribution
+            fig_dist = go.Figure()
+            fig_dist.add_trace(go.Histogram(
+                x=trades_df['profit'],
+                nbinsx=20,
+                name='Trade P&L',
+                marker_color='#1f77b4',
+                opacity=0.7
+            ))
+            
+            fig_dist.update_layout(
+                title="Trade P&L Distribution",
+                xaxis_title="Profit/Loss ($)",
+                yaxis_title="Number of Trades",
+                height=350
+            )
+            
+            st.plotly_chart(fig_dist, use_container_width=True)
+        
+        with col2:
+            # Monthly Performance
+            trades_df['month'] = pd.to_datetime(trades_df['exit_date']).dt.to_period('M')
+            monthly_pnl = trades_df.groupby('month')['profit'].sum().reset_index()
+            monthly_pnl['month_str'] = monthly_pnl['month'].astype(str)
+            
+            fig_monthly = go.Figure()
+            colors = ['green' if x >= 0 else 'red' for x in monthly_pnl['profit']]
+            
+            fig_monthly.add_trace(go.Bar(
+                x=monthly_pnl['month_str'],
+                y=monthly_pnl['profit'],
+                marker_color=colors,
+                name='Monthly P&L'
+            ))
+            
+            fig_monthly.update_layout(
+                title="Monthly Performance",
+                xaxis_title="Month",
+                yaxis_title="P&L ($)",
+                height=350
+            )
+            
+            st.plotly_chart(fig_monthly, use_container_width=True)
+    else:
+        st.info("Trade analysis will be displayed once trades are executed.")
         col1, col2 = st.columns(2)
         
         with col1:
