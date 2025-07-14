@@ -1066,92 +1066,6 @@ def get_short_positions() -> List[Dict]:
         logger.error(f"Error getting short positions: {e}")
         return []
 
-# --- DATA CLEANUP ---
-def cleanup_old_data():
-    """
-    Remove data older than retention period from all files.
-    This function should be called periodically to maintain the 6-month limit.
-    """
-    cutoff_date = get_cutoff_date()
-    logger.info(f"Starting data cleanup for retention period: {RETENTION_DAYS} days (cutoff: {cutoff_date.strftime('%Y-%m-%d')})")
-    
-    cleanup_count = 0
-    
-    # Clean trade history
-    try:
-        if os.path.exists(TRADES_HISTORY_FILE):
-            df = pd.read_csv(TRADES_HISTORY_FILE)
-            if not df.empty:
-                original_count = len(df)
-                df['exit_date'] = df['exit_date'].apply(parse_date_flexibly)
-                df = df[df['exit_date'] >= cutoff_date]
-                # Convert dates back to string format for CSV
-                df['exit_date'] = df['exit_date'].dt.strftime('%Y-%m-%d')
-                df['entry_date'] = df['entry_date'].apply(parse_date_flexibly).dt.strftime('%Y-%m-%d')
-                df.to_csv(TRADES_HISTORY_FILE, index=False)
-                removed = original_count - len(df)
-                cleanup_count += removed
-                logger.info(f"Trade history: removed {removed} old records")
-    except Exception as e:
-        logger.error(f"Error cleaning trade history: {e}")
-    
-    # Clean positions
-    try:
-        if os.path.exists(POSITIONS_FILE):
-            df = pd.read_csv(POSITIONS_FILE)
-            if not df.empty:
-                original_count = len(df)
-                df['entry_date'] = df['entry_date'].apply(parse_date_flexibly)
-                df = df[df['entry_date'] >= cutoff_date]
-                # Convert dates back to string format for CSV
-                df['entry_date'] = df['entry_date'].dt.strftime('%Y-%m-%d')
-                df.to_csv(POSITIONS_FILE, index=False)
-                removed = original_count - len(df)
-                cleanup_count += removed
-                logger.info(f"Positions: removed {removed} old records")
-    except Exception as e:
-        logger.error(f"Error cleaning positions: {e}")
-    
-    # Clean signals
-    try:
-        if os.path.exists(SIGNALS_FILE):
-            df = pd.read_csv(SIGNALS_FILE)
-            if not df.empty:
-                original_count = len(df)
-                df['date'] = df['date'].apply(parse_date_flexibly)
-                df = df[df['date'] >= cutoff_date]
-                # Convert dates back to string format for CSV
-                df['date'] = df['date'].dt.strftime('%Y-%m-%d')
-                df.to_csv(SIGNALS_FILE, index=False)
-                removed = original_count - len(df)
-                cleanup_count += removed
-                logger.info(f"Signals: removed {removed} old records")
-    except Exception as e:
-        logger.error(f"Error cleaning signals: {e}")
-    
-    # Clean system status
-    try:
-        if os.path.exists(SYSTEM_STATUS_FILE):
-            df = pd.read_csv(SYSTEM_STATUS_FILE)
-            if not df.empty:
-                original_count = len(df)
-                df['timestamp'] = df['timestamp'].apply(parse_date_flexibly)
-                df = df[df['timestamp'] >= cutoff_date]
-                df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
-                df.to_csv(SYSTEM_STATUS_FILE, index=False)
-                removed = original_count - len(df)
-                cleanup_count += removed
-                logger.info(f"System status: removed {removed} old records")
-    except Exception as e:
-        logger.error(f"Error cleaning system status: {e}")
-    
-    # Update metadata with cleanup info
-    update_metadata("last_cleanup", datetime.now().isoformat())
-    update_metadata("last_cleanup_removed", cleanup_count)
-    
-    logger.info(f"Data cleanup complete: removed {cleanup_count} total old records")
-    return cleanup_count
-
 # --- INITIALIZE ---
 def initialize():
     ensure_dir(POSITIONS_FILE)
@@ -1179,9 +1093,6 @@ def initialize():
     # Log retention policy
     logger.info(f"Data retention policy: {RETENTION_DAYS} days (6 months)")
     logger.info(f"Current cutoff date: {get_cutoff_date().strftime('%Y-%m-%d')}")
-    
-    # Perform data cleanup on initialization
-    cleanup_old_data()
     
     logger.info("Data manager initialized with 6-month retention enforced")
 
