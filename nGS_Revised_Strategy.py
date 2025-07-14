@@ -12,17 +12,159 @@ from data_manager import (
     save_signals, get_positions, initialize as init_data_manager,
     RETENTION_DAYS  # Import the 6-month retention setting
 )
-# Add M/E ratio tracking imports here
-try:
-    from me_ratio_calculator import (
-        update_me_ratio_for_trade, 
-        add_realized_profit, 
-        get_current_risk_assessment,
-        get_me_calculator
-    )
-    ME_TRACKING_AVAILABLE = True
-except ImportError:
-    ME_TRACKING_AVAILABLE = False
+
+# Integrate me_ratio_calculator logic directly (copy-pasted class for self-contained)
+class DailyMERatioCalculator:
+    def __init__(self, initial_portfolio_value: float = 100000):
+        self.initial_portfolio_value = initial_portfolio_value
+        self.current_positions = {}  # symbol -> position_data
+        self.realized_pnl = 0.0
+        self.daily_me_history = []
+        
+    def update_position(self, symbol: str, shares: int, entry_price: float, 
+                       current_price: float, trade_type: str = 'long'):
+        if shares == 0:
+            if symbol in self.current_positions:
+                del self.current_positions[symbol]
+        else:
+            self.current_positions[symbol] = {
+                'shares': shares,
+                'entry_price': entry_price,
+                'current_price': current_price,
+                'type': trade_type,
+                'position_value': abs(shares) * current_price,
+                'unrealized_pnl': self._calculate_unrealized_pnl(shares, entry_price, current_price, trade_type)
+            }
+    
+    def _calculate_unrealized_pnl(self, shares: int, entry_price: float, 
+                                current_price: float, trade_type: str) -> float:
+        if trade_type.lower() == 'long':
+            return (current_price - entry_price) * shares
+        else:  # short
+            return (entry_price - current_price) * abs(shares)
+    
+    def add_realized_pnl(self, profit: float):
+        self.realized_pnl += profit
+    
+    def calculate_daily_me_ratio(self, date: str = None) -> Dict:
+        if date is None:
+            date = datetime.now().strftime('%Y-%m-%d')
+        
+        # Calculate position values
+        long_value = 0.0
+        short_value = 0.0
+        total_unrealized_pnl = 0.0
+        
+        for symbol, pos in self.current_positions.items():
+            if pos['type'].lower() == 'long' and pos['shares'] > 0:
+                long_value += pos['position_value']
+            elif pos['type'].lower() == 'short' and pos['shares'] < 0:
+                short_value += pos['position_value']
+            
+            total_unrealized_pnl += pos['unrealized_pnl']
+        
+        # Calculate portfolio equity
+        portfolio_equity = self.initial_portfolio_value + self.realized_pnl + total_unrealized_pnl
+        
+        # Calculate total position value (for M/E ratio)
+        total_position_value = long_value + short_value
+        
+        # Calculate M/E ratio
+        me_ratio = (total_position_value / portfolio_equity * 100) if portfolio_equity > 0 else 0.0
+        
+        # Create daily metrics
+        daily_metrics = {
+            'Date': date,
+            'Portfolio_Equity': round(portfolio_equity, 2),
+            'Long_Value': round(long_value, 2),
+            'Short_Value': round(short_value, 2),
+            'Total_Position_Value': round(total_position_value, 2),
+            'ME_Ratio': round(me_ratio, 2),
+            'Realized_PnL': round(self.realized_pnl, 2),
+            'Unrealized_PnL': round(total_unrealized_pnl, 2),
+            'Long_Positions': len([p for p in self.current_positions.values() if p['type'].lower() == 'long' and p['shares'] > 0]),
+            'Short_Positions': len([p for p in self.current_positions.values() if p['type'].lower() == 'short' and p['shares'] < 0]),
+        }
+        
+        # Store in history
+        self.daily_me_history.append(daily_metrics)
+        
+        return daily_metrics
+    
+    def get_me_history_df(self) -> pd.DataFrame:
+        if not self.daily_me_history:
+            return pd.DataFrame()
+        
+        return pd.DataFrame(self.daily_me_history)
+    
+    def save_daily_me_data(self, data_dir: str = 'data/daily'):
+        """
+        Save daily M/E data to the daily data directory as portfolio_ME.csv
+        """
+        import os
+        
+        # Ensure directory exists
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # Get current M/E metrics
+        current_metrics = self.calculate_daily_me_ratio()
+        
+        # Create filename for portfolio M/E data
+        filename = os.path.join(data_dir, "portfolio_ME.csv")
+        
+        # Check if file exists
+        if os.path.exists(filename):
+            # Append to existing data
+            existing_df = pd.read_csv(filename, parse_dates=['Date'])
+            
+            # Remove today's data if it exists (update)
+            today = datetime.now().strftime('%Y-%m-%d')
+            existing_df = existing_df[existing_df['Date'].dt.strftime('%Y-%m-%d') != today]
+            
+            # Add new data
+            new_row = pd.DataFrame([current_metrics])
+            updated_df = pd.concat([existing_df, new_row], ignore_index=True)
+        else:
+            # Create new file
+            updated_df = pd.DataFrame([current_metrics])
+        
+        # Save updated data
+        updated_df.to_csv(filename, index=False)
+        
+        return filename
+    
+    def get_risk_assessment(self) -> Dict:
+        """
+        Get risk assessment based on current M/E ratio
+        """
+        current_metrics = self.calculate_daily_me_ratio()
+        me_ratio = current_metrics['ME_Ratio']
+        
+        if me_ratio > 100:
+            risk_level = "CRITICAL"
+            risk_color = "red"
+            recommendation = "IMMEDIATE REBALANCING REQUIRED - Reduce position sizes"
+        elif me_ratio > 80:
+            risk_level = "HIGH"
+            risk_color = "orange"
+            recommendation = "Consider reducing position sizes"
+        elif me_ratio > 60:
+            risk_level = "MODERATE"
+            risk_color = "yellow"
+            recommendation = "Monitor closely, consider position limits"
+        else:
+            risk_level = "LOW"
+            risk_color = "green"
+            recommendation = "Within acceptable risk parameters"
+        
+        return {
+            'risk_level': risk_level,
+            'risk_color': risk_color,
+            'recommendation': recommendation,
+            'me_ratio': me_ratio,
+            'portfolio_equity': current_metrics['Portfolio_Equity'],
+            'total_position_value': current_metrics['Total_Position_Value']
+        }
 
 # Configure logging with UTF-8 encoding for Windows
 logging.basicConfig(
@@ -52,9 +194,8 @@ class NGSStrategy:
         self.retention_days = RETENTION_DAYS  # Use the 6-month retention from data_manager
         self.cutoff_date = datetime.now() - timedelta(days=self.retention_days)
         
-        # Add M/E tracking - separate current vs historical
-        self.historical_me_ratios = []    # Historical daily M/E values during backtest
-        self.current_me_ratio = 0.0       # Add this property
+        # Initialize M/E calculator
+        self.me_calculator = DailyMERatioCalculator(initial_portfolio_value=account_size)
         
         self.inputs = {
             'Length': 25,
@@ -72,72 +213,13 @@ class NGSStrategy:
         logger.info(f"Data cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
 
     def calculate_current_me_ratio(self) -> float:
-        """
-        Calculate CURRENT M/E ratio for all existing positions.
-        This is the live M/E ratio for portfolio management.
-        """
-        total_open_trade_equity = 0.0
-        
-        # Calculate Total Open Trade Equity for all current positions
-        for symbol, position in self.positions.items():
-            if position['shares'] != 0:
-                # Use entry price for current calculation
-                current_price = position['entry_price']
-                position_equity = current_price * abs(position['shares'])
-                total_open_trade_equity += position_equity
-        
-        # Current Account Value = current cash
-        account_value = self.cash
-        
-        # Current M/E Ratio = Total Open Trade Equity / Account Value × 100
-        me_ratio_pct = (total_open_trade_equity / account_value * 100) if account_value > 0 else 0.0
-        
-        return round(me_ratio_pct, 2)
+        return self.me_calculator.calculate_daily_me_ratio()['ME_Ratio']
 
     def calculate_historical_me_ratio(self, current_prices: Dict[str, float] = None) -> float:
-        """
-        Calculate HISTORICAL M/E ratio during backtest for daily tracking.
-        This tracks M/E progression during the 6-month backtest period.
-        """
-        total_open_trade_equity = 0.0
-        
-        # Calculate Total Open Trade Equity for positions during backtest
-        for symbol, position in self.positions.items():
-            if position['shares'] != 0:
-                # Use current price if available, otherwise entry price
-                if current_prices and symbol in current_prices:
-                    current_price = current_prices[symbol]
-                else:
-                    current_price = position['entry_price']
-                
-                position_equity = current_price * abs(position['shares'])
-                total_open_trade_equity += position_equity
-        
-        # Historical Account Value = cash at that point in time
-        account_value = self.cash
-        
-        # Historical M/E Ratio = Total Open Trade Equity / Account Value × 100
-        me_ratio_pct = (total_open_trade_equity / account_value * 100) if account_value > 0 else 0.0
-        
-        return round(me_ratio_pct, 2)
+        return self.me_calculator.calculate_daily_me_ratio()['ME_Ratio']  # Historical is now daily snapshot
 
     def record_historical_me_ratio(self, date_str: str, trade_occurred: bool = False, current_prices: Dict[str, float] = None):
-        """
-        Record daily M/E ratio for historical tracking during backtest.
-        """
-        if trade_occurred and current_prices:
-            # Recalculate M/E ratio because a trade happened during backtest
-            historical_me = self.calculate_historical_me_ratio(current_prices)
-        else:
-            # No trade - carry forward last value (0.0 if no previous trades)
-            historical_me = self.historical_me_ratios[-1]['me_ratio_pct'] if self.historical_me_ratios else 0.0
-        
-        # Record the historical M/E ratio for this date
-        self.historical_me_ratios.append({
-            'date': date_str,
-            'me_ratio_pct': historical_me,
-            'trade_occurred': trade_occurred
-        })
+        self.me_calculator.calculate_daily_me_ratio(date_str)  # Automatically appends to history
 
     def _filter_recent_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -564,19 +646,13 @@ class NGSStrategy:
             else:
                 logger.warning(f"Invalid trade skipped: {trade}")
         
-        # Add M/E tracking - close position and add realized profit (no alerts)
-        if ME_TRACKING_AVAILABLE:
-            try:
-                update_me_ratio_for_trade(symbol, 0, 0, 0, 'long')  # Close position
-                add_realized_profit(profit)  # Add realized profit
-            except Exception as e:
-                logger.debug(f"M/E tracking error: {e}")
+        self.me_calculator.update_position(symbol, 0, 0, 0, position['type'])  # Close position
+        self.me_calculator.add_realized_pnl(profit)  # Add realized profit
         
         self.cash = round(float(self.cash + position['shares'] * exit_price), 2)
         
-        # *** RECORD HISTORICAL M/E RATIO AFTER EXIT ***
-        current_prices = {symbol: exit_price}  # At minimum, we have this symbol's price
-        self.record_historical_me_ratio(exit_date, trade_occurred=True, current_prices=current_prices)
+        # Record historical M/E after exit
+        self.record_historical_me_ratio(exit_date, trade_occurred=True)
         
         logger.info(f"Exit {symbol}: {df['ExitType'].iloc[i]} at {exit_price}, profit: {profit}")
 
@@ -599,18 +675,12 @@ class NGSStrategy:
             }
             self.positions[symbol] = position
             
-            # Add M/E tracking - new position (no alerts)
-            if ME_TRACKING_AVAILABLE:
-                try:
-                    current_price = round(float(df['Close'].iloc[i]), 2)
-                    trade_type = 'long' if shares > 0 else 'short'
-                    update_me_ratio_for_trade(symbol, shares, current_price, current_price, trade_type)
-                except Exception as e:
-                    logger.debug(f"M/E tracking error: {e}")
+            current_price = round(float(df['Close'].iloc[i]), 2)
+            trade_type = 'long' if shares > 0 else 'short'
+            self.me_calculator.update_position(symbol, shares, position['entry_price'], current_price, trade_type)
             
-            # *** RECORD HISTORICAL M/E RATIO AFTER ENTRY ***
-            current_prices = {symbol: df['Close'].iloc[i]}  # At minimum, we have this symbol's price
-            self.record_historical_me_ratio(entry_date, trade_occurred=True, current_prices=current_prices)
+            # Record historical M/E after entry
+            self.record_historical_me_ratio(entry_date, trade_occurred=True)
             
             logger.info(f"Entry {symbol}: {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
         elif entry_datetime < self.cutoff_date:
@@ -721,6 +791,11 @@ class NGSStrategy:
                             'bars_since_entry': int(pos.get('days_held', 0)),
                             'profit': float(pos.get('profit', 0))
                         }
+                        # Update M/E calculator with loaded position
+                        current_price = pos.get('current_price', pos.get('entry_price', 0))
+                        trade_type = pos.get('side', 'long')
+                        self.me_calculator.update_position(symbol, self.positions[symbol]['shares'], 
+                                                          self.positions[symbol]['entry_price'], current_price, trade_type)
                         logger.debug(f"Loaded position for {symbol}")
                     else:
                         logger.debug(f"Position {symbol} outside retention period: {entry_datetime} < {self.cutoff_date}")
@@ -792,8 +867,7 @@ class NGSStrategy:
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         # Initialize for this run
         self.trades = []
-        self.historical_me_ratios = []  # Reset historical M/E tracking
-        self.current_me_ratio = 0.0  # Start with 0% M/E ratio
+        self.me_calculator = DailyMERatioCalculator(self.account_size)  # Reset M/E tracking
         
         # Filter trades by retention period
         self._filter_trades_by_retention()
@@ -810,47 +884,8 @@ class NGSStrategy:
                 results[symbol] = result
                 logger.info(f"Processed {symbol}: {len(result)} rows ({i+1}/{len(data)})")
         
-        # Calculate final M/E ratio after strategy run
-        final_me_ratio = self.calculate_current_me_ratio()  # FIXED: Was calculate_me_ratio()
-        if self.historical_me_ratios:
-            # Update the last entry with final M/E calculation
-            if len(self.historical_me_ratios) > 0:
-                self.historical_me_ratios[-1]['me_ratio_pct'] = final_me_ratio
-                self.current_me_ratio = final_me_ratio
-        else:
-            # If no daily entries, create one final entry
-            from datetime import datetime
-            self.historical_me_ratios.append({
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'me_ratio_pct': final_me_ratio,
-                'trade_occurred': False
-            })
-            self.current_me_ratio = final_me_ratio
-        
-        # Save daily M/E ratios to file
-        if self.historical_me_ratios:
-            me_df = pd.DataFrame(self.historical_me_ratios)
-            me_file = os.path.join(self.data_dir, 'daily_me_ratios.csv')
-            os.makedirs(self.data_dir, exist_ok=True)
-            me_df.to_csv(me_file, index=False)
-            
-            print(f"\n[M/E] Daily M/E Ratios saved to: {me_file}")
-            print(f"M/E data covers {len(self.historical_me_ratios)} trading days")
-            
-            # Show recent M/E values
-            print("\nRecent M/E Ratio values:")
-            recent_me = me_df.tail(10)
-            for _, row in recent_me.iterrows():
-                trade_flag = " *TRADE*" if row['trade_occurred'] else ""
-                print(f"{row['date']}: {row['me_ratio_pct']:6.2f}%{trade_flag}")
-            
-            # Show M/E statistics
-            print(f"\nM/E Ratio Statistics:")
-            print(f"Average M/E Ratio: {me_df['me_ratio_pct'].mean():.2f}%")
-            print(f"Max M/E Ratio: {me_df['me_ratio_pct'].max():.2f}%")
-            print(f"Min M/E Ratio: {me_df['me_ratio_pct'].min():.2f}%")
-            print(f"Days with trades: {me_df['trade_occurred'].sum()}")
-            print(f"Current M/E Ratio: {self.current_me_ratio:.2f}%")
+        # Save M/E history after run
+        self.me_calculator.save_daily_me_data()
         
         long_positions, short_positions = self.get_current_positions()
         all_positions = []
@@ -923,15 +958,10 @@ class NGSStrategy:
         print(f"Calculated M/E: {(total_equity/self.cash*100):.2f}% (should match Final M/E Status)")
         
         # Final M/E status
-        if ME_TRACKING_AVAILABLE:
-            try:
-                me_calc = get_me_calculator()
-                final_risk = get_current_risk_assessment()
-                print(f"M/E Risk Status:      {final_risk['risk_level']}")
-                print(f"M/E Realized P&L:     ${me_calc.total_realized_pnl:.2f}")
-                print(f"M/E Active Positions: {len(me_calc.positions)}")
-            except Exception as e:
-                logger.debug(f"M/E status error: {e}")
+        risk = self.me_calculator.get_risk_assessment()
+        print(f"M/E Risk Status:      {risk['risk_level']}")
+        print(f"M/E Realized P&L:     ${self.me_calculator.realized_pnl:.2f}")
+        print(f"M/E Active Positions: {len(self.me_calculator.current_positions)}")
         
         logger.info(f"Strategy run complete. Processed {len(data)} symbols, currently have {len(all_positions)} positions")
         logger.info(f"Data retention: {self.retention_days} days, cutoff: {self.cutoff_date.strftime('%Y-%m-%d')}")
@@ -1032,16 +1062,6 @@ if __name__ == "__main__":
             exit(1)
         
         print(f"\nSuccessfully loaded data for {len(data)} symbols")
-        
-        # Test M/E integration
-        if ME_TRACKING_AVAILABLE:
-            try:
-                initial_risk = get_current_risk_assessment()
-                print(f"+ M/E Integration active - Initial risk: {initial_risk['risk_level']}")
-            except Exception as e:
-                print(f"! M/E calculator error: {e}")
-        else:
-            print("! M/E calculator not found - running without M/E tracking")
         
         # Run the strategy
         print(f"\nRunning nGS strategy on {len(data)} symbols...")
