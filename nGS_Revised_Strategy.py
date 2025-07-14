@@ -782,8 +782,8 @@ class NGSStrategy:
         
         # Calculate initial M/E ratio for any existing positions
         if self.positions:
-            self.current_me_ratio = self.calculate_me_ratio()
-            logger.info(f"Initial M/E ratio with {len(self.positions)} existing positions: {self.current_me_ratio:.2f}%")
+            initial_me_ratio = self.calculate_current_me_ratio()
+            logger.info(f"Initial M/E ratio with {len(self.positions)} existing positions: {initial_me_ratio:.2f}%")
         
         results = {}
         for symbol, df in data.items():
