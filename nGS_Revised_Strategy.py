@@ -46,7 +46,7 @@ class NGSStrategy:
         self.cutoff_date = datetime.now() - timedelta(days=self.retention_days)
         
         # Add M/E tracking - separate current vs historical
-        self.daily_me_ratios = []    # Historical daily M/E values during backtest
+        self.historical_me_ratios = []    # Historical daily M/E values during backtest
         
         self.inputs = {
             'Length': 25,
@@ -113,7 +113,7 @@ class NGSStrategy:
         
         return round(me_ratio_pct, 2)
 
-    def record_daily_me_ratio(self, date_str: str, trade_occurred: bool = False, current_prices: Dict[str, float] = None):
+    def record_historical_me_ratio(self, date_str: str, trade_occurred: bool = False, current_prices: Dict[str, float] = None):
         """
         Record daily M/E ratio for historical tracking during backtest.
         """
@@ -122,10 +122,10 @@ class NGSStrategy:
             historical_me = self.calculate_historical_me_ratio(current_prices)
         else:
             # No trade - carry forward last value (0.0 if no previous trades)
-            historical_me = self.daily_me_ratios[-1]['me_ratio_pct'] if self.daily_me_ratios else 0.0
+            historical_me = self.historical_me_ratios[-1]['me_ratio_pct'] if self.historical_me_ratios else 0.0
         
         # Record the historical M/E ratio for this date
-        self.daily_me_ratios.append({
+        self.historical_me_ratios.append({
             'date': date_str,
             'me_ratio_pct': historical_me,
             'trade_occurred': trade_occurred
@@ -142,7 +142,7 @@ class NGSStrategy:
         
         # Ensure Date column is datetime
         if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'], format='mixed')
+            df['Date'] = pd.to_datetime(df['Date'])
             
             # Filter to retention period
             df = df[df['Date'] >= self.cutoff_date].copy()
@@ -534,15 +534,8 @@ class NGSStrategy:
             else (position['entry_price'] - exit_price) * abs(position['shares'])
         ), 2)
         
-        # Get exit date robustly
-        date_val = df['Date'].iloc[i]
-        if isinstance(date_val, (datetime, pd.Timestamp)):
-            exit_date = date_val.strftime('%Y-%m-%d')
-        else:
-            exit_date = str(date_val)[:10]
-            if ' ' in exit_date:
-                exit_date = exit_date.split()[0]
-        
+        # Ensure exit date is within retention period
+        exit_date = str(df['Date'].iloc[i])[:10]
         exit_datetime = datetime.strptime(exit_date, '%Y-%m-%d')
         
         if exit_datetime >= self.cutoff_date:
@@ -575,7 +568,7 @@ class NGSStrategy:
         
         # *** RECORD HISTORICAL M/E RATIO AFTER EXIT ***
         current_prices = {symbol: exit_price}  # At minimum, we have this symbol's price
-        self.record_daily_me_ratio(exit_date, trade_occurred=True, current_prices=current_prices)
+        self.record_historical_me_ratio(exit_date, trade_occurred=True, current_prices=current_prices)
         
         logger.info(f"Exit {symbol}: {df['ExitType'].iloc[i]} at {exit_price}, profit: {profit}")
 
@@ -583,15 +576,8 @@ class NGSStrategy:
         shares = int(round(df['Shares'].iloc[i])) if df['Signal'].iloc[i] > 0 else -int(round(df['Shares'].iloc[i]))
         cost = round(float(shares * df['Close'].iloc[i]), 2)
         
-        # Get entry date robustly
-        date_val = df['Date'].iloc[i]
-        if isinstance(date_val, (datetime, pd.Timestamp)):
-            entry_date = date_val.strftime('%Y-%m-%d')
-        else:
-            entry_date = str(date_val)[:10]
-            if ' ' in entry_date:
-                entry_date = entry_date.split()[0]
-        
+        # Ensure entry date is within retention period
+        entry_date = str(df['Date'].iloc[i])[:10]
         entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
         
         if entry_datetime >= self.cutoff_date and abs(cost) <= self.cash:
@@ -616,7 +602,7 @@ class NGSStrategy:
             
             # *** RECORD HISTORICAL M/E RATIO AFTER ENTRY ***
             current_prices = {symbol: df['Close'].iloc[i]}  # At minimum, we have this symbol's price
-            self.record_daily_me_ratio(entry_date, trade_occurred=True, current_prices=current_prices)
+            self.record_historical_me_ratio(entry_date, trade_occurred=True, current_prices=current_prices)
             
             logger.info(f"Entry {symbol}: {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
         elif entry_datetime < self.cutoff_date:
@@ -642,13 +628,7 @@ class NGSStrategy:
             if pd.isna(df['Close'].iloc[i]) or pd.isna(df['Open'].iloc[i]) or pd.isna(df['ATR'].iloc[i]):
                 continue
                 
-            current_date_val = df['Date'].iloc[i]
-            if isinstance(current_date_val, (datetime, pd.Timestamp)):
-                current_date = current_date_val.strftime('%Y-%m-%d')
-            else:
-                current_date = str(current_date_val)[:10]
-                if ' ' in current_date:
-                    current_date = current_date.split()[0]
+            current_date = str(df['Date'].iloc[i])[:10]
             
             if position['shares'] != 0:
                 position['bars_since_entry'] += 1
@@ -671,7 +651,7 @@ class NGSStrategy:
                 position = self.positions.get(symbol, {'shares': 0, 'entry_price': 0, 'entry_date': None, 'bars_since_entry': 0, 'profit': 0})
             else:
                 # No trade occurred - record historical M/E ratio carrying forward previous value
-                self.record_daily_me_ratio(current_date, trade_occurred=False)
+                self.record_historical_me_ratio(current_date, trade_occurred=False)
         
         self.positions[symbol] = position
         return df
@@ -708,8 +688,6 @@ class NGSStrategy:
                 try:
                     # Handle both string and Timestamp formats
                     if isinstance(entry_date, str):
-                        if ' ' in entry_date:
-                            entry_date = entry_date.split()[0]
                         entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
                         entry_date_str = entry_date
                     else:
@@ -815,7 +793,7 @@ class NGSStrategy:
                 logger.info(f"Processed {symbol}: {len(result)} rows")
         
         # Calculate final M/E ratio after strategy run
-        final_me_ratio = self.calculate_current_me_ratio()
+        final_me_ratio = self.calculate_me_ratio()
         if self.daily_me_ratios:
             # Update the last entry with final M/E calculation
             if len(self.daily_me_ratios) > 0:
@@ -864,6 +842,11 @@ class NGSStrategy:
                 current_price = results[pos['symbol']].iloc[-1]['Close']
             else:
                 current_price = pos['entry_price']
+            
+            # Calculate days held
+            from datetime import datetime as dt
+            days_held = (dt.now() - dt.strptime(pos['entry_date'], '%Y-%m-%d')).days
+            
             all_positions.append({
                 'symbol': pos['symbol'],
                 'shares': pos['shares'],
@@ -873,7 +856,7 @@ class NGSStrategy:
                 'current_value': round(float(current_price * pos['shares']), 2),
                 'profit': round(float((current_price - pos['entry_price']) * pos['shares']), 2),
                 'profit_pct': round(float((current_price / pos['entry_price'] - 1) * 100), 2),
-                'days_held': (datetime.now() - datetime.strptime(pos['entry_date'], '%Y-%m-%d')).days,
+                'days_held': days_held,
                 'side': 'long',
                 'strategy': 'nGS'
             })
@@ -883,8 +866,13 @@ class NGSStrategy:
                 current_price = results[pos['symbol']].iloc[-1]['Close']
             else:
                 current_price = pos['entry_price']
+            
+            # Calculate days held and profit
+            from datetime import datetime as dt
             shares_abs = abs(pos['shares'])
             profit = round(float((pos['entry_price'] - current_price) * shares_abs), 2)
+            days_held = (dt.now() - dt.strptime(pos['entry_date'], '%Y-%m-%d')).days
+            
             all_positions.append({
                 'symbol': pos['symbol'],
                 'shares': -shares_abs,
@@ -894,7 +882,7 @@ class NGSStrategy:
                 'current_value': round(float(current_price * shares_abs), 2),
                 'profit': profit,
                 'profit_pct': round(float((pos['entry_price'] / current_price - 1) * 100), 2),
-                'days_held': (datetime.now() - datetime.strptime(pos['entry_date'], '%Y-%m-%d')).days,
+                'days_held': days_held,
                 'side': 'short',
                 'strategy': 'nGS'
             })
@@ -1023,7 +1011,7 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
                 
                 if df is not None and not df.empty:
                     # Ensure Date column is datetime
-                    df['Date'] = pd.to_datetime(df['Date'], format='mixed')
+                    df['Date'] = pd.to_datetime(df['Date'])
                     data[symbol] = df
                     logger.debug(f"✓ {symbol}: {len(df)} bars loaded")
                 else:
