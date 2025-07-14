@@ -82,12 +82,14 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 0.5rem;
     }
+    [data-testid="stSidebarNav"] {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.markdown("## 🚀 nGS Dashboard")
     st.markdown("---")
     
     initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
