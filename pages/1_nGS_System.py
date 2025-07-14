@@ -1,9 +1,19 @@
-import streamlit as st
+# --- FOOTER ---
+st.markdown("---")
+st.markdown(
+    "<p style='text-align: center; color: #666;'>nGS Trading System - Performance Analytics Dashboard</p>", 
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='text-align: center; color: #999; font-size: 0.8rem;'>* Data retention: 6 months (180 days)</p>", 
+    unsafe_allow_html=True
+)import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
+from datetime import datetime, timedelta
 import sys
 import os
 
@@ -51,11 +61,41 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- NAVIGATION ---
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    if st.button("HOME", use_container_width=True):
+# --- SIDEBAR NAVIGATION ---
+with st.sidebar:
+    st.markdown("## 📈 Performance Analytics")
+    st.markdown("---")
+    
+    if st.button("🏠 HOME", use_container_width=True):
         st.switch_page("app.py")
+    
+    st.markdown("---")
+    st.markdown("### Analytics Tools")
+    
+    st.info("📊 Current page: Performance Analytics")
+    
+    st.markdown("---")
+    st.markdown("### Data Info")
+    
+    # Get data retention info
+    st.info(f"📅 Analysis period: {dm.RETENTION_DAYS} days")
+    
+    # Get trade count info
+    try:
+        trades_df = dm.get_trades_history()
+        if not trades_df.empty:
+            # Filter to 6 months
+            cutoff_date = datetime.now() - timedelta(days=dm.RETENTION_DAYS)
+            trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
+            filtered_trades = trades_df[trades_df['exit_date'] >= cutoff_date]
+            st.success(f"📈 {len(filtered_trades)} trades analyzed")
+        else:
+            st.warning("No trade data available")
+    except Exception as e:
+        st.error(f"Data loading error: {e}")
+    
+    st.markdown("---")
+    st.caption("Navigate back to main dashboard using HOME button")
 
 # --- HEADER ---
 st.markdown('<h1 class="main-header">📈 nGS System Performance Analytics</h1>', unsafe_allow_html=True)
@@ -69,7 +109,17 @@ try:
     portfolio_metrics = dm.get_portfolio_metrics(initial_portfolio_value=100000, is_historical=True)
     trades_df = dm.get_trades_history()
     
-    if trades_df.empty:
+    # Filter trades to last 6 months (180 days) only
+    if not trades_df.empty:
+        from datetime import datetime, timedelta
+        cutoff_date = datetime.now() - timedelta(days=180)
+        trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
+        trades_df = trades_df[trades_df['exit_date'] >= cutoff_date].copy()
+        
+        if trades_df.empty:
+            st.warning("No trade history available in the last 6 months. Analytics will be displayed once trades are executed.")
+            st.stop()
+    else:
         st.warning("No trade history available yet. Analytics will be displayed once trades are executed.")
         st.stop()
         
@@ -78,7 +128,7 @@ except Exception as e:
     st.stop()
 
 # --- PERFORMANCE OVERVIEW ---
-st.markdown('<div class="section-header">Performance Overview</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">Performance Overview (Last 6 Months)</div>', unsafe_allow_html=True)
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -264,10 +314,17 @@ with col2:
         )
 
 # --- RECENT TRADES TABLE ---
-st.markdown('<div class="section-header">Recent Trade History</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">Trade History (Last 6 Months)</div>', unsafe_allow_html=True)
 
-# Get formatted trade history
+# Get formatted trade history (already filtered to 6 months)
 recent_trades = dm.get_trades_history_formatted()
+
+# Apply same 6-month filter to formatted trades
+if not recent_trades.empty:
+    recent_trades['Date'] = pd.to_datetime(recent_trades['Date'])
+    cutoff_date = datetime.now() - timedelta(days=180)
+    recent_trades = recent_trades[recent_trades['Date'] >= cutoff_date].copy()
+    recent_trades['Date'] = recent_trades['Date'].dt.strftime('%Y-%m-%d')  # Convert back to string for display
 
 if not recent_trades.empty:
     # Show last 20 trades
