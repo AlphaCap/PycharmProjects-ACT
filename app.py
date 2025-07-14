@@ -233,108 +233,63 @@ if total_positions > 0:
     with col3:
         st.metric("🔴 Short Exposure", portfolio_metrics['short_exposure'])
 
-# --- RECENT SIGNALS ---
-st.markdown('<div class="section-header">Recent Trading Signals</div>', unsafe_allow_html=True)
+# --- TODAY'S TRADES ---
+st.markdown('<div class="section-header">Today\'s Trades</div>', unsafe_allow_html=True)
 
 try:
-    signals_df = dm.get_signals()
-    if not signals_df.empty:
-        # Show last 10 signals
-        recent_signals = signals_df.head(10)
-        st.dataframe(
-            recent_signals,
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.info("No recent trading signals available")
-except Exception as e:
-    st.warning(f"Could not load signals: {e}")
-
-# --- TRADE HISTORY PREVIEW ---
-st.markdown('<div class="section-header">Recent Trade History</div>', unsafe_allow_html=True)
-
-try:
-    # Get recent trades (last 10)
+    # Get today's trades (entries and exits)
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    # Check for today's completed trades (exits)
     recent_trades = dm.get_trades_history_formatted()
+    today_trades = pd.DataFrame()
     
     if not recent_trades.empty:
-        # Filter to last 6 months and show recent 10 trades
-        cutoff_date = datetime.now() - timedelta(days=dm.RETENTION_DAYS)
         recent_trades['Date'] = pd.to_datetime(recent_trades['Date'])
-        recent_trades = recent_trades[recent_trades['Date'] >= cutoff_date]
-        recent_trades['Date'] = recent_trades['Date'].dt.strftime('%Y-%m-%d')
-        
-        if not recent_trades.empty:
+        today_trades = recent_trades[recent_trades['Date'].dt.strftime('%Y-%m-%d') == today].copy()
+        today_trades['Date'] = today_trades['Date'].dt.strftime('%Y-%m-%d')
+    
+    # Also check for new signals/entries from signals file
+    signals_df = dm.get_signals()
+    today_signals = pd.DataFrame()
+    
+    if not signals_df.empty and 'date' in signals_df.columns:
+        signals_df['date'] = pd.to_datetime(signals_df['date'])
+        today_signals = signals_df[signals_df['date'].dt.strftime('%Y-%m-%d') == today].copy()
+    
+    # Combine today's activity
+    if not today_trades.empty or not today_signals.empty:
+        if not today_trades.empty:
+            st.subheader("🔄 Today's Completed Trades")
             st.dataframe(
-                recent_trades.head(10),
+                today_trades,
                 use_container_width=True,
                 hide_index=True
             )
             
-            # Trade summary
-            total_trades = len(recent_trades)
-            avg_days = recent_trades['Days'].mean() if 'Days' in recent_trades.columns else 0
+            # Today's trades summary
+            today_pnl = today_trades['P&L'].str.replace('
+, '').str.replace(',', '').astype(float).sum()
+            trade_count = len(today_trades)
             
             col1, col2 = st.columns(2)
             with col1:
-                st.caption(f"Showing last 10 of {total_trades} trades (6 months)")
+                st.metric("📊 Today's Trades", trade_count)
             with col2:
-                st.caption(f"Average hold time: {avg_days:.1f} days")
-        else:
-            st.info("No trades in the last 6 months")
-    else:
-        st.info("No trade history available yet")
+                st.metric("💰 Today's P&L", f"${today_pnl:,.0f}")
         
-except Exception as e:
-    st.warning(f"Could not load trade history: {e}")
-
-# --- PERFORMANCE CHART PREVIEW ---
-st.markdown('<div class="section-header">Portfolio Performance Chart</div>', unsafe_allow_html=True)
-
-try:
-    trades_df = dm.get_trades_history()
-    
-    if not trades_df.empty:
-        # Filter to last 6 months
-        cutoff_date = datetime.now() - timedelta(days=dm.RETENTION_DAYS)
-        trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
-        trades_df = trades_df[trades_df['exit_date'] >= cutoff_date]
-        
-        if not trades_df.empty:
-            # Calculate cumulative returns
-            trades_df_sorted = trades_df.sort_values('exit_date')
-            trades_df_sorted['cumulative_pnl'] = trades_df_sorted['profit'].cumsum()
-            trades_df_sorted['portfolio_value'] = 100000 + trades_df_sorted['cumulative_pnl']
-            
-            # Create simple line chart
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=trades_df_sorted['exit_date'],
-                y=trades_df_sorted['portfolio_value'],
-                mode='lines+markers',
-                name='Portfolio Value',
-                line=dict(color='#1f77b4', width=3),
-                hovertemplate='<b>Date:</b> %{x}<br><b>Value:</b> $%{y:,.0f}<extra></extra>'
-            ))
-            
-            fig.update_layout(
-                title="Portfolio Equity Curve (Last 6 Months)",
-                xaxis_title="Date",
-                yaxis_title="Portfolio Value ($)",
-                hovermode='x unified',
-                showlegend=False,
-                height=400
+        if not today_signals.empty:
+            st.subheader("📡 Today's New Signals")
+            st.dataframe(
+                today_signals,
+                use_container_width=True,
+                hide_index=True
             )
-            
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No trades in the last 6 months to display")
     else:
-        st.info("Portfolio chart will be displayed once trades are executed")
+        st.info("No trading activity today yet")
         
 except Exception as e:
-    st.warning(f"Could not create performance chart: {e}")
+    st.warning(f"Could not load today's trades: {e}")
 
 # --- FOOTER ---
 st.markdown("---")
