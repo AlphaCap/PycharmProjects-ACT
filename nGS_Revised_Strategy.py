@@ -64,40 +64,36 @@ class NGSStrategy:
         logger.info(f"nGS Strategy initialized with {self.retention_days}-day data retention")
         logger.info(f"Data cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
 
-    def calculate_me_ratio(self, current_prices: Dict[str, float]) -> float:
+    def calculate_me_ratio(self, current_prices: Dict[str, float] = None) -> float:
         """
-        Calculate M/E ratio only when trades occur.
-        
-        M/E Ratio = (Total Open Trade Equity / Account Value) × 100
+        Calculate M/E ratio: (Total Open Trade Equity / Account Value) × 100
         
         Args:
-            current_prices: Dict of {symbol: current_price} for all symbols
+            current_prices: Dict of {symbol: current_price} - optional, uses entry prices if not provided
         
         Returns:
             M/E ratio as percentage
         """
         total_open_trade_equity = 0.0
-        unrealized_pnl = 0.0
         
         # Calculate Total Open Trade Equity = sum of (price × shares) for all positions
         for symbol, position in self.positions.items():
-            if position['shares'] != 0 and symbol in current_prices:
-                current_price = current_prices[symbol]
-                # Always use current market price × shares (absolute value for equity calculation)
+            if position['shares'] != 0:
+                # Use current price if available, otherwise use entry price
+                if current_prices and symbol in current_prices:
+                    current_price = current_prices[symbol]
+                else:
+                    current_price = position['entry_price']
+                
+                # Position equity = current_price × shares (always positive for M/E calculation)
                 position_equity = current_price * abs(position['shares'])
                 total_open_trade_equity += position_equity
-                
-                # Calculate unrealized P&L for account value
-                if position['shares'] > 0:  # Long position
-                    unrealized_pnl += (current_price - position['entry_price']) * position['shares']
-                else:  # Short position  
-                    unrealized_pnl += (position['entry_price'] - current_price) * abs(position['shares'])
         
-        # Account Value = Cash + Position Market Values + Unrealized P&L
-        # This is the total portfolio value
-        account_value = self.cash + total_open_trade_equity + unrealized_pnl
+        # Account Value = current account equity (cash + unrealized P&L)
+        # For now, use cash as proxy for account value
+        account_value = self.cash
         
-        # M/E Ratio as percentage
+        # M/E Ratio = Total Open Trade Equity / Account Value × 100
         me_ratio_pct = (total_open_trade_equity / account_value * 100) if account_value > 0 else 0.0
         
         return round(me_ratio_pct, 2)
