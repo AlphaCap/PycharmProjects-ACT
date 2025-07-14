@@ -843,9 +843,9 @@ class NGSStrategy:
             else:
                 current_price = pos['entry_price']
             
-            # Calculate days held
-            from datetime import datetime as dt
-            days_held = (dt.now() - dt.strptime(pos['entry_date'], '%Y-%m-%d')).days
+            # Calculate days held using proper datetime import
+            entry_dt = datetime.strptime(pos['entry_date'], '%Y-%m-%d')
+            days_held = (datetime.now() - entry_dt).days
             
             all_positions.append({
                 'symbol': pos['symbol'],
@@ -867,11 +867,11 @@ class NGSStrategy:
             else:
                 current_price = pos['entry_price']
             
-            # Calculate days held and profit
-            from datetime import datetime as dt
+            # Calculate days held and profit using proper datetime import
             shares_abs = abs(pos['shares'])
             profit = round(float((pos['entry_price'] - current_price) * shares_abs), 2)
-            days_held = (dt.now() - dt.strptime(pos['entry_date'], '%Y-%m-%d')).days
+            entry_dt = datetime.strptime(pos['entry_date'], '%Y-%m-%d')
+            days_held = (datetime.now() - entry_dt).days
             
             all_positions.append({
                 'symbol': pos['symbol'],
