@@ -680,7 +680,9 @@ class NGSStrategy:
             else:
                 logger.warning(f"Invalid trade skipped: {trade}")
         
-        self.me_calculator.update_position(symbol, 0, 0, 0, position['type'])  # Close position
+        # Compute trade_type explicitly (fix for KeyError 'type')
+        trade_type = 'long' if position['shares'] > 0 else 'short'
+        self.me_calculator.update_position(symbol, 0, 0, 0, trade_type)  # Close position
         self.me_calculator.add_realized_pnl(profit)  # Add realized profit
         
         self.cash = round(float(self.cash + position['shares'] * exit_price), 2)
