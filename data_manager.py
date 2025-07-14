@@ -14,7 +14,7 @@ TRADES_HISTORY_FILE = "data/trades/trade_history.csv"  # Updated path
 SIGNALS_FILE = "recent_signals.csv"
 SYSTEM_STATUS_FILE = "system_status.csv"
 METADATA_FILE = "metadata.json"
-SP500_SYMBOLS_FILE = "sp500_symbols.txt" 
+SP500_SYMBOLS_FILE = os.path.join("data", "sp500_symbols.txt") 
 
 RETENTION_DAYS = 180  # 6 months data retention
 PRIMARY_TIER_DAYS = 30
