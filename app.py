@@ -268,7 +268,7 @@ try:
             )
             
             # Today's trades summary
-            today_pnl = today_trades['P&L'].str.replace(', '').str.replace(',', '').astype(float).sum()
+            today_pnl = today_trades['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
             trade_count = len(today_trades)
             
             col1, col2 = st.columns(2)
