@@ -3,44 +3,29 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import sys
 import os
 
-# Add parent directory to path for imports
+# Add the parent directory to the path so we can import data_manager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import data manager functions with error handling
 try:
-    from data_manager import (
-        get_portfolio_metrics,
-        get_strategy_performance,
-        get_portfolio_performance_stats,
-        get_current_positions,
-        get_recent_signals,
-        get_trades_history
-    )
+    import data_manager as dm
 except ImportError as e:
-    st.error(f"Error importing data manager functions: {e}")
+    st.error(f"Could not import data_manager: {e}")
     st.stop()
 
-# Import the real portfolio calculator
-try:
-    from portfolio_calculator import calculate_real_portfolio_metrics, calculate_portfolio_over_time
-    USE_REAL_METRICS = True
-except ImportError:
-    st.warning("Portfolio calculator not found. Using sample data.")
-    USE_REAL_METRICS = False
-
-# Page configuration
+# --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="nGS Trading System", 
+    page_title="nGS Performance Analytics", 
     page_icon="📈", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     .main-header {
@@ -50,296 +35,302 @@ st.markdown("""
         text-align: center;
         margin-bottom: 2rem;
     }
-    .metric-card {
+    .metric-container {
         background-color: #f0f2f6;
         padding: 1rem;
         border-radius: 0.5rem;
-        margin: 0.5rem 0;
+        border-left: 5px solid #1f77b4;
     }
-    .success-metric {
-        color: #28a745;
+    .section-header {
+        font-size: 1.5rem;
         font-weight: bold;
+        color: #2c3e50;
+        margin: 1.5rem 0 1rem 0;
+        border-bottom: 2px solid #1f77b4;
+        padding-bottom: 0.5rem;
     }
-    .warning-metric {
-        color: #ffc107;
-        font-weight: bold;
-    }
-    .danger-metric {
-        color: #dc3545;
-        font-weight: bold;
+    [data-testid="stSidebarNav"] {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.title("Trading Systems")
-    if st.button("← Back to Main Dashboard", use_container_width=True, key="ngs_back_to_main"):
-        st.switch_page("app.py")
-    
     st.markdown("---")
     
-    # System status
-    st.subheader("🔄 System Status")
-    st.success("✅ nGS System Active")
-    st.info("📊 Real-time Analysis")
-    st.info("🔔 Alerts Enabled")
+    initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
+    
+    if st.button("🏠 HOME", use_container_width=True):
+        st.switch_page("app.py")
 
-# --- MAIN CONTENT ---
-st.markdown('<div class="main-header">🚀 nGS Trading System Dashboard</div>', unsafe_allow_html=True)
+# --- HEADER ---
+st.markdown('<h1 class="main-header">📈 nGS System Performance Analytics</h1>', unsafe_allow_html=True)
 
-# --- VARIABLE ACCOUNT SIZE ---
-st.markdown("## Portfolio Performance Analysis")
-initial_value = st.number_input(
-    "Set initial portfolio/account size:",
-    min_value=1000,
-    value=100000,
-    step=1000,
-    format="%d",
-    help="Enter your starting portfolio value for performance calculations",
-    key="ngs_portfolio_initial_value"
-)
-
-# --- REAL-TIME METRICS ---
-st.markdown("## 📊 Current Performance Metrics")
-
-# Get portfolio metrics
+# --- LOAD DATA ---
 try:
-    if USE_REAL_METRICS:
-        portfolio_metrics = calculate_real_portfolio_metrics(initial_value)
-    else:
-        portfolio_metrics = get_portfolio_metrics()
+    # Initialize data manager
+    dm.initialize()
+    
+    # Get portfolio metrics with historical M/E ratio
+    portfolio_metrics = dm.get_portfolio_metrics(initial_portfolio_value=initial_account_size, is_historical=True)
+    trades_df = dm.get_trades_history()
+    
+    if trades_df.empty:
+        st.warning("No trade history available yet. Analytics will be displayed once trades are executed.")
+        st.stop()
         
-    strategy_performance = get_strategy_performance()
 except Exception as e:
-    st.error(f"Error loading portfolio metrics: {e}")
-    portfolio_metrics = {'total_profit': 0, 'total_trades': 0, 'win_rate': 0, 'avg_profit_per_trade': 0}
-    strategy_performance = {'sharpe_ratio': 0, 'max_drawdown': 0, 'total_return': 0, 'volatility': 0}
+    st.error(f"Error loading data: {e}")
+    st.stop()
 
-# Display metrics in columns
+# --- PERFORMANCE OVERVIEW ---
+st.markdown('<div class="section-header">Performance Overview (Last 6 Months)</div>', unsafe_allow_html=True)
+
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    profit_color = "success-metric" if portfolio_metrics.get('total_profit', 0) > 0 else "danger-metric"
-    st.markdown(f'<div class="metric-card">', unsafe_allow_html=True)
     st.metric(
-        label="💰 Total Profit/Loss",
-        value=f"${portfolio_metrics.get('total_profit', 0):,.2f}",
-        delta=f"{(portfolio_metrics.get('total_profit', 0)/initial_value)*100:.2f}%" if initial_value > 0 else "0%"
+        label="Total Return",
+        value=portfolio_metrics['total_return_pct'],
+        help="Total return since system inception"
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
-    st.markdown(f'<div class="metric-card">', unsafe_allow_html=True)
     st.metric(
-        label="📈 Total Trades",
-        value=f"{portfolio_metrics.get('total_trades', 0):,}"
+        label="YTD Return", 
+        value=portfolio_metrics['ytd_return'],
+        delta=portfolio_metrics['ytd_delta'],
+        help="Year-to-date performance"
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col3:
-    win_rate = portfolio_metrics.get('win_rate', 0)
-    win_color = "success-metric" if win_rate > 60 else "warning-metric" if win_rate > 40 else "danger-metric"
-    st.markdown(f'<div class="metric-card">', unsafe_allow_html=True)
     st.metric(
-        label="🎯 Win Rate",
-        value=f"{win_rate:.1f}%"
+        label="MTD Return",
+        value=portfolio_metrics['mtd_return'], 
+        delta=portfolio_metrics['mtd_delta'],
+        help="Month-to-date performance"
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with col4:
-    sharpe = strategy_performance.get('sharpe_ratio', 0)
-    sharpe_color = "success-metric" if sharpe > 1 else "warning-metric" if sharpe > 0.5 else "danger-metric"
-    st.markdown(f'<div class="metric-card">', unsafe_allow_html=True)
     st.metric(
-        label="📊 Sharpe Ratio",
-        value=f"{sharpe:.2f}"
+        label="Historical M/E Ratio",
+        value=portfolio_metrics['historical_me_ratio'],
+        help="Historical average Market/Equity ratio"
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- PORTFOLIO PERFORMANCE CHART ---
-st.markdown("## 📈 Portfolio Performance Over Time")
+# --- PERFORMANCE CHARTS ---
+st.markdown('<div class="section-header">Performance Analytics</div>', unsafe_allow_html=True)
 
-try:
-    if USE_REAL_METRICS:
-        performance_data = calculate_portfolio_over_time(initial_value)
-    else:
-        performance_data = get_portfolio_performance_stats()
-    
-    if performance_data and 'cumulative_returns' in performance_data:
-        # Create performance chart
-        dates = pd.date_range(start='2023-01-01', periods=len(performance_data['cumulative_returns']), freq='D')
-        portfolio_values = [initial_value * ret for ret in performance_data['cumulative_returns']]
+# Create tabs for different chart views
+tab1, tab2, tab3 = st.tabs(["📊 Equity Curve", "📈 M/E Ratio History", "🎯 Trade Analysis"])
+
+with tab1:
+    # Equity Curve Chart
+    if not trades_df.empty:
+        # Calculate cumulative returns
+        trades_df_sorted = trades_df.sort_values('exit_date')
+        trades_df_sorted['cumulative_pnl'] = trades_df_sorted['profit'].cumsum()
+        trades_df_sorted['portfolio_value'] = initial_account_size + trades_df_sorted['cumulative_pnl']
         
-        fig = go.Figure()
-        
-        # Portfolio performance line
-        fig.add_trace(go.Scatter(
-            x=dates,
-            y=portfolio_values,
+        fig_equity = go.Figure()
+        fig_equity.add_trace(go.Scatter(
+            x=trades_df_sorted['exit_date'],
+            y=trades_df_sorted['portfolio_value'],
             mode='lines',
             name='Portfolio Value',
             line=dict(color='#1f77b4', width=3),
-            hovertemplate='<b>Date:</b> %{x}<br><b>Value:</b> $%{y:,.2f}<extra></extra>'
+            hovertemplate='<b>Date:</b> %{x}<br><b>Value:</b> $%{y:,.0f}<extra></extra>'
         ))
         
-        # Benchmark comparison if available
-        if 'benchmark_returns' in performance_data and performance_data['benchmark_returns']:
-            benchmark_values = [initial_value * ret for ret in performance_data['benchmark_returns']]
-            fig.add_trace(go.Scatter(
-                x=dates,
-                y=benchmark_values,
-                mode='lines',
-                name='Benchmark (S&P 500)',
-                line=dict(color='#ff7f0e', width=2, dash='dash'),
-                hovertemplate='<b>Date:</b> %{x}<br><b>Value:</b> $%{y:,.2f}<extra></extra>'
-            ))
-        
-        fig.update_layout(
-            title="Portfolio Performance vs Benchmark",
+        fig_equity.update_layout(
+            title="Portfolio Equity Curve",
             xaxis_title="Date",
             yaxis_title="Portfolio Value ($)",
             hovermode='x unified',
-            showlegend=True,
-            height=500
+            showlegend=False,
+            height=400
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig_equity, use_container_width=True)
     else:
-        st.info("📊 Performance data will appear here once trading begins.")
-        
-except Exception as e:
-    st.error(f"Error displaying performance chart: {e}")
+        st.info("Equity curve will be displayed once trades are executed.")
 
-# --- CURRENT POSITIONS ---
-st.markdown("## 💼 Current Positions")
-
-try:
-    positions_df = get_current_positions()
+with tab2:
+    # M/E Ratio History Chart
+    with st.spinner("Calculating historical M/E ratios..."):
+        me_history = dm.get_me_ratio_history()
     
-    if not positions_df.empty:
-        # Format the positions dataframe for display
-        display_positions = positions_df.copy()
-        if 'unrealized_pnl' in display_positions.columns:
-            display_positions['unrealized_pnl'] = display_positions['unrealized_pnl'].apply(lambda x: f"${x:,.2f}")
-        if 'entry_price' in display_positions.columns:
-            display_positions['entry_price'] = display_positions['entry_price'].apply(lambda x: f"${x:.2f}")
-        if 'current_price' in display_positions.columns:
-            display_positions['current_price'] = display_positions['current_price'].apply(lambda x: f"${x:.2f}")
-            
-        st.dataframe(display_positions, use_container_width=True, key="ngs_positions_table")
+    if not me_history.empty:
+        fig_me = go.Figure()
+        fig_me.add_trace(go.Scatter(
+            x=me_history['Date'],
+            y=me_history['ME_Ratio'],
+            mode='lines+markers',
+            name='M/E Ratio',
+            line=dict(color='#ff7f0e', width=2),
+            marker=dict(size=4),
+            hovertemplate='<b>Date:</b> %{x}<br><b>M/E Ratio:</b> %{y:.1f}%<extra></extra>'
+        ))
         
-        # Position summary
-        if 'unrealized_pnl' in positions_df.columns:
-            total_unrealized = positions_df['unrealized_pnl'].sum()
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Total Unrealized P&L", f"${total_unrealized:,.2f}")
-            with col2:
-                open_positions = len(positions_df)
-                st.metric("Open Positions", open_positions)
+        # Add horizontal line for average
+        if len(me_history) > 1:
+            avg_me = me_history['ME_Ratio'].mean()
+            fig_me.add_hline(
+                y=avg_me, 
+                line_dash="dash", 
+                line_color="red",
+                annotation_text=f"Average: {avg_me:.1f}%"
+            )
+        
+        fig_me.update_layout(
+            title="Historical M/E Ratio (Risk Exposure Over Time)",
+            xaxis_title="Date",
+            yaxis_title="M/E Ratio (%)",
+            hovermode='x unified',
+            showlegend=False,
+            height=400
+        )
+        
+        st.plotly_chart(fig_me, use_container_width=True)
+        
+        # Show summary stats
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Days Tracked", len(me_history))
+        with col2:
+            st.metric("Average M/E", f"{me_history['ME_Ratio'].mean():.1f}%")
+        with col3:
+            st.metric("Max M/E", f"{me_history['ME_Ratio'].max():.1f}%")
+        with col4:
+            st.metric("Current M/E", portfolio_metrics['me_ratio'])
     else:
-        st.info("💼 No current positions. Ready for new opportunities!")
-        
-except Exception as e:
-    st.error(f"Error loading current positions: {e}")
+        st.info("M/E ratio history will be calculated once sufficient trade data is available.")
 
-# --- RECENT SIGNALS ---
-st.markdown("## 🔔 Recent Trading Signals")
-
-try:
-    signals_df = get_recent_signals()
-    
-    if not signals_df.empty:
-        # Display recent signals
-        for idx, signal in signals_df.head(5).iterrows():
-            signal_type = signal.get('signal', 'Unknown')
-            symbol = signal.get('symbol', 'Unknown')
-            confidence = signal.get('confidence', 0)
-            timestamp = signal.get('timestamp', 'Unknown')
-            
-            signal_color = "🟢" if signal_type.upper() == "BUY" else "🔴" if signal_type.upper() == "SELL" else "🟡"
-            
-            st.markdown(f"""
-            **{signal_color} {signal_type.upper()} Signal - {symbol}**  
-            Confidence: {confidence:.1%} | Time: {timestamp}
-            """)
-    else:
-        st.info("🔔 No recent signals. System is monitoring for opportunities.")
-        
-except Exception as e:
-    st.error(f"Error loading recent signals: {e}")
-
-# --- RECENT TRADES ---
-st.markdown("## 📋 Recent Trades")
-
-try:
-    trades_df = get_trades_history()
-    
+with tab3:
+    # Trade Analysis Charts
     if not trades_df.empty:
-        # Show last 10 trades
-        recent_trades = trades_df.tail(10).copy()
+        col1, col2 = st.columns(2)
         
-        # Format for display
-        if 'profit' in recent_trades.columns:
-            recent_trades['profit'] = recent_trades['profit'].apply(lambda x: f"${x:,.2f}")
-        if 'entry_price' in recent_trades.columns:
-            recent_trades['entry_price'] = recent_trades['entry_price'].apply(lambda x: f"${x:.2f}")
-        if 'exit_price' in recent_trades.columns:
-            recent_trades['exit_price'] = recent_trades['exit_price'].apply(lambda x: f"${x:.2f}")
+        with col1:
+            # Profit/Loss Distribution
+            fig_dist = go.Figure()
+            fig_dist.add_trace(go.Histogram(
+                x=trades_df['profit'],
+                nbinsx=20,
+                name='Trade P&L',
+                marker_color='#1f77b4',
+                opacity=0.7
+            ))
             
-        st.dataframe(recent_trades, use_container_width=True, key="ngs_recent_trades_table")
+            fig_dist.update_layout(
+                title="Trade P&L Distribution",
+                xaxis_title="Profit/Loss ($)",
+                yaxis_title="Number of Trades",
+                height=350
+            )
+            
+            st.plotly_chart(fig_dist, use_container_width=True)
         
-        # Trade summary
-        if 'profit' in trades_df.columns:
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                avg_profit = trades_df['profit'].mean()
-                st.metric("Average Profit per Trade", f"${avg_profit:,.2f}")
-            with col2:
-                winning_trades = len(trades_df[trades_df['profit'] > 0])
-                total_trades = len(trades_df)
-                win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
-                st.metric("Win Rate", f"{win_rate:.1f}%")
-            with col3:
-                total_profit = trades_df['profit'].sum()
-                st.metric("Total Profit", f"${total_profit:,.2f}")
+        with col2:
+            # Monthly Performance
+            trades_df['month'] = pd.to_datetime(trades_df['exit_date']).dt.to_period('M')
+            monthly_pnl = trades_df.groupby('month')['profit'].sum().reset_index()
+            monthly_pnl['month_str'] = monthly_pnl['month'].astype(str)
+            
+            fig_monthly = go.Figure()
+            colors = ['green' if x >= 0 else 'red' for x in monthly_pnl['profit']]
+            
+            fig_monthly.add_trace(go.Bar(
+                x=monthly_pnl['month_str'],
+                y=monthly_pnl['profit'],
+                marker_color=colors,
+                name='Monthly P&L'
+            ))
+            
+            fig_monthly.update_layout(
+                title="Monthly Performance",
+                xaxis_title="Month",
+                yaxis_title="P&L ($)",
+                height=350
+            )
+            
+            st.plotly_chart(fig_monthly, use_container_width=True)
     else:
-        st.info("📋 No trade history available yet.")
-        
-except Exception as e:
-    st.error(f"Error loading trade history: {e}")
+        st.info("Trade analysis will be displayed once trades are executed.")
 
-# --- SYSTEM CONTROLS ---
-st.markdown("## ⚙️ System Controls")
+# --- DETAILED STATISTICS ---
+st.markdown('<div class="section-header">Detailed Performance Statistics</div>', unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("🔄 Refresh Data", use_container_width=True, key="ngs_refresh_data"):
-        st.rerun()
+    # Performance Stats Table
+    performance_stats = dm.get_portfolio_performance_stats()
+    if not performance_stats.empty:
+        st.subheader("📊 Key Metrics")
+        st.dataframe(
+            performance_stats,
+            use_container_width=True,
+            hide_index=True
+        )
 
 with col2:
-    trading_enabled = st.checkbox("🤖 Auto Trading", value=True, key="ngs_auto_trading")
-    if trading_enabled:
-        st.success("✅ Auto trading is enabled")
-    else:
-        st.warning("⚠️ Auto trading is disabled")
+    # Strategy Performance
+    strategy_performance = dm.get_strategy_performance()
+    if not strategy_performance.empty:
+        st.subheader("🎯 Strategy Breakdown")
+        st.dataframe(
+            strategy_performance,
+            use_container_width=True,
+            hide_index=True
+        )
 
-with col3:
-    risk_level = st.selectbox(
-        "📊 Risk Level",
-        ["Conservative", "Moderate", "Aggressive"],
-        index=1,
-        key="ngs_risk_level"
+# --- TRADE HISTORY TABLE ---
+st.markdown('<div class="section-header">Trade History (Last 6 Months)</div>', unsafe_allow_html=True)
+
+# Get formatted trade history (already filtered to 6 months)
+recent_trades = dm.get_trades_history_formatted()
+
+if not recent_trades.empty:
+    # Show all trades within 6-month period
+    st.dataframe(
+        recent_trades,
+        use_container_width=True,
+        hide_index=True
     )
+    
+    # Summary stats
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Total Trades", len(recent_trades))
+    
+    with col2:
+        winning_trades = len(recent_trades[recent_trades['P&L'].str.replace('$', '').str.replace(',', '').astype(float) > 0])
+        win_rate = winning_trades / len(recent_trades) * 100 if len(recent_trades) > 0 else 0
+        st.metric("Win Rate", f"{win_rate:.1f}%")
+    
+    with col3:
+        avg_days = recent_trades['Days'].mean() if 'Days' in recent_trades.columns else 0
+        st.metric("Avg Hold Time", f"{avg_days:.1f} days")
+    
+    with col4:
+        # Calculate average P&L
+        pnl_values = recent_trades['P&L'].str.replace('$', '').str.replace(',', '').astype(float)
+        avg_pnl = pnl_values.mean()
+        st.metric("Avg P&L", f"${avg_pnl:.0f}")
+
+else:
+    st.info("No trade history available yet.")
 
 # --- FOOTER ---
 st.markdown("---")
-st.markdown(""")
-<div style='text-align: center; color: #666; font-size: 0.9em;'>
-    <p>🚀 nGS Trading System | Real-time Market Analysis & Automated Trading</p>
-    <p>⚡ Powered by Advanced Algorithms | 📊 Live Data Integration</p>
-</div>
-
-""", unsafe_allow_html=True)
+st.markdown(
+    "<p style='text-align: center; color: #666;'>nGS Trading System - Performance Analytics Dashboard</p>", 
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='text-align: center; color: #999; font-size: 0.8rem;'>* Data retention: 6 months (180 days)</p>", 
+    unsafe_allow_html=True
+)

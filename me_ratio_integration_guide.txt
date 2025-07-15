@@ -1,0 +1,37 @@
+# Integration code for nGS_Strategy.py
+# Add these imports at the top:
+from me_ratio_calculator import update_me_ratio_for_trade, add_realized_profit, get_current_risk_assessment
+
+# In the _process_entry method, after creating a position:
+def _process_entry(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
+    # ... existing code ...
+    
+    # After position is created, update M/E tracking
+    if abs(cost) <= self.cash:
+        # ... existing position creation code ...
+        
+        # Update M/E ratio tracking
+        current_price = df['Close'].iloc[i]
+        update_me_ratio_for_trade(symbol, shares, current_price, current_price, 
+                                 'long' if shares > 0 else 'short')
+        
+        # Check risk level
+        risk_assessment = get_current_risk_assessment()
+        if risk_assessment['risk_level'] in ['HIGH', 'CRITICAL']:
+            logger.warning(f"M/E Risk Alert: {risk_assessment['risk_level']} - {risk_assessment['recommendation']}")
+
+# In the _process_exit method, after closing a position:
+def _process_exit(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
+    # ... existing code ...
+    
+    # After trade is closed, update M/E tracking
+    # Close position (set shares to 0)
+    update_me_ratio_for_trade(symbol, 0, 0, 0, 'long')
+    
+    # Add realized profit
+    add_realized_profit(profit)
+    
+    # Save daily M/E data
+    from me_ratio_calculator import get_me_calculator
+    calculator = get_me_calculator()
+    calculator.save_daily_me_data()
