@@ -15,7 +15,7 @@ from data_manager import (
 
 # Integrate me_ratio_calculator logic directly (copy-pasted class for self-contained)
 class DailyMERatioCalculator:
-    def __init__(self, initial_portfolio_value: float = 100000):
+    def __init__(self, initial_portfolio_value: float = 1000000):
         self.initial_portfolio_value = initial_portfolio_value
         self.current_positions = {}  # symbol -> position_data
         self.realized_pnl = 0.0
@@ -185,7 +185,7 @@ class NGSStrategy:
     Neural Grid Strategy (nGS) implementation.
     Handles both signal generation and position management with 6-month data retention.
     """
-    def __init__(self, account_size: float = 100000, data_dir: str = 'data'):
+    def __init__(self, account_size: float = 1000000, data_dir: str = 'data'):
         self.account_size = round(float(account_size), 2)
         self.cash = round(float(account_size), 2)
         self.positions = {}
@@ -1065,7 +1065,7 @@ if __name__ == "__main__":
     print("=" * 50)
     
     try:
-        strategy = NGSStrategy(account_size=100000)
+        strategy = NGSStrategy(account_size=1000000)
         
         # Load ALL S&P 500 symbols from your data files
         sp500_file = os.path.join('data', 'sp500_symbols.txt')
