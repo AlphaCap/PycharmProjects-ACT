@@ -621,8 +621,5 @@ if __name__ == "__main__":
     trader.save_performance_report()
     
     print("\n✅ gSTDayTrader test completed!")
-<<<<<<< HEAD
     print("📁 Results saved to CSV and JSON files")
-=======
-    print("📁 Results saved to CSV and JSON files")
->>>>>>> c3b6458da22b719f87e33e86cea00599c7a24a0f
+
