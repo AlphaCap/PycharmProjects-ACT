@@ -1,29 +1,29 @@
 # reporting.py - Section 1: Imports and Setup
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from datetime import datetime
-import json
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Tuple
 
-from data_manager import get_trades_history, get_positions, init_metadata, update_metadata
+from data_manager import get_trades_history, get_positions, update_metadata
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("reporting.log"),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.FileHandler("reporting.log"), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 
 # Set plot styles for better visualization
-plt.style.use('seaborn-v0_8-darkgrid')
+try:
+    plt.style.use('seaborn')  # Use a valid Seaborn style; fallback to 'seaborn' if 'darkgrid' fails
+except OSError:
+    plt.style.use('ggplot')  # Fallback to a built-in Matplotlib style
+    logger.warning("Seaborn style 'seaborn' not found; using 'ggplot' as fallback")
+
 sns.set_palette("viridis")
 
 # Create reports directory if it doesn't exist
@@ -31,8 +31,8 @@ os.makedirs("reports", exist_ok=True)
 os.makedirs("reports/charts", exist_ok=True)
 
 # Constants for reporting
-CHART_SIZE = (12, 8)
-CHART_DPI = 100
+CHART_SIZE: Tuple[int, int] = (12, 8)
+CHART_DPI: int = 100
 
 # reporting.py - Section 2: Trade Performance Analysis
 def generate_performance_report() -> pd.DataFrame:
@@ -40,9 +40,12 @@ def generate_performance_report() -> pd.DataFrame:
     Generate a comprehensive performance report for all trading activity.
 
     Returns:
-        DataFrame with symbol performance metrics
+        pd.DataFrame: DataFrame with symbol performance metrics.
+
+    Raises:
+        ValueError: If trade data is empty or malformed.
     """
-    trades_df = get_trades_history()
+    trades_df: pd.DataFrame = get_trades_history()
         
     if trades_df.empty:
         logger.warning("No trades found in trade history")
@@ -50,30 +53,33 @@ def generate_performance_report() -> pd.DataFrame:
         return pd.DataFrame()
     
     # Calculate performance metrics
-    total_trades = len(trades_df)
-    winning_trades = len(trades_df[trades_df['profit'] > 0])
-    losing_trades = len(trades_df[trades_df['profit'] <= 0])
-    win_rate = winning_trades / total_trades if total_trades > 0 else 0
+    total_trades: int = len(trades_df)
+    winning_trades: int = len(trades_df[trades_df['profit'] > 0])
+    losing_trades: int = len(trades_df[trades_df['profit'] <= 0])
+    win_rate: float = winning_trades / total_trades if total_trades > 0 else 0
     
     # Calculate profit metrics
-    total_profit = trades_df['profit'].sum()
-    avg_profit = trades_df['profit'].mean()
-    avg_win = trades_df[trades_df['profit'] > 0]['profit'].mean() if winning_trades > 0 else 0
-    avg_loss = trades_df[trades_df['profit'] <= 0]['profit'].mean() if losing_trades > 0 else 0
-    max_profit = trades_df['profit'].max()
-    max_loss = trades_df['profit'].min()
-    profit_factor = abs(trades_df[trades_df['profit'] > 0]['profit'].sum() / 
-                        trades_df[trades_df['profit'] < 0]['profit'].sum()) if losing_trades > 0 else float('inf')
+    total_profit: float = trades_df['profit'].sum()
+    avg_profit: float = trades_df['profit'].mean()
+    avg_win: float = trades_df[trades_df['profit'] > 0]['profit'].mean() if winning_trades > 0 else 0
+    avg_loss: float = trades_df[trades_df['profit'] <= 0]['profit'].mean() if losing_trades > 0 else 0
+    max_profit: float = trades_df['profit'].max()
+    max_loss: float = trades_df['profit'].min()
+    profit_factor: float = (
+        abs(trades_df[trades_df['profit'] > 0]['profit'].sum() / 
+            trades_df[trades_df['profit'] < 0]['profit'].sum())
+        if losing_trades > 0 else float('inf')
+    )
     
     # Group by signal types
-    signal_performance = trades_df.groupby('type').agg({
+    signal_performance: pd.DataFrame = trades_df.groupby('type').agg({
         'profit': ['sum', 'mean', 'count'],
         'exit_reason': lambda x: x.value_counts().index[0] if not x.empty else None
     })
     signal_performance.columns = ['total_profit', 'avg_profit', 'num_trades', 'most_common_exit']
     
     # Group by symbols
-    symbol_performance = trades_df.groupby('symbol').agg({
+    symbol_performance: pd.DataFrame = trades_df.groupby('symbol').agg({
         'profit': ['sum', 'mean', 'count'],
         'exit_reason': lambda x: x.value_counts().index[0] if not x.empty else None
     })
@@ -81,20 +87,21 @@ def generate_performance_report() -> pd.DataFrame:
     symbol_performance = symbol_performance.sort_values('total_profit', ascending=False)
     
     # Group by exit reasons
-    exit_performance = trades_df.groupby('exit_reason').agg({
+    exit_performance: pd.DataFrame = trades_df.groupby('exit_reason').agg({
         'profit': ['sum', 'mean', 'count']
     })
     exit_performance.columns = ['total_profit', 'avg_profit', 'num_trades']
     exit_performance = exit_performance.sort_values('num_trades', ascending=False)
     
     # Create a summary dataframe
-    summary = pd.DataFrame({
+    summary: pd.DataFrame = pd.DataFrame({
         'Metric': ['Total Trades', 'Winning Trades', 'Losing Trades', 'Win Rate', 
                   'Total Profit', 'Average Profit', 'Average Win', 'Average Loss',
                   'Max Profit', 'Max Loss', 'Profit Factor'],
         'Value': [total_trades, winning_trades, losing_trades, f"{win_rate:.2%}", 
-                 f"${total_profit:.2f}", f"${avg_profit:.2f}", f"${avg_win:.2f}", f"${avg_loss:.2f}",
-                 f"${max_profit:.2f}", f"${max_loss:.2f}", f"{profit_factor:.2f}"]
+                 f"${total_profit:.2f}", f"${avg_profit:.2f}", f"${avg_win:.2f}", 
+                 f"${avg_loss:.2f}", f"${max_profit:.2f}", f"${max_loss:.2f}", 
+                 f"{profit_factor:.2f}"]
     })
     
     # Print summary report
@@ -127,15 +134,20 @@ def generate_performance_report() -> pd.DataFrame:
     else:
         print("No symbol performance data available")
 
+    return symbol_performance
+
 # reporting.py - Section 3: Visualization Functions
 def create_performance_charts() -> bool:
     """
     Create charts visualizing trading performance for all available trades.
 
     Returns:
-        Boolean indicating success/failure
+        bool: True if successful, False otherwise.
+
+    Raises:
+        Exception: If chart generation fails due to data or plotting issues.
     """
-    trades_df = get_trades_history()
+    trades_df: pd.DataFrame = get_trades_history()
         
     if trades_df.empty:
         logger.warning("No trades found for charting in trade history")
@@ -157,33 +169,40 @@ def create_performance_charts() -> bool:
         plt.ylabel('Number of Trades', fontsize=12)
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        plt.savefig(os.path.join("reports", "charts", "profit_distribution.png"), dpi=CHART_DPI)
+        plt.savefig(os.path.join("reports", "charts", "profit_distribution.png"), 
+                    dpi=CHART_DPI)
         plt.close()
         
         # 2. Cumulative Profit Over Time
         plt.figure(figsize=CHART_SIZE)
-        cumulative_profit = trades_df.sort_values('exit_date').set_index('exit_date')['profit'].cumsum()
+        cumulative_profit = trades_df.sort_values('exit_date').set_index('exit_date')[
+            'profit'
+        ].cumsum()
         plt.plot(cumulative_profit.index, cumulative_profit.values, linewidth=2)
         plt.title('Cumulative Profit Over Time - All Trades', fontsize=16)
         plt.xlabel('Date', fontsize=12)
         plt.ylabel('Cumulative Profit ($)', fontsize=12)
         plt.grid(True, alpha=0.3)
-        plt.fill_between(cumulative_profit.index, cumulative_profit.values, 
-                         where=(cumulative_profit.values > 0), alpha=0.2, color='green')
-        plt.fill_between(cumulative_profit.index, cumulative_profit.values, 
-                         where=(cumulative_profit.values <= 0), alpha=0.2, color='red')
+        plt.fill_between(
+            cumulative_profit.index, cumulative_profit.values,
+            where=(cumulative_profit.values > 0), alpha=0.2, color='green'
+        )
+        plt.fill_between(
+            cumulative_profit.index, cumulative_profit.values,
+            where=(cumulative_profit.values <= 0), alpha=0.2, color='red'
+        )
         plt.tight_layout()
-        plt.savefig(os.path.join("reports", "charts", "cumulative_profit.png"), dpi=CHART_DPI)
+        plt.savefig(os.path.join("reports", "charts", "cumulative_profit.png"), 
+                    dpi=CHART_DPI)
         plt.close()
         
         # 3. Win Rate by Signal Type
         plt.figure(figsize=CHART_SIZE)
-        signal_win_rates = trades_df.groupby('type')['profit'].apply(
+        signal_win_rates: pd.DataFrame = trades_df.groupby('type')['profit'].apply(
             lambda x: (x > 0).mean() if len(x) > 0 else 0
         ).reset_index()
         signal_win_rates.columns = ['Signal Type', 'Win Rate']
         
-        # Only plot if we have signal types
         if not signal_win_rates.empty:
             sns.barplot(x='Signal Type', y='Win Rate', data=signal_win_rates)
             plt.title('Win Rate by Signal Type', fontsize=16)
@@ -192,24 +211,29 @@ def create_performance_charts() -> bool:
             plt.axhline(y=0.5, color='r', linestyle='--', alpha=0.7)
             plt.xticks(rotation=45)
             plt.tight_layout()
-            plt.savefig(os.path.join("reports", "charts", "win_rate_by_signal.png"), dpi=CHART_DPI)
+            plt.savefig(os.path.join("reports", "charts", "win_rate_by_signal.png"), 
+                        dpi=CHART_DPI)
             plt.close()
         
         # 4. Top Performing Symbols
         plt.figure(figsize=CHART_SIZE)
-        top_symbols = trades_df.groupby('symbol')['profit'].sum().nlargest(10).reset_index()
+        top_symbols: pd.DataFrame = trades_df.groupby('symbol')['profit'].sum().nlargest(
+            10
+        ).reset_index()
         sns.barplot(x='symbol', y='profit', data=top_symbols)
         plt.title('Top 10 Performing Symbols', fontsize=16)
         plt.xlabel('Symbol', fontsize=12)
         plt.ylabel('Total Profit ($)', fontsize=12)
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.savefig(os.path.join("reports", "charts", "top_symbols.png"), dpi=CHART_DPI)
+        plt.savefig(os.path.join("reports", "charts", "top_symbols.png"), 
+                    dpi=CHART_DPI)
         plt.close()
         
         # 5. Exit Reason Performance
         plt.figure(figsize=CHART_SIZE)
-        exit_performance = trades_df.groupby('exit_reason')['profit'].mean().reset_index()
+        exit_performance: pd.DataFrame = trades_df.groupby('exit_reason')['profit'].mean(
+        ).reset_index()
         exit_performance = exit_performance.sort_values('profit', ascending=False)
         sns.barplot(x='exit_reason', y='profit', data=exit_performance)
         plt.title('Average Profit by Exit Reason', fontsize=16)
@@ -218,7 +242,8 @@ def create_performance_charts() -> bool:
         plt.axhline(y=0, color='r', linestyle='--', alpha=0.7)
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.savefig(os.path.join("reports", "charts", "exit_reason_performance.png"), dpi=CHART_DPI)
+        plt.savefig(os.path.join("reports", "charts", "exit_reason_performance.png"), 
+                    dpi=CHART_DPI)
         plt.close()
         
         logger.info("Successfully created performance charts for all trades")
@@ -227,16 +252,19 @@ def create_performance_charts() -> bool:
     except Exception as e:
         logger.error(f"Error creating performance charts: {e}")
         return False
-# reporting.py - Section 4: Current Positions and Main Function
 
+# reporting.py - Section 4: Current Positions and Main Function
 def current_positions_report() -> pd.DataFrame:
     """
     Generate a report on current positions.
 
     Returns:
-        DataFrame with current positions
+        pd.DataFrame: DataFrame with current positions.
+
+    Raises:
+        ValueError: If no positions are found.
     """
-    positions = get_positions()
+    positions: List[dict] = get_positions()
 
     if not positions:
         logger.warning("No active positions found")
@@ -244,19 +272,22 @@ def current_positions_report() -> pd.DataFrame:
         return pd.DataFrame()
 
     # Convert to DataFrame for easier analysis
-    pos_df = pd.DataFrame(positions)
+    pos_df: pd.DataFrame = pd.DataFrame(positions)
 
     # Calculate position metrics
-    total_value = pos_df['current_value'].sum()
-    total_profit = pos_df['profit'].sum()
-    profit_pct = 100 * total_profit / (total_value - total_profit) if total_value > total_profit else 0
-    avg_days_held = pos_df['days_held'].mean()
+    total_value: float = pos_df['current_value'].sum()
+    total_profit: float = pos_df['profit'].sum()
+    profit_pct: float = (
+        100 * total_profit / (total_value - total_profit)
+        if total_value > total_profit else 0
+    )
+    avg_days_held: float = pos_df['days_held'].mean()
 
     # Calculate directional exposure
-    long_value = pos_df[pos_df['shares'] > 0]['current_value'].sum()
-    short_value = abs(pos_df[pos_df['shares'] < 0]['current_value'].sum())
-    net_exposure = long_value - short_value
-    gross_exposure = long_value + short_value
+    long_value: float = pos_df[pos_df['shares'] > 0]['current_value'].sum()
+    short_value: float = abs(pos_df[pos_df['shares'] < 0]['current_value'].sum())
+    net_exposure: float = long_value - short_value
+    gross_exposure: float = long_value + short_value
 
     # Sort by profit
     pos_df = pos_df.sort_values('profit', ascending=False)
@@ -264,19 +295,20 @@ def current_positions_report() -> pd.DataFrame:
     print("\n" + "="*50)
     print("CURRENT POSITIONS SUMMARY")
     print("="*50)
-    print(f"Total Positions: {len(pos_df)}")
-    print(f"Long Positions: {len(pos_df[pos_df['shares'] > 0])}")
-    print(f"Short Positions: {len(pos_df[pos_df['shares'] < 0])}")
-    print(f"Total Position Value: ${total_value:.2f}")
-    print(f"Unrealized Profit/Loss: ${total_profit:.2f} ({profit_pct:.2f}%)")
-    print(f"Average Days Held: {avg_days_held:.1f}")
-    print(f"Net Market Exposure: ${net_exposure:.2f}")
-    print(f"Gross Market Exposure: ${gross_exposure:.2f}")
+    print("Total Positions:", len(pos_df))
+    print("Long Positions:", len(pos_df[pos_df['shares'] > 0]))
+    print("Short Positions:", len(pos_df[pos_df['shares'] < 0]))
+    print("Total Position Value:", f"${total_value:.2f}")
+    print("Unrealized Profit/Loss:", f"${total_profit:.2f} ({profit_pct:.2f}%)")
+    print("Average Days Held:", f"{avg_days_held:.1f}")
+    print("Net Market Exposure:", f"${net_exposure:.2f}")
+    print("Gross Market Exposure:", f"${gross_exposure:.2f}")
 
     print("\n" + "="*50)
     print("TOP PROFITABLE POSITIONS")
     print("="*50)
-    columns_to_show = ['symbol', 'shares', 'entry_price', 'current_price', 'profit', 'profit_pct', 'days_held']
+    columns_to_show: List[str] = ['symbol', 'shares', 'entry_price', 'current_price', 
+                                 'profit', 'profit_pct', 'days_held']
     if not pos_df.empty:
         print(pos_df.head(10)[columns_to_show].to_string())
 
@@ -290,11 +322,14 @@ def current_positions_report() -> pd.DataFrame:
     try:
         if not pos_df.empty:
             plt.figure(figsize=CHART_SIZE)
-            scatter = plt.scatter(pos_df['days_held'], pos_df['profit_pct'],
-                                  s=pos_df['current_value'].abs() / 100,
-                                  c=pos_df['profit'], cmap='RdYlGn',
-                                  alpha=0.7)
-
+            scatter = plt.scatter(
+                pos_df['days_held'],
+                pos_df['profit_pct'],
+                s=pos_df['current_value'].abs() / 100,
+                c=pos_df['profit'],
+                cmap='RdYlGn',
+                alpha=0.7
+            )
             plt.colorbar(scatter, label='Profit ($)')
             plt.title('Current Positions - Profit % vs Days Held', fontsize=16)
             plt.xlabel('Days Held', fontsize=12)
@@ -302,7 +337,8 @@ def current_positions_report() -> pd.DataFrame:
             plt.axhline(y=0, color='r', linestyle='--', alpha=0.7)
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
-            plt.savefig(os.path.join("reports", "charts", "current_positions.png"), dpi=CHART_DPI)
+            plt.savefig(os.path.join("reports", "charts", "current_positions.png"), 
+                        dpi=CHART_DPI)
             plt.close()
 
             # Position distribution chart
@@ -310,11 +346,13 @@ def current_positions_report() -> pd.DataFrame:
             labels = pos_df['symbol'].head(15)
             sizes = pos_df['current_value'].abs().head(15)
             colors = ['green' if p > 0 else 'red' for p in pos_df['profit'].head(15)]
-            plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+            plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', 
+                    startangle=90)
             plt.axis('equal')
             plt.title('Position Size Distribution (Top 15)', fontsize=16)
             plt.tight_layout()
-            plt.savefig(os.path.join("reports", "charts", "position_distribution.png"), dpi=CHART_DPI)
+            plt.savefig(os.path.join("reports", "charts", "position_distribution.png"), 
+                        dpi=CHART_DPI)
             plt.close()
 
     except Exception as e:
@@ -327,18 +365,20 @@ def current_positions_report() -> pd.DataFrame:
 
     return pos_df
 
-
 def export_report_to_html() -> bool:
     """
     Export performance report to HTML file for all trades and positions.
 
     Returns:
-        Boolean indicating success/failure
+        bool: True if successful, False otherwise.
+
+    Raises:
+        Exception: If file writing or data processing fails.
     """
     try:
         # Get trade history and positions
-        trades_df = get_trades_history()
-        positions = get_positions()
+        trades_df: pd.DataFrame = get_trades_history()
+        positions: List[dict] = get_positions()
 
         # Create HTML content
         html_content = f"""
@@ -368,10 +408,10 @@ def export_report_to_html() -> bool:
 
         # Add trade performance summary
         if not trades_df.empty:
-            total_trades = len(trades_df)
-            winning_trades = len(trades_df[trades_df['profit'] > 0])
-            win_rate = winning_trades / total_trades if total_trades > 0 else 0
-            total_profit = trades_df['profit'].sum()
+            total_trades: int = len(trades_df)
+            winning_trades: int = len(trades_df[trades_df['profit'] > 0])
+            win_rate: float = winning_trades / total_trades if total_trades > 0 else 0
+            total_profit: float = trades_df['profit'].sum()
 
             html_content += f"""
                 <p><strong>Total Trades:</strong> {total_trades}</p>
@@ -383,9 +423,9 @@ def export_report_to_html() -> bool:
 
         # Add position summary
         if positions:
-            pos_df = pd.DataFrame(positions)
-            total_value = pos_df['current_value'].sum()
-            total_profit = pos_df['profit'].sum()
+            pos_df: pd.DataFrame = pd.DataFrame(positions)
+            total_value: float = pos_df['current_value'].sum()
+            total_profit: float = pos_df['profit'].sum()
 
             html_content += f"""
                 <h3>Current Positions Summary</h3>
@@ -441,7 +481,7 @@ def export_report_to_html() -> bool:
             """
 
             for _, row in pos_df.iterrows():
-                profit_color = "green" if row['profit'] > 0 else "red"
+                profit_color: str = "green" if row['profit'] > 0 else "red"
                 html_content += f"""
                     <tr>
                         <td>{row['symbol']}</td>
@@ -498,28 +538,28 @@ def export_report_to_html() -> bool:
         """
 
         # Write to file
-        report_path = os.path.join("reports", f"performance_report_{datetime.now().strftime('%Y%m%d')}.html")
+        report_path: str = os.path.join("reports", 
+                                       f"performance_report_{datetime.now().strftime('%Y%m%d')}.html")
         with open(report_path, "w") as f:
             f.write(html_content)
 
         logger.info(f"HTML report exported to {report_path}")
-        print(f"\nHTML report saved to: {report_path}")
+        print("\nHTML report saved to:", report_path)
         return True
 
     except Exception as e:
         logger.error(f"Error exporting HTML report: {e}")
         return False
 
-
-def main(export_html: bool = True):
+def main(export_html: bool = True) -> None:
     """
     Run all reporting functions for all trades.
 
     Args:
-        export_html: Whether to export report to HTML
+        export_html (bool, optional): Whether to export report to HTML. Defaults to True.
     """
     print("\n" + "="*80)
-    print(f" nGS TRADING SYSTEM PERFORMANCE REPORT - {datetime.now().strftime('%Y-%m-%d')}")
+    print(" nGS TRADING SYSTEM PERFORMANCE REPORT -", datetime.now().strftime('%Y-%m-%d'))
     print("="*80)
 
     # Generate trade performance report

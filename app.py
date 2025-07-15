@@ -92,7 +92,7 @@ st.markdown("""
 with st.sidebar:
     st.markdown("---")
     
-    initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
+    initial_account_size = st.number_input("Initial Account Size", value=1000000, min_value=1000, step=1000)
     
     if st.button("Performance Analytics nGS", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
@@ -281,8 +281,4 @@ with col2:
 
 with col3:
     st.markdown("**📅 Data Retention**")
-<<<<<<< HEAD
     st.caption(f"{dm.RETENTION_DAYS} days (6 months)")
-=======
-    st.caption(f"{dm.RETENTION_DAYS} days (6 months)")
->>>>>>> f612c139bbee93d0e08532f249d5d28e26216b45

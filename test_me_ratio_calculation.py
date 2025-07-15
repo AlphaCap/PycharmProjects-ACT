@@ -1,14 +1,21 @@
 # test_me_ratio_calculation.py - Test M/E ratio calculation with sample data
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
 import os
+from datetime import datetime
+from typing import Optional, List
 
-def create_sample_trade_data():
-    """Create sample trade data for testing M/E ratio calculation"""
-    
+def create_sample_trade_data() -> pd.DataFrame:
+    """
+    Create sample trade data for testing M/E ratio calculation.
+
+    Returns:
+        pd.DataFrame: DataFrame containing sample trade data.
+
+    Raises:
+        OSError: If directory creation or file writing fails.
+    """
     # Create sample trades
-    sample_trades = [
+    sample_trades: List[dict] = [
         {
             'symbol': 'AAPL',
             'type': 'long',
@@ -52,7 +59,7 @@ def create_sample_trade_data():
     ]
     
     # Create DataFrame
-    df = pd.DataFrame(sample_trades)
+    df: pd.DataFrame = pd.DataFrame(sample_trades)
     
     # Ensure data directory exists
     os.makedirs('data/trades', exist_ok=True)
@@ -65,21 +72,15 @@ def create_sample_trade_data():
     
     return df
 
-def manual_me_calculation_check():
-    """Manually verify M/E calculation for specific dates"""
-    
+def manual_me_calculation_check() -> None:
+    """
+    Manually verify M/E calculation for specific dates.
+    """
     print("\n" + "="*60)
     print("MANUAL M/E RATIO VERIFICATION")
     print("="*60)
     
-    initial_value = 100000
-    
-    # Let's manually check January 18, 2024
-    # On this date we should have:
-    # - AAPL long position: 100 shares @ $150 = $15,000
-    # - MSFT short position: 50 shares @ $300 = $15,000  
-    # - No realized profits yet (no exits)
-    
+    # Manually check January 18, 2024
     print("\nJanuary 18, 2024 Analysis:")
     print("- AAPL: 100 shares × $150 = $15,000 (long position)")
     print("- MSFT: 50 shares × $300 = $15,000 (short position)")
@@ -91,14 +92,22 @@ def manual_me_calculation_check():
     print("\nJanuary 22, 2024 Analysis (after MSFT exit):")
     print("- AAPL: Still open, 100 shares × $150 = $15,000")
     print("- MSFT: Closed with $250 profit")
-    print("- GOOGL: Still open, 80 shares × $120 = $9,600") 
+    print("- GOOGL: Still open, 80 shares × $120 = $9,600")
     print("- Total Position Value = $15,000 + $9,600 = $24,600")
     print("- Portfolio Equity = $100,000 + $250 = $100,250")
     print("- M/E Ratio = ($24,600 / $100,250) × 100 = 24.54%")
 
-def run_me_calculation_test():
-    """Run the M/E calculation and show results"""
-    
+def run_me_calculation_test() -> Optional[pd.DataFrame]:
+    """
+    Run the M/E calculation and show results.
+
+    Returns:
+        Optional[pd.DataFrame]: DataFrame of M/E ratios if successful, None otherwise.
+
+    Raises:
+        ImportError: If the calculation module is not found.
+        Exception: For other runtime errors.
+    """
     print("\n" + "="*60)
     print("RUNNING M/E RATIO CALCULATION")
     print("="*60)
@@ -108,14 +117,14 @@ def run_me_calculation_test():
         from calculate_daily_me_ratio_fixed import calculate_daily_me_ratios
         
         # Run the calculation
-        me_df = calculate_daily_me_ratios(initial_value=100000)
+        me_df: pd.DataFrame = calculate_daily_me_ratios(initial_value=100000)
         
         print("\n" + "="*60)
         print("DETAILED DAILY BREAKDOWN")
         print("="*60)
         
         # Show detailed breakdown for verification
-        key_dates = ['2024-01-18', '2024-01-22', '2024-01-25']
+        key_dates: List[str] = ['2024-01-18', '2024-01-22', '2024-01-25']
         
         for date in key_dates:
             if date in me_df['Date'].dt.strftime('%Y-%m-%d').values:
@@ -140,9 +149,13 @@ def run_me_calculation_test():
         print(f"Error running M/E calculation: {e}")
         return None
 
-def validate_me_calculation(me_df):
-    """Validate the M/E calculation results"""
-    
+def validate_me_calculation(me_df: Optional[pd.DataFrame]) -> None:
+    """
+    Validate the M/E calculation results.
+
+    Args:
+        me_df (Optional[pd.DataFrame]): DataFrame of M/E ratios, or None if unavailable.
+    """
     if me_df is None:
         print("No data to validate")
         return
@@ -152,28 +165,28 @@ def validate_me_calculation(me_df):
     print("="*60)
     
     # Check 1: M/E ratio should never exceed reasonable limits
-    max_me = me_df['ME_Ratio'].max()
-    print(f"✓ Max M/E Ratio: {max_me:.2f}% (should be reasonable)")
+    max_me: float = me_df['ME_Ratio'].max()
+    print("✓ Max M/E Ratio:", f"{max_me:.2f}% (should be reasonable)")
     
     # Check 2: Portfolio equity should generally increase with profits
-    final_equity = me_df['Portfolio_Equity'].iloc[-1]
-    initial_equity = me_df['Portfolio_Equity'].iloc[0]
-    total_profit = me_df['Cumulative_Profit'].iloc[-1]
+    final_equity: float = me_df['Portfolio_Equity'].iloc[-1]
+    initial_equity: float = me_df['Portfolio_Equity'].iloc[0]
+    total_profit: float = me_df['Cumulative_Profit'].iloc[-1]
     
-    print(f"✓ Initial Equity: ${initial_equity:,.2f}")
-    print(f"✓ Final Equity: ${final_equity:,.2f}")
-    print(f"✓ Total Profit: ${total_profit:,.2f}")
-    print(f"✓ Equity Check: {initial_equity + total_profit} = {final_equity} ✓" if abs(initial_equity + total_profit - final_equity) < 0.01 else "✗ Equity mismatch!")
+    print("✓ Initial Equity:", f"${initial_equity:,.2f}")
+    print("✓ Final Equity:", f"${final_equity:,.2f}")
+    print("✓ Total Profit:", f"${total_profit:,.2f}")
+    print("✓ Equity Check:", f"{initial_equity + total_profit} = {final_equity} ✓" if abs(initial_equity + total_profit - final_equity) < 0.01 else "✗ Equity mismatch!")
     
     # Check 3: M/E ratio calculation spot check
     sample_row = me_df.iloc[10] if len(me_df) > 10 else me_df.iloc[-1]
-    calculated_me = (sample_row['Total_Position_Value'] / sample_row['Portfolio_Equity']) * 100
-    stored_me = sample_row['ME_Ratio']
+    calculated_me: float = (sample_row['Total_Position_Value'] / sample_row['Portfolio_Equity']) * 100
+    stored_me: float = sample_row['ME_Ratio']
     
-    print(f"✓ Spot Check M/E Calculation:")
-    print(f"  Calculated: {calculated_me:.2f}%")
-    print(f"  Stored: {stored_me:.2f}%")
-    print(f"  Match: {'✓' if abs(calculated_me - stored_me) < 0.01 else '✗'}")
+    print("✓ Spot Check M/E Calculation:")
+    print("  Calculated:", f"{calculated_me:.2f}%")
+    print("  Stored:", f"{stored_me:.2f}%")
+    print("  Match:", "✓" if abs(calculated_me - stored_me) < 0.01 else "✗")
 
 if __name__ == "__main__":
     print("M/E Ratio Calculation Test")
@@ -186,7 +199,7 @@ if __name__ == "__main__":
     manual_me_calculation_check()
     
     # Step 3: Run the calculation
-    me_df = run_me_calculation_test()
+    me_df: Optional[pd.DataFrame] = run_me_calculation_test()
     
     # Step 4: Validate results
     validate_me_calculation(me_df)

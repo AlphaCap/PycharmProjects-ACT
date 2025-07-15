@@ -1,8 +1,8 @@
 import streamlit as st
 import streamlit.errors  # Added to qualify StreamlitAPIException
 import pandas as pd
-import matplotlib.pyplot as plt  # Added for Matplotlib functions
-from datetime import datetime
+import datetime
+import matplotlib.pyplot as plt
 import sys
 import os
 
@@ -58,34 +58,28 @@ with st.sidebar:
     if st.button("← Back to Main Dashboard", use_container_width=True, key="main_dashboard_button"):
         st.write("Button clicked, attempting to switch to home page...")  # Debug output
         try:
-            st.switch_page("app.py")  # Switch to root app.py as the main page
+            st.switch_page("pages/app.py")  # Assuming app.py should be a subpage
         except streamlit.errors.StreamlitAPIException:
-            st.warning("Failed to switch to main page. Ensure 'app.py' is the main script.")
-            st.info("Current setup: Run 'streamlit run app.py' with this as a subpage.")
-
+            st.warning("Page 'app.py' not found. Please place it in the 'pages/' directory or run 'app.py' as the main script.")
+            st.info("Current directory structure: Check for 'pages/app.py' or adjust the main script.")
     
     st.markdown("---")
-    st.caption(f"{datetime.now().strftime('%m/%d/%Y %H:%M')}")  # Fixed datetime usage
+    st.caption("Historical Performance")
+    st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
 
 # --- PAGE HEADER ---
-st.markdown("### nGS Historical Performance")
+st.markdown("### nGulfStream Swing Trader - Historical Performance")
 st.caption("Detailed Performance Analytics & Trade History")
 
-# --- VARIABLE ACCOUNT SIZE (Synchronized with session state) ---
-# Initialize session state for account size with default $1,000,000
-if 'initial_value' not in st.session_state:
-    st.session_state.initial_value = 1000000
-
-# Allow user to adjust account size, syncing to session state
+# --- VARIABLE ACCOUNT SIZE ---
+st.markdown("## Portfolio Performance Analysis")
 initial_value: int = st.number_input(
     "Set initial portfolio/account size:",
     min_value=1000,
-    value=st.session_state.initial_value,  # Use session state value
+    value=100000,
     step=1000,
-    format="%d",
-    key="account_size_input"  # Unique key for this input
+    format="%d"
 )
-st.session_state.initial_value = initial_value  # Update session state on change
 
 # --- GET PORTFOLIO METRICS WITH ERROR HANDLING ---
 def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
@@ -224,7 +218,7 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                     row['symbol'], row['shares'], row['entry_price'], 
                     row['exit_price'], row['type']
                 )
-                if row['exit_date'] <= datetime.now().strftime('%Y-%m-%d'):
+                if row['exit_date'] <= datetime.datetime.now().strftime('%Y-%m-%d'):
                     calculator.add_realized_pnl(row['profit'])
             
             me_history_df: pd.DataFrame = calculator.get_me_history_df()
@@ -383,7 +377,7 @@ try:
         st.download_button(
             label="📥 Download Trade History CSV",
             data=csv,
-            file_name=f"trade_history_{datetime.now().strftime('%Y%m%d')}.csv",  # Fixed datetime usage
+            file_name=f"trade_history_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv"
         )
     else:
@@ -415,7 +409,7 @@ try:
     col1, col2, col3 = st.columns(3)
     with col1:
         st.success("✅ System Online")
-        st.info(f"Last Update: {datetime.now().strftime('%H:%M:%S')}")  # Fixed datetime usage
+        st.info(f"Last Update: {datetime.datetime.now().strftime('%H:%M:%S')}")
     with col2:
         if USE_REAL_METRICS:
             st.success("✅ Real Metrics Active")
@@ -425,11 +419,6 @@ try:
         st.info("📊 Data Sources Connected")
 except Exception as e:
     st.error(f"Error getting system status: {e}")
-
-st.markdown(
-    "<p style='text-align: center; color: #999; font-size: 0.8rem;'>* Data retention: 6 months (180 days)</p>", 
-    unsafe_allow_html=True
-)
 
 st.markdown("---")
 st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
