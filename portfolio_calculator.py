@@ -23,7 +23,7 @@ from data_manager import (
 # Import the real portfolio calculator
 try:
     from portfolio_calculator import calculate_real_portfolio_metrics, get_enhanced_strategy_performance
-    USE_REAL_METRICS = True
+    USE_REAL_METRICS: bool = True
 except ImportError:
     USE_REAL_METRICS = False
 
@@ -52,7 +52,7 @@ hide_streamlit_style = """
     }
     </style>
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)  # Note: Use with caution due to security risks
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
@@ -70,7 +70,7 @@ st.caption("Detailed Performance Analytics & Trade History")
 
 # --- VARIABLE ACCOUNT SIZE ---
 st.markdown("## Portfolio Performance Analysis")
-initial_value = st.number_input(
+initial_value: int = st.number_input(
     "Set initial portfolio/account size:",
     min_value=1000,
     value=100000,
@@ -79,27 +79,30 @@ initial_value = st.number_input(
 )
 
 # --- GET PORTFOLIO METRICS WITH ERROR HANDLING ---
-try:
-    if USE_REAL_METRICS:
-        metrics = calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
-    else:
-        metrics = get_portfolio_metrics(initial_portfolio_value=initial_value)
-except Exception as e:
-    st.error(f"Error getting portfolio metrics: {e}")
-    metrics = {
-        'total_value': f"${initial_value:,.0f}",
-        'total_return_pct': "+0.0%",
-        'daily_pnl': "$0.00",
-        'me_ratio': "0.00",
-        'net_exposure': "$0",
-        'mtd_return': "+0.0%",
-        'mtd_delta': "+0.0%",
-        'ytd_return': "+0.0%",
-        'ytd_delta': "+0.0%"
-    }
+def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
+    """Fetch portfolio metrics with fallback for errors."""
+    try:
+        if USE_REAL_METRICS:
+            return calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
+        return get_portfolio_metrics(initial_portfolio_value=initial_value)
+    except Exception as e:
+        st.error(f"Error getting portfolio metrics: {e}")
+        return {
+            'total_value': f"${initial_value:,.0f}",
+            'total_return_pct': "+0.0%",
+            'daily_pnl': "$0.00",
+            'me_ratio': "0.00",
+            'net_exposure': "$0",
+            'mtd_return': "+0.0%",
+            'mtd_delta': "+0.0%",
+            'ytd_return': "+0.0%",
+            'ytd_delta': "+0.0%"
+        }
+
+metrics: dict = get_portfolio_metrics_with_fallback(initial_value)
 
 # Ensure all required metrics exist with safe defaults
-safe_metrics = {
+safe_metrics: dict = {
     'total_value': f"${initial_value:,.0f}",
     'total_return_pct': "+0.0%",
     'daily_pnl': "$0.00",
@@ -110,7 +113,6 @@ safe_metrics = {
     'ytd_delta': "+0.0%"
 }
 
-# Update with actual metrics if available
 for key, default_value in safe_metrics.items():
     if key not in metrics:
         metrics[key] = default_value
@@ -131,7 +133,6 @@ with col1:
 with col2:
     st.metric(label="Daily P&L", value=metrics['daily_pnl'])
 with col3:
-    # Show historical M/E ratio instead of current M/E ratio
     historical_me = metrics.get('historical_me_ratio', '0.00')
     st.metric(label="Avg Historical M/E", value=f"{historical_me}%")
 with col4:
@@ -150,102 +151,103 @@ with col6:
 st.markdown("---")
 st.subheader("🎯 Strategy Performance")
 
-try:
-    if USE_REAL_METRICS:
-        strategy_df = get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
-    else:
-        strategy_df = get_strategy_performance(initial_portfolio_value=initial_value)
+def get_strategy_data(initial_value: int) -> pd.DataFrame:
+    """Fetch strategy performance data."""
+    try:
+        if USE_REAL_METRICS:
+            return get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
+        return get_strategy_performance(initial_portfolio_value=initial_value)
+    except Exception as e:
+        st.error(f"Error loading strategy performance: {e}")
+        return pd.DataFrame()
 
-    if not strategy_df.empty:
-        st.dataframe(strategy_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("No strategy performance data available.")
-except Exception as e:
-    st.error(f"Error loading strategy performance: {e}")
+strategy_df: pd.DataFrame = get_strategy_data(initial_value)
+if not strategy_df.empty:
+    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+else:
+    st.info("No strategy performance data available.")
 
 # --- M/E RATIO ANALYSIS SECTION ---
 st.markdown("---")
 st.subheader("⚠️ M/E Ratio Risk Management")
 
-try:
-    # Import the M/E ratio history function
-    from portfolio_calculator import get_me_ratio_history
-    
-    trades_df = get_trades_history()
-    if not trades_df.empty:
-        me_history_df = get_me_ratio_history(trades_df, initial_value)
-        
-        if not me_history_df.empty:
-            # Create M/E ratio chart
-            fig, ax = plt.subplots(figsize=(12, 6))
-            
-            # Plot M/E ratio over time
-            ax.plot(me_history_df['date'], me_history_df['me_ratio'], 
-                   linewidth=3, color='#ff6b35', label='M/E Ratio', marker='o', markersize=4)
-            
-            # Add critical 100% line
-            ax.axhline(y=100, color='red', linestyle='--', linewidth=2, 
-                      alpha=0.8, label='CRITICAL LIMIT (100%)')
-            
-            # Add safe zone shading (below 80%)
-            ax.fill_between(me_history_df['date'], 0, 80, 
-                           alpha=0.2, color='green', label='Safe Zone (<80%)')
-            
-            # Add warning zone shading (80-100%)
-            ax.fill_between(me_history_df['date'], 80, 100, 
-                           alpha=0.2, color='orange', label='Warning Zone (80-100%)')
-            
-            ax.set_title('M/E Ratio History - Critical for Portfolio Rebalancing', 
-                        fontsize=16, fontweight='bold')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('M/E Ratio (%)')
-            ax.set_ylim(0, max(110, me_history_df['me_ratio'].max() * 1.1))
-            ax.grid(True, alpha=0.3)
-            ax.legend(loc='upper left')
-            ax.tick_params(axis='x', rotation=45)
-            
-            # Add current stats
-            avg_me = me_history_df['me_ratio'].mean()
-            max_me = me_history_df['me_ratio'].max()
-            min_me = me_history_df['me_ratio'].min()
-            
-            stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
-            ax.text(0.02, 0.98, stats_text, 
-                   transform=ax.transAxes, verticalalignment='top',
-                   bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8),
-                   fontsize=10)
-            
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close()
-            
-            # Risk assessment with color coding
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                if max_me > 90:
-                    st.error(f"🚨 HIGH RISK\nMax M/E: {max_me:.1f}%\n(>90% Critical)")
-                elif max_me > 80:
-                    st.warning(f"⚠️ MODERATE RISK\nMax M/E: {max_me:.1f}%\n(>80% Warning)")
-                else:
-                    st.success(f"✅ LOW RISK\nMax M/E: {max_me:.1f}%\n(<80% Safe)")
-            
-            with col2:
-                st.info(f"📊 **Average M/E Ratio**\n{avg_me:.1f}%\n(Historical Average)")
-            
-            with col3:
-                target_me = 75  # Target M/E ratio for rebalancing
-                if avg_me > target_me:
-                    st.warning(f"🎯 **Rebalancing Signal**\nAvg: {avg_me:.1f}% > {target_me}%\nConsider reducing position sizes")
-                else:
-                    st.success(f"🎯 **Portfolio Balanced**\nAvg: {avg_me:.1f}% ≤ {target_me}%\nWithin target range")
-                    
+def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
+    """Plot M/E ratio history with risk zones."""
+    try:
+        from portfolio_calculator import get_me_ratio_history
+        if not trades_df.empty:
+            me_history_df = get_me_ratio_history(trades_df, initial_value)
+            if not me_history_df.empty:
+                fig, ax = plt.subplots(figsize=(12, 6))
+                ax.plot(
+                    me_history_df['date'],
+                    me_history_df['me_ratio'],
+                    linewidth=3,
+                    color='#ff6b35',
+                    label='M/E Ratio',
+                    marker='o',
+                    markersize=4
+                )
+                ax.axhline(y=100, color='red', linestyle='--', linewidth=2, alpha=0.8,
+                          label='CRITICAL LIMIT (100%)')
+                ax.fill_between(
+                    me_history_df['date'], 0, 80, alpha=0.2, color='green',
+                    label='Safe Zone (<80%)'
+                )
+                ax.fill_between(
+                    me_history_df['date'], 80, 100, alpha=0.2, color='orange',
+                    label='Warning Zone (80-100%)'
+                )
+                ax.set_title(
+                    'M/E Ratio History - Critical for Portfolio Rebalancing',
+                    fontsize=16,
+                    fontweight='bold'
+                )
+                ax.set_xlabel('Date')
+                ax.set_ylabel('M/E Ratio (%)')
+                ax.set_ylim(0, max(110, me_history_df['me_ratio'].max() * 1.1))
+                ax.grid(True, alpha=0.3)
+                ax.legend(loc='upper left')
+                ax.tick_params(axis='x', rotation=45)
+                avg_me = me_history_df['me_ratio'].mean()
+                max_me = me_history_df['me_ratio'].max()
+                min_me = me_history_df['me_ratio'].min()
+                stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
+                ax.text(
+                    0.02, 0.98, stats_text, transform=ax.transAxes,
+                    verticalalignment='top',
+                    bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8),
+                    fontsize=10
+                )
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close()
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if max_me > 90:
+                        st.error(f"🚨 HIGH RISK\nMax M/E: {max_me:.1f}%\n(>90% Critical)")
+                    elif max_me > 80:
+                        st.warning(f"⚠️ MODERATE RISK\nMax M/E: {max_me:.1f}%\n(>80% Warning)")
+                    else:
+                        st.success(f"✅ LOW RISK\nMax M/E: {max_me:.1f}%\n(<80% Safe)")
+                with col2:
+                    st.info(f"📊 **Average M/E Ratio**\n{avg_me:.1f}%\n(Historical Average)")
+                with col3:
+                    target_me = 75
+                    if avg_me > target_me:
+                        st.warning(f"🎯 **Rebalancing Signal**\nAvg: {avg_me:.1f}% > {target_me}%\nConsider reducing position sizes")
+                    else:
+                        st.success(f"🎯 **Portfolio Balanced**\nAvg: {avg_me:.1f}% ≤ {target_me}%\nWithin target range")
+            else:
+                st.info("No M/E ratio history available - need position data for analysis")
         else:
-            st.info("No M/E ratio history available - need position data for analysis")
-    else:
-        st.info("No trade history for M/E ratio analysis")
-except Exception as e:
-    st.error(f"Error creating M/E ratio analysis: {e}")
+            st.info("No trade history for M/E ratio analysis")
+    except Exception as e:
+        st.error(f"Error creating M/E ratio analysis: {e}")
+
+trades_df: pd.DataFrame = get_trades_history()
+plot_me_ratio_history(trades_df, initial_value)
 
 # --- PERFORMANCE STATISTICS ---
 st.markdown("---")
@@ -255,7 +257,7 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     try:
-        perf_stats_df = get_portfolio_performance_stats()
+        perf_stats_df: pd.DataFrame = get_portfolio_performance_stats()
         if not perf_stats_df.empty:
             st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
         else:
@@ -266,21 +268,32 @@ with col1:
 with col2:
     st.subheader("📈 Equity Curve")
     try:
-        # Create equity curve from trade history
         trades_df = get_trades_history()
         if not trades_df.empty:
-            # Sort trades by exit date and calculate cumulative profit
             trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
             trades_sorted = trades_df.sort_values('exit_date')
             trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
-            
-            # Create the equity curve chart
             fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], linewidth=2, color='#1f77b4')
-            ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
-                           where=(trades_sorted['cumulative_profit'] > 0), alpha=0.3, color='green')
-            ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], 
-                           where=(trades_sorted['cumulative_profit'] <= 0), alpha=0.3, color='red')
+            ax.plot(
+                trades_sorted['exit_date'],
+                trades_sorted['cumulative_profit'],
+                linewidth=2,
+                color='#1f77b4'
+            )
+            ax.fill_between(
+                trades_sorted['exit_date'],
+                trades_sorted['cumulative_profit'],
+                where=(trades_sorted['cumulative_profit'] > 0),
+                alpha=0.3,
+                color='green'
+            )
+            ax.fill_between(
+                trades_sorted['exit_date'],
+                trades_sorted['cumulative_profit'],
+                where=(trades_sorted['cumulative_profit'] <= 0),
+                alpha=0.3,
+                color='red'
+            )
             ax.set_title('Cumulative Profit Over Time', fontsize=12, fontweight='bold')
             ax.set_xlabel('Date')
             ax.set_ylabel('Cumulative Profit ($)')
@@ -301,9 +314,7 @@ st.subheader("📋 Complete Trade History")
 try:
     trades_df = get_trades_history()
     if not trades_df.empty:
-        # Add some basic stats
         col1, col2, col3, col4 = st.columns(4)
-        
         with col1:
             st.metric("Total Trades", len(trades_df))
         with col2:
@@ -316,10 +327,7 @@ try:
             total_profit = trades_df['profit'].sum()
             st.metric("Total Profit", f"${total_profit:,.2f}")
         
-        # Show trade history table
         st.dataframe(trades_df, use_container_width=True, hide_index=True)
-        
-        # Download option
         csv = trades_df.to_csv(index=False)
         st.download_button(
             label="📥 Download Trade History CSV",
@@ -337,11 +345,9 @@ st.markdown("---")
 st.subheader("🎯 Signal History")
 
 try:
-    signals_df = get_signals()
+    signals_df: pd.DataFrame = get_signals()
     if not signals_df.empty:
-        # Show recent signals
         st.dataframe(signals_df.head(50), use_container_width=True, hide_index=True)
-        
         if len(signals_df) > 50:
             st.caption(f"Showing latest 50 signals out of {len(signals_df)} total")
     else:
@@ -354,22 +360,18 @@ st.markdown("---")
 st.subheader("⚙️ System Status")
 
 try:
-    system_status = get_system_status()
+    system_status: dict = get_system_status()
     col1, col2, col3 = st.columns(3)
-    
     with col1:
         st.success("✅ System Online")
         st.info(f"Last Update: {datetime.datetime.now().strftime('%H:%M:%S')}")
-    
     with col2:
         if USE_REAL_METRICS:
             st.success("✅ Real Metrics Active")
         else:
             st.warning("⚠️ Using Placeholder Metrics")
-    
     with col3:
         st.info("📊 Data Sources Connected")
-        
 except Exception as e:
     st.error(f"Error getting system status: {e}")
 
