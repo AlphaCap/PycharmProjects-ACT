@@ -8,6 +8,7 @@ ensuring the trading universe is adequately covered.
 
 import os
 from data_manager import get_sp500_symbols, verify_sp500_coverage
+from typing import List
 
 def main() -> None:
     """
@@ -23,7 +24,7 @@ def main() -> None:
     # Check if symbols file exists
     symbols_file: str = "sp500_symbols.txt"
     if not os.path.exists(symbols_file):
-        print(f"❌ {symbols_file} not found!")
+        print("❌", symbols_file, "not found!")
         print("   You need to create this file with all S&P 500 symbols")
         return
     
@@ -34,7 +35,7 @@ def main() -> None:
         print("❌ No symbols loaded!")
         return
     
-    print(f"✅ Loaded {len(symbols)} symbols")
+    print("✅ Loaded", len(symbols), "symbols")
     
     # Verify coverage
     coverage_ok: bool = verify_sp500_coverage()
@@ -45,23 +46,23 @@ def main() -> None:
         print("⚠️  S&P 500 coverage may be incomplete")
     
     # Show sample symbols
-    print(f"\nFirst 10 symbols: {symbols[:10]}")
-    print(f"Last 10 symbols: {symbols[-10:]}")
+    print("\nFirst 10 symbols:", symbols[:10])
+    print("Last 10 symbols:", symbols[-10:])
     
     # Check for common symbols
-    common_symbols: List[str] = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 
+    common_symbols: List[str] = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META',
                                 'NVDA', 'BRK.B', 'UNH', 'JNJ']
     found_common: List[str] = [s for s in common_symbols if s in symbols]
     missing_common: List[str] = [s for s in common_symbols if s not in symbols]
     
-    print(f"\nCommon symbols found: {found_common}")
+    print("\nCommon symbols found:", found_common)
     if missing_common:
-        print(f"Missing common symbols: {missing_common}")
+        print("Missing common symbols:", missing_common)
     
-    print(f"\nTo ensure all S&P 500 symbols are being scanned:")
-    print(f"1. Verify {symbols_file} contains all current S&P 500 symbols")
-    print(f"2. Check that your data scanning uses get_sp500_symbols()")
-    print(f"3. Expected count: ~500 symbols (currently: {len(symbols)})")
+    print("\nTo ensure all S&P 500 symbols are being scanned:")
+    print("1. Verify", symbols_file, "contains all current S&P 500 symbols")
+    print("2. Check that your data scanning uses get_sp500_symbols()")
+    print("3. Expected count: ~500 symbols (currently:", len(symbols), ")")
 
 if __name__ == "__main__":
     main()
