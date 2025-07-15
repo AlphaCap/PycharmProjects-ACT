@@ -1,6 +1,7 @@
 import streamlit as st
+import streamlit.errors  # Added to qualify StreamlitAPIException
 import pandas as pd
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt  # Added for Matplotlib functions
 from datetime import datetime
 import sys
 import os
