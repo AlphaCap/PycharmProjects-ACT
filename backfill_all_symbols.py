@@ -2,7 +2,7 @@ from nGS_Revised_Strategy import NGSStrategy
 import pandas as pd
 from datetime import datetime, timedelta
 import logging
-from data_manager import get_sp500_symbols
+from data_manager import get_sp500_symbols, get_historical_data  # Added get_historical_data
 from polygon import RESTClient
 import os
 
@@ -44,7 +44,7 @@ def backfill_all_symbols():
     # Process each symbol
     for symbol in symbols:
         try:
-            data = get_historical_data(polygon_client, symbol, start_date, end_date)  # Pass polygon_client first
+            data = get_historical_data(polygon_client, symbol, start_date, end_date)  # Corrected call
             if data is not None and not data.empty:
                 # Process data with the strategy
                 strategy.backfill_symbol(symbol, data)
