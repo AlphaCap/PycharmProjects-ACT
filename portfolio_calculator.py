@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.errors  # Added to qualify StreamlitAPIException
 import pandas as pd
 import datetime
 import matplotlib.pyplot as plt
@@ -57,7 +58,7 @@ with st.sidebar:
     if st.button("← Back to Main Dashboard", use_container_width=True):
         try:
             st.switch_page("pages/app.py")  # Assuming app.py should be a subpage
-        except streamlit.errors.StreamlitAPIException as e:
+        except streamlit.errors.StreamlitAPIException:
             st.warning("Page 'app.py' not found. Please place it in the 'pages/' directory or run 'app.py' as the main script.")
             st.info("Current directory structure: Check for 'pages/app.py' or adjust the main script.")
     
