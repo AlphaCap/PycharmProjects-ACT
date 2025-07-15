@@ -55,7 +55,7 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)  # Note: Use with caut
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
     st.title("Trading Systems")
-    if st.button("← Back to Main Dashboard", use_container_width=True):
+    if st.button("← Back to Main Dashboard", use_container_width=True, key="main_dashboard_button"):
         try:
             st.switch_page("pages/app.py")  # Assuming app.py should be a subpage
         except streamlit.errors.StreamlitAPIException:
@@ -153,7 +153,7 @@ col5, col6 = st.columns([1, 1])
 with col5:
     st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
 with col6:
-    if st.button("🔄 Refresh Historical Data", use_container_width=True):
+    if st.button("🔄 Refresh Historical Data", use_container_width=True, key="refresh_button"):
         st.cache_data.clear()
         st.rerun()
 
