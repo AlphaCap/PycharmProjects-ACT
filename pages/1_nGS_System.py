@@ -433,3 +433,4 @@ st.markdown(
 
 st.markdown("---")
 st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
+

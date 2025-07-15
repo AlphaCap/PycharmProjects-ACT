@@ -1074,4 +1074,3 @@ def initialize():
 if __name__ == "__main__":
     initialize()
     logger.info("data_manager.py loaded successfully with 6-month data retention")
-    

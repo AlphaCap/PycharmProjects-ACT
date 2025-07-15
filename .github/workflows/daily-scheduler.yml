@@ -1,0 +1,23 @@
+name: Daily EOD Scheduler
+on:
+  schedule:
+    - cron: '30 20 * * *'  # 8:30 PM UTC (post-market close; adjust as needed)
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements.txt
+      - env:
+          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
+        run: python backfill_all_symbols.py  # Runs data fetch + strategy (your EOD update)
+      - run: git config --global user.name "GitHub Actions"
+      - run: git config --global user.email "actions@github.com"
+      - run: git add data/
+      - run: git commit -m "Daily EOD data update and signals" || echo "No changes to commit"
+      - run: git push
