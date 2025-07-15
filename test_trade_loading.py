@@ -2,7 +2,6 @@
 import os
 import pandas as pd
 from data_manager import get_trades_history, TRADES_HISTORY_FILE
-from typing import Optional
 
 def diagnose_trade_loading() -> None:
     """
@@ -15,22 +14,23 @@ def diagnose_trade_loading() -> None:
         OSError: If file operations fail.
         pd.errors.ParserError: If CSV parsing fails.
     """
-    print("=== TRADE HISTORY LOADING DIAGNOSTIC ===\n")
+    print("=== TRADE HISTORY LOADING DIAGNOSTIC ===")
+    print()
     
     # Check if file exists
-    print(f"1. Checking trade history file: {TRADES_HISTORY_FILE}")
+    print("1. Checking trade history file:", TRADES_HISTORY_FILE)
     if os.path.exists(TRADES_HISTORY_FILE):
-        print(f"   ✓ File exists")
+        print("   ✓ File exists")
         
         # Check file size
         file_size: int = os.path.getsize(TRADES_HISTORY_FILE)
-        print(f"   ✓ File size: {file_size} bytes")
+        print("   ✓ File size:", file_size, "bytes")
         
         # Try reading directly
         try:
             df_direct: pd.DataFrame = pd.read_csv(TRADES_HISTORY_FILE)
-            print(f"   ✓ Direct read successful: {len(df_direct)} rows")
-            print(f"   ✓ Columns: {list(df_direct.columns)}")
+            print("   ✓ Direct read successful:", len(df_direct), "rows")
+            print("   ✓ Columns:", list(df_direct.columns))
             
             if not df_direct.empty:
                 print("   ✓ Sample data:")
@@ -39,16 +39,16 @@ def diagnose_trade_loading() -> None:
                 print("   ✗ File is empty")
                 
         except Exception as e:
-            print(f"   ✗ Error reading file directly: {e}")
+            print("   ✗ Error reading file directly:", e)
     else:
-        print(f"   ✗ File does not exist")
-        print(f"   Looking for: {os.path.abspath(TRADES_HISTORY_FILE)}")
+        print("   ✗ File does not exist")
+        print("   Looking for:", os.path.abspath(TRADES_HISTORY_FILE))
     
     # Test data_manager function
-    print(f"\n2. Testing get_trades_history() function:")
+    print("\n2. Testing get_trades_history() function:")
     try:
         df_function: pd.DataFrame = get_trades_history()
-        print(f"   ✓ Function call successful: {len(df_function)} rows")
+        print("   ✓ Function call successful:", len(df_function), "rows")
         
         if not df_function.empty:
             print("   ✓ Function returned data:")
@@ -57,20 +57,20 @@ def diagnose_trade_loading() -> None:
             print("   ✗ Function returned empty DataFrame")
             
     except Exception as e:
-        print(f"   ✗ Error calling function: {e}")
+        print("   ✗ Error calling function:", e)
     
     # Check current directory
-    print(f"\n3. Current working directory: {os.getcwd()}")
+    print("\n3. Current working directory:", os.getcwd())
     
     # Look for any CSV files in data directory
-    print(f"\n4. Files in data directory:")
+    print("\n4. Files in data directory:")
     if os.path.exists("data"):
         for root, dirs, files in os.walk("data"):
             for file in files:
                 if file.endswith('.csv'):
                     full_path: str = os.path.join(root, file)
                     size: int = os.path.getsize(full_path)
-                    print(f"   {full_path} ({size} bytes)")
+                    print("  ", full_path, "(", size, "bytes)", sep="")
     else:
         print("   No data directory found")
     
