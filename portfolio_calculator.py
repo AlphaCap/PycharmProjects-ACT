@@ -12,9 +12,6 @@ from data_manager import (
     get_portfolio_metrics,
     get_strategy_performance,
     get_portfolio_performance_stats,
-    get_positions,
-    get_long_positions_formatted,
-    get_short_positions_formatted,
     get_signals,
     get_system_status,
     get_trades_history
@@ -80,7 +77,15 @@ initial_value: int = st.number_input(
 
 # --- GET PORTFOLIO METRICS WITH ERROR HANDLING ---
 def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
-    """Fetch portfolio metrics with fallback for errors."""
+    """
+    Fetch portfolio metrics with fallback for errors.
+
+    Args:
+        initial_value (int): Initial portfolio value.
+
+    Returns:
+        dict: Portfolio metrics or fallback values on error.
+    """
     try:
         if USE_REAL_METRICS:
             return calculate_real_portfolio_metrics(initial_portfolio_value=initial_value)
@@ -152,7 +157,18 @@ st.markdown("---")
 st.subheader("🎯 Strategy Performance")
 
 def get_strategy_data(initial_value: int) -> pd.DataFrame:
-    """Fetch strategy performance data."""
+    """
+    Fetch strategy performance data.
+
+    Args:
+        initial_value (int): Initial portfolio value.
+
+    Returns:
+        pd.DataFrame: Strategy performance data.
+
+    Raises:
+        Exception: If data loading fails.
+    """
     try:
         if USE_REAL_METRICS:
             return get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
@@ -172,11 +188,20 @@ st.markdown("---")
 st.subheader("⚠️ M/E Ratio Risk Management")
 
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
-    """Plot M/E ratio history with risk zones."""
+    """
+    Plot M/E ratio history with risk zones.
+
+    Args:
+        trades_df (pd.DataFrame): DataFrame containing trade history.
+        initial_value (int): Initial portfolio value.
+
+    Raises:
+        Exception: If plotting or data processing fails.
+    """
     try:
         from portfolio_calculator import get_me_ratio_history
         if not trades_df.empty:
-            me_history_df = get_me_ratio_history(trades_df, initial_value)
+            me_history_df: pd.DataFrame = get_me_ratio_history(trades_df, initial_value)
             if not me_history_df.empty:
                 fig, ax = plt.subplots(figsize=(12, 6))
                 ax.plot(
@@ -209,9 +234,9 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 ax.grid(True, alpha=0.3)
                 ax.legend(loc='upper left')
                 ax.tick_params(axis='x', rotation=45)
-                avg_me = me_history_df['me_ratio'].mean()
-                max_me = me_history_df['me_ratio'].max()
-                min_me = me_history_df['me_ratio'].min()
+                avg_me: float = me_history_df['me_ratio'].mean()
+                max_me: float = me_history_df['me_ratio'].max()
+                min_me: float = me_history_df['me_ratio'].min()
                 stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
                 ax.text(
                     0.02, 0.98, stats_text, transform=ax.transAxes,
@@ -234,7 +259,7 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 with col2:
                     st.info(f"📊 **Average M/E Ratio**\n{avg_me:.1f}%\n(Historical Average)")
                 with col3:
-                    target_me = 75
+                    target_me: int = 75
                     if avg_me > target_me:
                         st.warning(f"🎯 **Rebalancing Signal**\nAvg: {avg_me:.1f}% > {target_me}%\nConsider reducing position sizes")
                     else:
@@ -271,7 +296,7 @@ with col2:
         trades_df = get_trades_history()
         if not trades_df.empty:
             trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
-            trades_sorted = trades_df.sort_values('exit_date')
+            trades_sorted: pd.DataFrame = trades_df.sort_values('exit_date')
             trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
             fig, ax = plt.subplots(figsize=(10, 4))
             ax.plot(
@@ -318,17 +343,17 @@ try:
         with col1:
             st.metric("Total Trades", len(trades_df))
         with col2:
-            winning_trades = len(trades_df[trades_df['profit'] > 0])
+            winning_trades: int = len(trades_df[trades_df['profit'] > 0])
             st.metric("Winning Trades", winning_trades)
         with col3:
-            win_rate = (winning_trades / len(trades_df)) * 100 if len(trades_df) > 0 else 0
+            win_rate: float = (winning_trades / len(trades_df)) * 100 if len(trades_df) > 0 else 0
             st.metric("Win Rate", f"{win_rate:.1f}%")
         with col4:
-            total_profit = trades_df['profit'].sum()
+            total_profit: float = trades_df['profit'].sum()
             st.metric("Total Profit", f"${total_profit:,.2f}")
         
         st.dataframe(trades_df, use_container_width=True, hide_index=True)
-        csv = trades_df.to_csv(index=False)
+        csv: str = trades_df.to_csv(index=False)
         st.download_button(
             label="📥 Download Trade History CSV",
             data=csv,
