@@ -1078,11 +1078,12 @@ if __name__ == "__main__":
     logger.info("data_manager.py loaded successfully with 6-month data retention")
 
 # --- HISTORICAL DATA WITH POLYGON ---
-def get_historical_data(symbol: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+def get_historical_data(polygon_client, symbol: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     """
     Fetch historical data for a given symbol using Polygon API.
 
     Args:
+        polygon_client: Initialized RESTClient instance.
         symbol (str): Stock symbol (e.g., "AAPL").
         start_date (datetime): Start date for data.
         end_date (datetime): End date for data.
@@ -1091,7 +1092,7 @@ def get_historical_data(symbol: str, start_date: datetime, end_date: datetime) -
         pd.DataFrame: Historical data with columns like 'open', 'high', 'low', 'close', 'volume'.
     """
     if not polygon_client:
-        logger.error("Polygon API key not configured. Set POLYGON_API_KEY environment variable.")
+        logger.error("Polygon API client not provided. Ensure POLYGON_API_KEY is set.")
         return pd.DataFrame()
 
     try:
