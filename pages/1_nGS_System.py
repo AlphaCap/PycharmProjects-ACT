@@ -71,15 +71,21 @@ with st.sidebar:
 st.markdown("### nGS Historical Performance")
 st.caption("Detailed Performance Analytics & Trade History")
 
-# --- VARIABLE ACCOUNT SIZE ---
-st.markdown("## Portfolio Performance Analysis")
+# --- VARIABLE ACCOUNT SIZE (Synchronized with session state) ---
+# Initialize session state for account size with default $1,000,000
+if 'initial_value' not in st.session_state:
+    st.session_state.initial_value = 1000000
+
+# Allow user to adjust account size, syncing to session state
 initial_value: int = st.number_input(
     "Set initial portfolio/account size:",
     min_value=1000,
-    value=100000,
+    value=st.session_state.initial_value,  # Use session state value
     step=1000,
-    format="%d"
+    format="%d",
+    key="account_size_input"  # Unique key for this input
 )
+st.session_state.initial_value = initial_value  # Update session state on change
 
 # --- GET PORTFOLIO METRICS WITH ERROR HANDLING ---
 def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
@@ -218,7 +224,7 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                     row['symbol'], row['shares'], row['entry_price'], 
                     row['exit_price'], row['type']
                 )
-                if row['exit_date'] <= datetime.datetime.now().strftime('%Y-%m-%d'):
+                if row['exit_date'] <= datetime.now().strftime('%Y-%m-%d'):
                     calculator.add_realized_pnl(row['profit'])
             
             me_history_df: pd.DataFrame = calculator.get_me_history_df()
