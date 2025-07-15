@@ -18,7 +18,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Set plot styles for better visualization
-plt.style.use('seaborn-darkgrid')  # Updated from deprecated v0_8
+try:
+    plt.style.use('seaborn')  # Use a valid Seaborn style; fallback to 'seaborn' if 'darkgrid' fails
+except OSError:
+    plt.style.use('ggplot')  # Fallback to a built-in Matplotlib style
+    logger.warning("Seaborn style 'seaborn' not found; using 'ggplot' as fallback")
+
 sns.set_palette("viridis")
 
 # Create reports directory if it doesn't exist
@@ -290,14 +295,14 @@ def current_positions_report() -> pd.DataFrame:
     print("\n" + "="*50)
     print("CURRENT POSITIONS SUMMARY")
     print("="*50)
-    print(f"Total Positions: {len(pos_df)}")
-    print(f"Long Positions: {len(pos_df[pos_df['shares'] > 0])}")
-    print(f"Short Positions: {len(pos_df[pos_df['shares'] < 0])}")
-    print(f"Total Position Value: ${total_value:.2f}")
-    print(f"Unrealized Profit/Loss: ${total_profit:.2f} ({profit_pct:.2f}%)")
-    print(f"Average Days Held: {avg_days_held:.1f}")
-    print(f"Net Market Exposure: ${net_exposure:.2f}")
-    print(f"Gross Market Exposure: ${gross_exposure:.2f}")
+    print("Total Positions:", len(pos_df))
+    print("Long Positions:", len(pos_df[pos_df['shares'] > 0]))
+    print("Short Positions:", len(pos_df[pos_df['shares'] < 0]))
+    print("Total Position Value:", f"${total_value:.2f}")
+    print("Unrealized Profit/Loss:", f"${total_profit:.2f} ({profit_pct:.2f}%)")
+    print("Average Days Held:", f"{avg_days_held:.1f}")
+    print("Net Market Exposure:", f"${net_exposure:.2f}")
+    print("Gross Market Exposure:", f"${gross_exposure:.2f}")
 
     print("\n" + "="*50)
     print("TOP PROFITABLE POSITIONS")
@@ -539,7 +544,7 @@ def export_report_to_html() -> bool:
             f.write(html_content)
 
         logger.info(f"HTML report exported to {report_path}")
-        print(f"\nHTML report saved to: {report_path}")
+        print("\nHTML report saved to:", report_path)
         return True
 
     except Exception as e:
@@ -554,7 +559,7 @@ def main(export_html: bool = True) -> None:
         export_html (bool, optional): Whether to export report to HTML. Defaults to True.
     """
     print("\n" + "="*80)
-    print(f" nGS TRADING SYSTEM PERFORMANCE REPORT - {datetime.now().strftime('%Y-%m-%d')}")
+    print(" nGS TRADING SYSTEM PERFORMANCE REPORT -", datetime.now().strftime('%Y-%m-%d'))
     print("="*80)
 
     # Generate trade performance report
