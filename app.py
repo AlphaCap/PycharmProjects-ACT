@@ -92,7 +92,7 @@ st.markdown("""
 with st.sidebar:
     st.markdown("---")
     
-    initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
+    initial_account_size = st.number_input("Initial Account Size", value=1000000, min_value=1000, step=1000)
     
     if st.button("Performance Analytics nGS", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
