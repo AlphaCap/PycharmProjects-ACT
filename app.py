@@ -79,7 +79,7 @@ for key, default_value in safe_metrics.items():
     if key not in metrics:
         metrics[key] = default_value
 
-# Fetch positions for L/S Ratio
+# Fetch positions for L/S Ratio (optional, keeping as is for now)
 positions = get_positions()
 long_positions = sum(pos['shares'] for pos in positions if pos.get('side', 'long') == 'long' and 'shares' in pos)
 short_positions = sum(abs(pos['shares']) for pos in positions if pos.get('side', 'short') == 'short' and 'shares' in pos)
@@ -116,14 +116,22 @@ st.subheader("📋 Trade History")
 trades = get_trades_history_formatted()
 st.dataframe(trades, use_container_width=True, hide_index=True)
 
-# Display Positions (without redundant rows)
+# Display Positions (fixed to show data, not code)
 st.markdown("---")
 st.subheader("📊 Current Positions")
-positions_df = pd.DataFrame(positions)
-if not positions_df.empty:
-    st.dataframe(positions_df[['symbol', 'shares', 'entry_price', 'entry_date', 'current_price', 'profit', 'profit_pct', 'days_held', 'side']], use_container_width=True, hide_index=True)
+positions = get_positions()
+if positions and isinstance(positions, (list, pd.DataFrame)):
+    if isinstance(positions, list):
+        positions_df = pd.DataFrame(positions)
+    else:
+        positions_df = positions
+    if not positions_df.empty:
+        st.dataframe(positions_df[['symbol', 'shares', 'entry_price', 'entry_date', 'current_price', 'profit', 'profit_pct', 'days_held', 'side']], use_container_width=True, hide_index=True)
+    else:
+        st.info("No current positions available.")
 else:
-    st.info("No current positions available.")
+    st.warning("Positions data is not in a valid format. Check get_positions() output.")
+    st.write("Debug: Positions data:", positions)  # Temporary debug to inspect format
 
 # System Status
 st.markdown("---")
