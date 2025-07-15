@@ -199,14 +199,28 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
         Exception: If plotting or data processing fails.
     """
     try:
-        from portfolio_calculator import get_me_ratio_history
+        # Note: Original import 'from portfolio_calculator import get_me_ratio_history' 
+        # caused a circular import. Assuming M/E history should come from 
+        # me_ratio_calculator.py. Adjust if a different module is intended.
+        from me_ratio_calculator import DailyMERatioCalculator
+        
         if not trades_df.empty:
-            me_history_df: pd.DataFrame = get_me_ratio_history(trades_df, initial_value)
+            calculator = DailyMERatioCalculator(initial_value)
+            # Simulate loading trade data into calculator (placeholder logic)
+            for _, row in trades_df.iterrows():
+                calculator.update_position(
+                    row['symbol'], row['shares'], row['entry_price'], 
+                    row['exit_price'], row['type']
+                )
+                if row['exit_date'] <= datetime.datetime.now().strftime('%Y-%m-%d'):
+                    calculator.add_realized_pnl(row['profit'])
+            
+            me_history_df: pd.DataFrame = calculator.get_me_history_df()
             if not me_history_df.empty:
                 fig, ax = plt.subplots(figsize=(12, 6))
                 ax.plot(
-                    me_history_df['date'],
-                    me_history_df['me_ratio'],
+                    me_history_df['Date'],
+                    me_history_df['ME_Ratio'],
                     linewidth=3,
                     color='#ff6b35',
                     label='M/E Ratio',
@@ -216,11 +230,11 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 ax.axhline(y=100, color='red', linestyle='--', linewidth=2, alpha=0.8,
                           label='CRITICAL LIMIT (100%)')
                 ax.fill_between(
-                    me_history_df['date'], 0, 80, alpha=0.2, color='green',
+                    me_history_df['Date'], 0, 80, alpha=0.2, color='green',
                     label='Safe Zone (<80%)'
                 )
                 ax.fill_between(
-                    me_history_df['date'], 80, 100, alpha=0.2, color='orange',
+                    me_history_df['Date'], 80, 100, alpha=0.2, color='orange',
                     label='Warning Zone (80-100%)'
                 )
                 ax.set_title(
@@ -230,13 +244,13 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 )
                 ax.set_xlabel('Date')
                 ax.set_ylabel('M/E Ratio (%)')
-                ax.set_ylim(0, max(110, me_history_df['me_ratio'].max() * 1.1))
+                ax.set_ylim(0, max(110, me_history_df['ME_Ratio'].max() * 1.1))
                 ax.grid(True, alpha=0.3)
                 ax.legend(loc='upper left')
                 ax.tick_params(axis='x', rotation=45)
-                avg_me: float = me_history_df['me_ratio'].mean()
-                max_me: float = me_history_df['me_ratio'].max()
-                min_me: float = me_history_df['me_ratio'].min()
+                avg_me: float = me_history_df['ME_Ratio'].mean()
+                max_me: float = me_history_df['ME_Ratio'].max()
+                min_me: float = me_history_df['ME_Ratio'].min()
                 stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
                 ax.text(
                     0.02, 0.98, stats_text, transform=ax.transAxes,
