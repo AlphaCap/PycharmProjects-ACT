@@ -1,6 +1,47 @@
 import streamlit as st
 from data_manager import get_trades_history_formatted, get_portfolio_metrics, get_positions
+from datetime import datetime
+import os
 
+# Page configuration
+st.set_page_config(
+    page_title="Main Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Hide Streamlit elements
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    .stDecoration {display:none;}
+    [data-testid="stToolbar"] {display: none;}
+    [data-testid="stHeader"] {display: none;}
+    .stApp > header {display: none;}
+    [data-testid="stSidebarNav"] {display: none;}
+    
+    .stAppViewContainer > .main .block-container {
+        padding-top: 1rem;
+    }
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# Sidebar
+with st.sidebar:
+    st.title("Trading Systems")
+    st.caption(f"Last Updated: {datetime.now().strftime('%m/%d/%Y %H:%M')}")  # Timestamp
+    st.markdown("---")
+    if st.button("Go to nGS Performance", use_container_width=True):
+        try:
+            st.switch_page("pages/1_nGS_System.py")
+        except streamlit.errors.StreamlitAPIException:
+            st.warning("Failed to switch to nGS page. Ensure 'pages/1_nGS_System.py' exists.")
+
+# Main content
 st.title("Main Dashboard")
 
 # Initialize session state for account size
@@ -85,4 +126,13 @@ if not positions_df.empty:
 else:
     st.info("No current positions available.")
 
-# Remove redundant rows (handled by excluding them from the DataFrame display)
+# System Status
+st.markdown("---")
+st.subheader("⚙️ System Status")
+try:
+    st.success("✅ System Online")
+    st.info(f"Last Update: {datetime.now().strftime('%H:%M:%S')}")
+except Exception as e:
+    st.error(f"Error getting system status: {e}")
+
+st.markdown("<p style='text-align: center; color: #999; font-size: 0.8rem;'>* Data retention: 6 months (180 days)</p>", unsafe_allow_html=True)
