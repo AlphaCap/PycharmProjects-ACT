@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
 SP500_FILE = "data/sp500_symbols.txt"
 SP500_MINIMUM_COUNT = 490
 DATA_RETENTION_DAYS = 180
-POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")  # Set this via environment variable or config
+POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")  # Set via environment variable or .env
+POSITIONS_FILE = "data/positions.json"
+TRADES_FILE = "data/trades.csv"
+METADATA_FILE = "metadata.json"
 
 # Initialize Polygon client
 polygon_client = RESTClient(POLYGON_API_KEY) if POLYGON_API_KEY else None
@@ -125,17 +128,122 @@ def get_historical_data(symbol: str, start_date: datetime, end_date: datetime) -
             'volume': 'volume'
         })
         data.set_index('timestamp', inplace=True)
-        logger.info(f"Fetched historical data for {symbol} from {start_str} to {end_str}")
+        logger.info(f"✔ Fetched historical data for {symbol} from {start_str} to {end_str}")
         return data
     except Exception as e:
         logger.error(f"Error fetching data for {symbol}: {e}")
         return pd.DataFrame()
 
+def load_positions() -> List[Dict]:
+    """
+    Load current positions from a JSON file, filtered by retention policy.
+
+    Returns:
+        List[Dict]: List of position dictionaries.
+    """
+    if not os.path.exists(POSITIONS_FILE):
+        logger.warning(f"Positions file not found: {POSITIONS_FILE}")
+        return []
+    try:
+        with open(POSITIONS_FILE, "r") as f:
+            positions = pd.read_json(f).to_dict(orient='records')
+        cutoff_date = datetime.now() - timedelta(days=DATA_RETENTION_DAYS)
+        valid_positions = [pos for pos in positions if datetime.strptime(pos.get('date', cutoff_date.strftime('%Y-%m-%d')), '%Y-%m-%d') >= cutoff_date]
+        logger.info(f"Attempting to load {len(positions)} positions from data manager")
+        logger.info(f"Loaded {len(valid_positions)} positions within {DATA_RETENTION_DAYS}-day retention period")
+        return valid_positions
+    except Exception as e:
+        logger.error(f"Error loading positions: {e}")
+        return []
+
+def get_trades_history() -> pd.DataFrame:
+    """
+    Load trade history from a CSV file, filtered by retention policy.
+
+    Returns:
+        pd.DataFrame: DataFrame of trade history.
+    """
+    if not os.path.exists(TRADES_FILE):
+        logger.warning(f"Trades file not found: {TRADES_FILE}")
+        return pd.DataFrame()
+    try:
+        trades = pd.read_csv(TRADES_FILE)
+        if 'exit_date' not in trades.columns:
+            logger.warning("Trades file missing 'exit_date' column")
+            return pd.DataFrame()
+        trades['exit_date'] = pd.to_datetime(trades['exit_date'])
+        cutoff_date = datetime.now() - timedelta(days=DATA_RETENTION_DAYS)
+        trades = trades[trades['exit_date'] >= cutoff_date]
+        logger.info(f"Loaded {len(trades)} trades within {DATA_RETENTION_DAYS}-day retention period")
+        return trades
+    except Exception as e:
+        logger.error(f"Error loading trades history: {e}")
+        return pd.DataFrame()
+
+def update_metadata(key: str, value: any):
+    """
+    Update metadata in the JSON file.
+
+    Args:
+        key (str): Metadata key.
+        value (any): Value to store.
+    """
+    try:
+        if os.path.exists(METADATA_FILE):
+            with open(METADATA_FILE, "r") as f:
+                metadata = pd.read_json(f).to_dict()
+        else:
+            metadata = {}
+        metadata[key] = value
+        with open(METADATA_FILE, "w") as f:
+            pd.DataFrame.from_dict(metadata, orient='index').to_json(f)
+        logger.info(f"Updated metadata: {key} = {value}")
+    except Exception as e:
+        logger.error(f"Error updating metadata: {e}")
+
+def get_portfolio_metrics(initial_portfolio_value: int) -> Dict:
+    """
+    Fetch portfolio metrics based on current positions and trades.
+
+    Args:
+        initial_portfolio_value (int): Initial portfolio value.
+
+    Returns:
+        Dict: Portfolio metrics.
+    """
+    positions = load_positions()
+    trades = get_trades_history()
+    total_value = initial_portfolio_value
+    total_return_pct = "+0.0%"
+    daily_pnl = "$0.00"
+    me_ratio = "0.00"
+    net_exposure = "$0"
+    mtd_return = "+0.0%"
+    mtd_delta = "+0.0%"
+    ytd_return = "+0.0%"
+    ytd_delta = "+0.0%"
+
+    if positions:
+        total_value += sum(pos.get('current_value', 0) for pos in positions)
+    if not trades.empty:
+        daily_pnl = f"${trades['profit'].sum():.2f}" if not trades.empty else "$0.00"
+
+    return {
+        'total_value': f"${total_value:,.0f}",
+        'total_return_pct': total_return_pct,
+        'daily_pnl': daily_pnl,
+        'me_ratio': me_ratio,
+        'net_exposure': net_exposure,
+        'mtd_return': mtd_return,
+        'mtd_delta': mtd_delta,
+        'ytd_return': ytd_return,
+        'ytd_delta': ytd_delta
+    }
+
 # Example usage (can be removed if not needed in module context)
 if __name__ == "__main__":
     initialize()
     symbols = get_sp500_symbols()
-    for symbol in symbols[:5]:  # Test with first 5 symbols
-        data = get_historical_data(symbol, datetime.now() - timedelta(days=30), datetime.now())
-        if not data.empty:
-            print(f"Data for {symbol}: {data.head()}")
+    positions = load_positions()
+    trades = get_trades_history()
+    logger.info(f"Loaded {len(positions)} positions and {len(trades)} trades")
