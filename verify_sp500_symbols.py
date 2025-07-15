@@ -1,24 +1,34 @@
 # verify_sp500_symbols.py
 """
-Quick script to verify S&P 500 symbol coverage
+Quick script to verify S&P 500 symbol coverage.
+
+This script checks the existence and content of the S&P 500 symbols file,
+ensuring the trading universe is adequately covered.
 """
 
 import os
 from data_manager import get_sp500_symbols, verify_sp500_coverage
 
-def main():
+def main() -> None:
+    """
+    Verify S&P 500 symbol coverage and display results.
+
+    Raises:
+        FileNotFoundError: If the symbols file is missing.
+        ValueError: If no symbols are loaded.
+    """
     print("S&P 500 Symbol Verification")
     print("=" * 40)
     
     # Check if symbols file exists
-    symbols_file = "sp500_symbols.txt"
+    symbols_file: str = "sp500_symbols.txt"
     if not os.path.exists(symbols_file):
         print(f"❌ {symbols_file} not found!")
         print("   You need to create this file with all S&P 500 symbols")
         return
     
     # Load and verify symbols
-    symbols = get_sp500_symbols()
+    symbols: List[str] = get_sp500_symbols()
     
     if not symbols:
         print("❌ No symbols loaded!")
@@ -27,7 +37,7 @@ def main():
     print(f"✅ Loaded {len(symbols)} symbols")
     
     # Verify coverage
-    coverage_ok = verify_sp500_coverage()
+    coverage_ok: bool = verify_sp500_coverage()
     
     if coverage_ok:
         print("✅ S&P 500 coverage looks good")
@@ -39,9 +49,10 @@ def main():
     print(f"Last 10 symbols: {symbols[-10:]}")
     
     # Check for common symbols
-    common_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BRK.B', 'UNH', 'JNJ']
-    found_common = [s for s in common_symbols if s in symbols]
-    missing_common = [s for s in common_symbols if s not in symbols]
+    common_symbols: List[str] = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 
+                                'NVDA', 'BRK.B', 'UNH', 'JNJ']
+    found_common: List[str] = [s for s in common_symbols if s in symbols]
+    missing_common: List[str] = [s for s in common_symbols if s not in symbols]
     
     print(f"\nCommon symbols found: {found_common}")
     if missing_common:
