@@ -1,15 +1,13 @@
 # reporting.py - Section 1: Imports and Setup
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from datetime import datetime
-import json
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Tuple
 
-from data_manager import get_trades_history, get_positions, init_metadata, update_metadata
+from data_manager import get_trades_history, get_positions, update_metadata
 
 # Configure logging
 logging.basicConfig(
