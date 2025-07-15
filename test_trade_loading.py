@@ -2,8 +2,19 @@
 import os
 import pandas as pd
 from data_manager import get_trades_history, TRADES_HISTORY_FILE
+from typing import Optional
 
-def diagnose_trade_loading():
+def diagnose_trade_loading() -> None:
+    """
+    Diagnose issues with loading trade history data.
+
+    This function checks file existence, size, direct readability, and function
+    behavior to troubleshoot loading problems.
+
+    Raises:
+        OSError: If file operations fail.
+        pd.errors.ParserError: If CSV parsing fails.
+    """
     print("=== TRADE HISTORY LOADING DIAGNOSTIC ===\n")
     
     # Check if file exists
@@ -12,12 +23,12 @@ def diagnose_trade_loading():
         print(f"   ✓ File exists")
         
         # Check file size
-        file_size = os.path.getsize(TRADES_HISTORY_FILE)
+        file_size: int = os.path.getsize(TRADES_HISTORY_FILE)
         print(f"   ✓ File size: {file_size} bytes")
         
         # Try reading directly
         try:
-            df_direct = pd.read_csv(TRADES_HISTORY_FILE)
+            df_direct: pd.DataFrame = pd.read_csv(TRADES_HISTORY_FILE)
             print(f"   ✓ Direct read successful: {len(df_direct)} rows")
             print(f"   ✓ Columns: {list(df_direct.columns)}")
             
@@ -36,7 +47,7 @@ def diagnose_trade_loading():
     # Test data_manager function
     print(f"\n2. Testing get_trades_history() function:")
     try:
-        df_function = get_trades_history()
+        df_function: pd.DataFrame = get_trades_history()
         print(f"   ✓ Function call successful: {len(df_function)} rows")
         
         if not df_function.empty:
@@ -57,8 +68,8 @@ def diagnose_trade_loading():
         for root, dirs, files in os.walk("data"):
             for file in files:
                 if file.endswith('.csv'):
-                    full_path = os.path.join(root, file)
-                    size = os.path.getsize(full_path)
+                    full_path: str = os.path.join(root, file)
+                    size: int = os.path.getsize(full_path)
                     print(f"   {full_path} ({size} bytes)")
     else:
         print("   No data directory found")
