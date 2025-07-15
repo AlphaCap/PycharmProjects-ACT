@@ -405,9 +405,5 @@ if __name__ == "__main__":
         if data['has_data']:
             print(f"  Previous close: ${data['previous_close']:.2f}")
             print(f"  Intraday points: {len(data['intraday_data'])}")
-    
-<<<<<<< HEAD
+
     print(f"API requests used: {fetcher.requests_made}")
-=======
-    print(f"API requests used: {fetcher.requests_made}")
->>>>>>> c3b6458da22b719f87e33e86cea00599c7a24a0f

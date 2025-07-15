@@ -757,8 +757,4 @@ def main():
 
     if __name__ == "__main__":
         main()
-<<<<<<< HEAD
         print(f)
-=======
-        print(f)
->>>>>>> c3b6458da22b719f87e33e86cea00599c7a24a0f

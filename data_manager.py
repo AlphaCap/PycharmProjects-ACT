@@ -4,6 +4,7 @@ import numpy as np
 import json
 import logging
 from datetime import datetime, timedelta
+from polygon import RESTClient
 from typing import Dict, List, Optional, Union
 
 # --- CONFIG ---
@@ -14,7 +15,7 @@ TRADES_HISTORY_FILE = "data/trades/trade_history.csv"  # Updated path
 SIGNALS_FILE = "recent_signals.csv"
 SYSTEM_STATUS_FILE = "system_status.csv"
 METADATA_FILE = "metadata.json"
-SP500_SYMBOLS_FILE = os.path.join("data", "sp500_symbols.txt") 
+SP500_SYMBOLS_FILE = os.path.join("data", "sp500_symbols.txt")
 
 RETENTION_DAYS = 180  # 6 months data retention
 PRIMARY_TIER_DAYS = 30
@@ -41,9 +42,10 @@ ALL_COLUMNS = PRICE_COLUMNS + INDICATOR_COLUMNS
 # --- LOGGING ---
 logging.basicConfig(
     level=logging.INFO,
+    encoding='utf-8',  # Added to handle Unicode characters
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("data_manager.log"),
+        logging.FileHandler("data_manager.log", encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -174,16 +176,16 @@ def verify_sp500_coverage():
         # Validate count
         if symbol_count >= SP500_MINIMUM_COUNT:
             if symbol_count == SP500_EXPECTED_COUNT:
-                logger.info("✓ S&P 500 symbol count is EXACT and complete")
+                logger.info("✔ S&P 500 symbol count is EXACT and complete")
             else:
-                logger.info(f"✓ S&P 500 symbol count is ACCEPTABLE ({symbol_count} >= {SP500_MINIMUM_COUNT})")
+                logger.info(f"✔ S&P 500 symbol count is ACCEPTABLE ({symbol_count} >= {SP500_MINIMUM_COUNT})")
             
             # Check data quality
             duplicate_count = len(symbols) - len(set(symbols))
             if duplicate_count > 0:
                 logger.warning(f"Found {duplicate_count} duplicate symbols")
             else:
-                logger.info("✓ No duplicate symbols found")
+                logger.info("✔ No duplicate symbols found")
                 
             return True
         else:
@@ -772,7 +774,7 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical
         
         # Returns based on closed trades
         total_return = total_trade_profit
-        total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_portfolio_value > 0 else "0.00%"
+        total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_value > 0 else "0.00%"
         
         # Calculate proper MTD and YTD
         mtd_return, mtd_pct = calculate_mtd_return(trades_df, initial_portfolio_value)
@@ -1074,3 +1076,48 @@ def initialize():
 if __name__ == "__main__":
     initialize()
     logger.info("data_manager.py loaded successfully with 6-month data retention")
+
+# --- HISTORICAL DATA WITH POLYGON ---
+def get_historical_data(polygon_client, symbol: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
+    """
+    Fetch historical data for a given symbol using Polygon API.
+
+    Args:
+        polygon_client: Initialized RESTClient instance.
+        symbol (str): Stock symbol (e.g., "AAPL").
+        start_date (datetime): Start date for data.
+        end_date (datetime): End date for data.
+
+    Returns:
+        pd.DataFrame: Historical data with columns like 'open', 'high', 'low', 'close', 'volume'.
+    """
+    if not polygon_client:
+        logger.error("Polygon API client not provided. Ensure POLYGON_API_KEY is set.")
+        return pd.DataFrame()
+
+    try:
+        # Convert datetime to string format expected by Polygon
+        start_str = start_date.strftime('%Y-%m-%d')
+        end_str = end_date.strftime('%Y-%m-%d')
+        # Fetch aggregated daily data from Polygon
+        agg = polygon_client.get_aggs(symbol, 1, 'day', start_str, end_str)
+        if not agg or not agg.results:
+            logger.warning(f"No historical data available for {symbol} from {start_str} to {end_str}")
+            return pd.DataFrame()
+
+        # Convert Polygon response to DataFrame
+        data = pd.DataFrame(agg.results)
+        data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
+        data = data.rename(columns={
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close',
+            'volume': 'volume'
+        })
+        data.set_index('timestamp', inplace=True)
+        logger.info(f"✔ Fetched historical data for {symbol} from {start_str} to {end_str}")
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching data for {symbol}: {e}")
+        return pd.DataFrame()

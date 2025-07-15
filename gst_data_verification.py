@@ -461,8 +461,4 @@ def main():
         print(f"💡 You can process ~{remaining//2} more symbols today (2 API calls per symbol)")
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     main()
-=======
-    main()
->>>>>>> c3b6458da22b719f87e33e86cea00599c7a24a0f
