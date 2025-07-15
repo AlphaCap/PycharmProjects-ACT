@@ -49,15 +49,63 @@ if 'initial_value' not in st.session_state:
 initial_value = st.number_input("Set initial portfolio/account size:", min_value=1000, value=st.session_state.initial_value, step=1000, format="%d", key="account_size_input_home")
 st.session_state.initial_value = initial_value
 
-# Fetch portfolio metrics
-metrics = get_portfolio_metrics(initial_value)
-st.write("Portfolio Metrics:", metrics)
+# Fetch portfolio metrics with fallback
+def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
+    try:
+        return get_portfolio_metrics(initial_portfolio_value=initial_value)
+    except Exception as e:
+        st.error(f"Error getting portfolio metrics: {e}")
+        return {
+            'total_value': f"${initial_value:,.0f}",
+            'total_return_pct': "+0.0%",
+            'daily_pnl': "$0.00",
+            'mtd_return': "+0.0%",
+            'ytd_return': "+0.0%"
+        }
+
+metrics = get_portfolio_metrics_with_fallback(initial_value)
+
+# Ensure all required metrics exist with safe defaults
+safe_metrics = {
+    'total_value': f"${initial_value:,.0f}",
+    'total_return_pct': "+0.0%",
+    'daily_pnl': "$0.00",
+    'mtd_return': "+0.0%",
+    'ytd_return': "+0.0%"
+}
+for key, default_value in safe_metrics.items():
+    if key not in metrics:
+        metrics[key] = default_value
+
+# Display Detailed Portfolio Metrics
+st.subheader("📈 Detailed Portfolio Metrics")
+col1, col2, col3 = st.columns(3)
+with col1:
+    total_value_clean = str(metrics['total_value']).replace('.00', '').replace(',', '')
+    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
+with col2:
+    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
+with col3:
+    st.metric(label="MTD Return", value=metrics['mtd_return'])
+
+# Second row
+col4, col5 = st.columns(2)
+with col4:
+    st.metric(label="YTD Return", value=metrics['ytd_return'])
+with col5:
+    if st.button("🔄 Refresh Historical Data", use_container_width=True, key="refresh_button"):
+        st.cache_data.clear()
+        st.rerun()
 
 # Display Trades
+st.markdown("---")
+st.subheader("📋 Trade History")
 trades = get_trades_history_formatted()
 st.dataframe(trades)
 
 # Display Positions
+st.markdown("---")
+st.subheader("📊 Current Positions")
 positions = get_positions()
 if positions:
     st.write("Current Positions:", positions)
