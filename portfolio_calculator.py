@@ -55,7 +55,11 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)  # Note: Use with caut
 with st.sidebar:
     st.title("Trading Systems")
     if st.button("← Back to Main Dashboard", use_container_width=True):
-        st.switch_page("app.py")
+        try:
+            st.switch_page("pages/app.py")  # Assuming app.py should be a subpage
+        except streamlit.errors.StreamlitAPIException as e:
+            st.warning("Page 'app.py' not found. Please place it in the 'pages/' directory or run 'app.py' as the main script.")
+            st.info("Current directory structure: Check for 'pages/app.py' or adjust the main script.")
     
     st.markdown("---")
     st.caption("Historical Performance")
