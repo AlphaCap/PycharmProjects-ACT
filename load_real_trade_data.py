@@ -1,28 +1,48 @@
 # load_real_trade_data.py - Replace test data with real historical trades
 import pandas as pd
 import os
-import shutil
 from datetime import datetime
 
-def backup_test_data():
-    """Backup the current test data before replacing"""
-    test_file = "data/trades/trade_history.csv"
-    backup_file = f"data/trades/trade_history_test_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+def backup_test_data() -> Optional[str]:
+    """
+    Backup the current test data before replacing.
+
+    Returns:
+        Optional[str]: Path to backup file if successful, None if no file exists.
+
+    Raises:
+        OSError: If file operations fail.
+    """
+    test_file: str = "data/trades/trade_history.csv"
+    backup_file: str = f"data/trades/trade_history_test_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     
     if os.path.exists(test_file):
+        import shutil
         shutil.copy2(test_file, backup_file)
         print(f"✓ Backed up test data to: {backup_file}")
         return backup_file
     return None
 
-def validate_trade_data(df):
-    """Validate that the trade data has the required format"""
+def validate_trade_data(df: pd.DataFrame) -> bool:
+    """
+    Validate that the trade data has the required format.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing trade data.
+
+    Returns:
+        bool: True if validation passes, False otherwise.
+
+    Raises:
+        ValueError: If data types or content are invalid.
+    """
     print("=== VALIDATING TRADE DATA ===")
     
-    required_columns = ['symbol', 'type', 'entry_date', 'exit_date', 'entry_price', 'exit_price', 'shares', 'profit']
+    required_columns: List[str] = ['symbol', 'type', 'entry_date', 'exit_date', 
+                                  'entry_price', 'exit_price', 'shares', 'profit']
     
     # Check columns
-    missing_columns = [col for col in required_columns if col not in df.columns]
+    missing_columns: List[str] = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         print(f"✗ Missing required columns: {missing_columns}")
         return False
@@ -30,7 +50,7 @@ def validate_trade_data(df):
     print(f"✓ All required columns present: {required_columns}")
     
     # Check data types and content
-    issues = []
+    issues: List[str] = []
     
     # Check for empty data
     if df.empty:
@@ -66,8 +86,8 @@ def validate_trade_data(df):
         issues.append("Some trades have 0 shares")
     
     # Check trade types
-    valid_types = ['long', 'short']
-    invalid_types = df[~df['type'].str.lower().isin(valid_types)]['type'].unique()
+    valid_types: List[str] = ['long', 'short']
+    invalid_types: pd.Series = df[~df['type'].str.lower().isin(valid_types)]['type'].unique()
     if len(invalid_types) > 0:
         print(f"⚠ Warning: Unusual trade types found: {invalid_types}")
         print("  Expected: 'long' or 'short'")
@@ -81,8 +101,13 @@ def validate_trade_data(df):
         print("✓ All validation checks passed!")
         return True
 
-def show_data_summary(df):
-    """Show summary of the trade data"""
+def show_data_summary(df: pd.DataFrame) -> None:
+    """
+    Show summary of the trade data.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing trade data.
+    """
     print("\n=== TRADE DATA SUMMARY ===")
     
     print(f"Total Trades: {len(df)}")
@@ -90,13 +115,13 @@ def show_data_summary(df):
     print(f"Symbols: {df['symbol'].nunique()} unique ({', '.join(sorted(df['symbol'].unique())[:10])}{'...' if df['symbol'].nunique() > 10 else ''})")
     
     # Trade types
-    type_counts = df['type'].value_counts()
+    type_counts: pd.Series = df['type'].value_counts()
     print(f"Trade Types: {dict(type_counts)}")
     
     # Performance summary
-    total_profit = df['profit'].sum()
-    winning_trades = len(df[df['profit'] > 0])
-    win_rate = winning_trades / len(df) * 100
+    total_profit: float = df['profit'].sum()
+    winning_trades: int = len(df[df['profit'] > 0])
+    win_rate: float = winning_trades / len(df) * 100
     
     print(f"Total Profit: ${total_profit:,.2f}")
     print(f"Win Rate: {win_rate:.1f}% ({winning_trades}/{len(df)})")
@@ -104,11 +129,13 @@ def show_data_summary(df):
     
     # Show sample trades
     print(f"\nSample Trades (first 5):")
-    sample_cols = ['symbol', 'type', 'entry_date', 'exit_date', 'profit']
+    sample_cols: List[str] = ['symbol', 'type', 'entry_date', 'exit_date', 'profit']
     print(df[sample_cols].head().to_string(index=False))
 
-def load_real_data_interactive():
-    """Interactive function to help user load their real trade data"""
+def load_real_data_interactive() -> None:
+    """
+    Interactive function to help user load their real trade data.
+    """
     print("=== REAL TRADE DATA LOADER ===\n")
     
     print("This script will help you replace the test data with your real historical trades.")
@@ -122,7 +149,7 @@ def load_real_data_interactive():
     print("4. I want to manually enter a few trades for testing")
     print("5. I need help exporting from my trading platform")
     
-    choice = input("\nEnter your choice (1-5): ").strip()
+    choice: str = input("\nEnter your choice (1-5): ").strip()
     
     if choice == "1":
         load_csv_direct()
@@ -137,11 +164,13 @@ def load_real_data_interactive():
     else:
         print("Invalid choice. Please run the script again.")
 
-def load_csv_direct():
-    """Load CSV file that's already in the correct format"""
+def load_csv_direct() -> None:
+    """
+    Load CSV file that's already in the correct format.
+    """
     print("\n=== LOADING CSV FILE (DIRECT) ===")
     
-    file_path = input("Enter the full path to your CSV file: ").strip()
+    file_path: str = input("Enter the full path to your CSV file: ").strip()
     
     if not os.path.exists(file_path):
         print(f"✗ File not found: {file_path}")
@@ -149,7 +178,7 @@ def load_csv_direct():
     
     try:
         # Read the file
-        df = pd.read_csv(file_path)
+        df: pd.DataFrame = pd.read_csv(file_path)
         print(f"✓ Successfully read {len(df)} rows from {file_path}")
         
         # Show current format
@@ -161,8 +190,7 @@ def load_csv_direct():
         if validate_trade_data(df):
             show_data_summary(df)
             
-            # Confirm replacement
-            confirm = input(f"\nReplace test data with this real data? (y/n): ").strip().lower()
+            confirm: str = input(f"\nReplace test data with this real data? (y/n): ").strip().lower()
             if confirm == 'y':
                 backup_test_data()
                 df.to_csv("data/trades/trade_history.csv", index=False)
@@ -176,18 +204,20 @@ def load_csv_direct():
     except Exception as e:
         print(f"✗ Error reading file: {e}")
 
-def load_csv_with_mapping():
-    """Load CSV file and map columns to required format"""
+def load_csv_with_mapping() -> None:
+    """
+    Load CSV file and map columns to required format.
+    """
     print("\n=== LOADING CSV WITH COLUMN MAPPING ===")
     
-    file_path = input("Enter the full path to your CSV file: ").strip()
+    file_path: str = input("Enter the full path to your CSV file: ").strip()
     
     if not os.path.exists(file_path):
         print(f"✗ File not found: {file_path}")
         return
     
     try:
-        df = pd.read_csv(file_path)
+        df: pd.DataFrame = pd.read_csv(file_path)
         print(f"✓ Successfully read {len(df)} rows")
         print(f"Available columns: {list(df.columns)}")
         print("\nSample data:")
@@ -195,13 +225,14 @@ def load_csv_with_mapping():
         
         # Column mapping
         print(f"\nNow I'll help you map your columns to the required format:")
-        required_columns = ['symbol', 'type', 'entry_date', 'exit_date', 'entry_price', 'exit_price', 'shares', 'profit']
+        required_columns: List[str] = ['symbol', 'type', 'entry_date', 'exit_date', 
+                                      'entry_price', 'exit_price', 'shares', 'profit']
         
-        column_mapping = {}
+        column_mapping: Dict[str, str] = {}
         for req_col in required_columns:
             print(f"\nWhich column contains '{req_col}'?")
             print(f"Available: {list(df.columns)}")
-            user_col = input(f"Column for '{req_col}': ").strip()
+            user_col: str = input(f"Column for '{req_col}': ").strip()
             
             if user_col in df.columns:
                 column_mapping[req_col] = user_col
@@ -210,7 +241,7 @@ def load_csv_with_mapping():
                 return
         
         # Create mapped DataFrame
-        mapped_df = pd.DataFrame()
+        mapped_df: pd.DataFrame = pd.DataFrame()
         for req_col, user_col in column_mapping.items():
             mapped_df[req_col] = df[user_col]
         
@@ -220,7 +251,7 @@ def load_csv_with_mapping():
         if validate_trade_data(mapped_df):
             show_data_summary(mapped_df)
             
-            confirm = input(f"\nSave this mapped data? (y/n): ").strip().lower()
+            confirm: str = input(f"\nSave this mapped data? (y/n): ").strip().lower()
             if confirm == 'y':
                 backup_test_data()
                 mapped_df.to_csv("data/trades/trade_history.csv", index=False)
@@ -229,29 +260,31 @@ def load_csv_with_mapping():
     except Exception as e:
         print(f"✗ Error: {e}")
 
-def create_manual_trades():
-    """Allow user to manually enter a few real trades"""
+def create_manual_trades() -> None:
+    """
+    Allow user to manually enter a few real trades.
+    """
     print("\n=== MANUAL TRADE ENTRY ===")
     print("Enter your real trades one by one. Type 'done' when finished.")
     
-    trades = []
+    trades: List[dict] = []
     
     while True:
         print(f"\n--- Trade #{len(trades) + 1} ---")
-        symbol = input("Symbol (e.g., AAPL): ").strip().upper()
+        symbol: str = input("Symbol (e.g., AAPL): ").strip().upper()
         if symbol.lower() == 'done':
             break
             
-        trade_type = input("Type (long/short): ").strip().lower()
-        entry_date = input("Entry date (YYYY-MM-DD): ").strip()
-        exit_date = input("Exit date (YYYY-MM-DD): ").strip()
-        entry_price = float(input("Entry price: $"))
-        exit_price = float(input("Exit price: $"))
-        shares = int(input("Shares: "))
+        trade_type: str = input("Type (long/short): ").strip().lower()
+        entry_date: str = input("Entry date (YYYY-MM-DD): ").strip()
+        exit_date: str = input("Exit date (YYYY-MM-DD): ").strip()
+        entry_price: float = float(input("Entry price: $"))
+        exit_price: float = float(input("Exit price: $"))
+        shares: int = int(input("Shares: "))
         
         # Calculate profit
         if trade_type == 'long':
-            profit = (exit_price - entry_price) * shares
+            profit: float = (exit_price - entry_price) * shares
         else:
             profit = (entry_price - exit_price) * shares
         
@@ -268,12 +301,12 @@ def create_manual_trades():
             'profit': profit
         })
         
-        continue_entry = input("Add another trade? (y/n): ").strip().lower()
+        continue_entry: str = input("Add another trade? (y/n): ").strip().lower()
         if continue_entry != 'y':
             break
     
     if trades:
-        df = pd.DataFrame(trades)
+        df: pd.DataFrame = pd.DataFrame(trades)
         print(f"\n{len(trades)} trades entered:")
         print(df)
         
@@ -282,8 +315,10 @@ def create_manual_trades():
             df.to_csv("data/trades/trade_history.csv", index=False)
             print("✓ Manual trades saved successfully!")
 
-def show_export_help():
-    """Show help for exporting from trading platforms"""
+def show_export_help() -> None:
+    """
+    Show help for exporting from trading platforms.
+    """
     print("\n=== TRADING PLATFORM EXPORT HELP ===")
     print("Here's how to export trade history from common platforms:")
     
