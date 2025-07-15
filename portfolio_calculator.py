@@ -55,7 +55,8 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)  # Note: Use with caut
 # --- SIDEBAR NAVIGATION (Defined once to avoid duplication) ---
 with st.sidebar:
     st.title("Trading Systems")
-    if st.button("← Back to Main Dashboard", use_container_width=True, key=f"main_dashboard_button_{datetime.datetime.now().microsecond}"):
+    if st.button("← Back to Main Dashboard", use_container_width=True, key="main_dashboard_button"):
+        st.write("Button clicked, attempting to switch to home page...")  # Debug output
         try:
             st.switch_page("pages/app.py")  # Assuming app.py should be a subpage
         except streamlit.errors.StreamlitAPIException:
@@ -153,7 +154,7 @@ col5, col6 = st.columns([1, 1])
 with col5:
     st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
 with col6:
-    if st.button("🔄 Refresh Historical Data", use_container_width=True, key=f"refresh_button_{datetime.datetime.now().microsecond}"):
+    if st.button("🔄 Refresh Historical Data", use_container_width=True, key="refresh_button"):
         st.cache_data.clear()
         st.rerun()
 
