@@ -65,8 +65,7 @@ with st.sidebar:
 
     
     st.markdown("---")
-    st.caption("Historical Performance")
-    st.caption(f"{datetime.datetime.now().strftime('%m/%d/%Y %H:%M')}")
+    st.caption(f"{datetime.now().strftime('%m/%d/%Y %H:%M')}")  # Fixed datetime usage
 
 # --- PAGE HEADER ---
 st.markdown("### nGS Historical Performance")
@@ -378,7 +377,7 @@ try:
         st.download_button(
             label="📥 Download Trade History CSV",
             data=csv,
-            file_name=f"trade_history_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
+            file_name=f"trade_history_{datetime.now().strftime('%Y%m%d')}.csv",  # Fixed datetime usage
             mime="text/csv"
         )
     else:
@@ -410,7 +409,7 @@ try:
     col1, col2, col3 = st.columns(3)
     with col1:
         st.success("✅ System Online")
-        st.info(f"Last Update: {datetime.datetime.now().strftime('%H:%M:%S')}")
+        st.info(f"Last Update: {datetime.now().strftime('%H:%M:%S')}")  # Fixed datetime usage
     with col2:
         if USE_REAL_METRICS:
             st.success("✅ Real Metrics Active")
