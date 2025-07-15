@@ -1,9 +1,8 @@
 # test_me_ratio_calculation.py - Test M/E ratio calculation with sample data
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
 import os
-from typing import Optional, Dict, List
+from datetime import datetime
+from typing import Optional, List
 
 def create_sample_trade_data() -> pd.DataFrame:
     """
@@ -80,8 +79,6 @@ def manual_me_calculation_check() -> None:
     print("\n" + "="*60)
     print("MANUAL M/E RATIO VERIFICATION")
     print("="*60)
-    
-    initial_value: float = 100000
     
     # Manually check January 18, 2024
     print("\nJanuary 18, 2024 Analysis:")
@@ -169,27 +166,27 @@ def validate_me_calculation(me_df: Optional[pd.DataFrame]) -> None:
     
     # Check 1: M/E ratio should never exceed reasonable limits
     max_me: float = me_df['ME_Ratio'].max()
-    print(f"✓ Max M/E Ratio: {max_me:.2f}% (should be reasonable)")
+    print("✓ Max M/E Ratio:", f"{max_me:.2f}% (should be reasonable)")
     
     # Check 2: Portfolio equity should generally increase with profits
     final_equity: float = me_df['Portfolio_Equity'].iloc[-1]
     initial_equity: float = me_df['Portfolio_Equity'].iloc[0]
     total_profit: float = me_df['Cumulative_Profit'].iloc[-1]
     
-    print(f"✓ Initial Equity: ${initial_equity:,.2f}")
-    print(f"✓ Final Equity: ${final_equity:,.2f}")
-    print(f"✓ Total Profit: ${total_profit:,.2f}")
-    print(f"✓ Equity Check: {initial_equity + total_profit} = {final_equity} ✓" if abs(initial_equity + total_profit - final_equity) < 0.01 else "✗ Equity mismatch!")
+    print("✓ Initial Equity:", f"${initial_equity:,.2f}")
+    print("✓ Final Equity:", f"${final_equity:,.2f}")
+    print("✓ Total Profit:", f"${total_profit:,.2f}")
+    print("✓ Equity Check:", f"{initial_equity + total_profit} = {final_equity} ✓" if abs(initial_equity + total_profit - final_equity) < 0.01 else "✗ Equity mismatch!")
     
     # Check 3: M/E ratio calculation spot check
     sample_row = me_df.iloc[10] if len(me_df) > 10 else me_df.iloc[-1]
     calculated_me: float = (sample_row['Total_Position_Value'] / sample_row['Portfolio_Equity']) * 100
     stored_me: float = sample_row['ME_Ratio']
     
-    print(f"✓ Spot Check M/E Calculation:")
-    print(f"  Calculated: {calculated_me:.2f}%")
-    print(f"  Stored: {stored_me:.2f}%")
-    print(f"  Match: {'✓' if abs(calculated_me - stored_me) < 0.01 else '✗'}")
+    print("✓ Spot Check M/E Calculation:")
+    print("  Calculated:", f"{calculated_me:.2f}%")
+    print("  Stored:", f"{stored_me:.2f}%")
+    print("  Match:", "✓" if abs(calculated_me - stored_me) < 0.01 else "✗")
 
 if __name__ == "__main__":
     print("M/E Ratio Calculation Test")
