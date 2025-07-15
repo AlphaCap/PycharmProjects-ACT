@@ -48,4 +48,8 @@ except Exception as e:
 # 6. Check for positions.csv
 print("\n=== CHECKING OTHER FILES ===")
 print(f"positions.csv exists: {os.path.exists('positions.csv')}")
+<<<<<<< HEAD
 print(f"signals.csv exists: {os.path.exists('recent_signals.csv')}")
+=======
+print(f"signals.csv exists: {os.path.exists('recent_signals.csv')}")
+>>>>>>> f612c139bbee93d0e08532f249d5d28e26216b45

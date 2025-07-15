@@ -281,4 +281,8 @@ with col2:
 
 with col3:
     st.markdown("**📅 Data Retention**")
+<<<<<<< HEAD
     st.caption(f"{dm.RETENTION_DAYS} days (6 months)")
+=======
+    st.caption(f"{dm.RETENTION_DAYS} days (6 months)")
+>>>>>>> f612c139bbee93d0e08532f249d5d28e26216b45

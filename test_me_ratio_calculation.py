@@ -199,5 +199,4 @@ if __name__ == "__main__":
     print("- data/me_ratio_history.csv (daily M/E ratios)")
     print("- me_ratio_summary.json (summary statistics)")
     print("- me_ratio_history.png (chart, if matplotlib available)")
-    print("\nTo run with your own data:")
     print("python calculate_daily_me_ratio_fixed.py")

@@ -379,4 +379,8 @@ if __name__ == "__main__":
     print("\nNext steps:")
     print("1. Integrate M/E tracking with your nGS strategy")
     print("2. Run your strategy to generate daily M/E data")
+<<<<<<< HEAD
     print("3. Dashboard will show real daily M/E ratios")
+=======
+    print("3. Dashboard will show real daily M/E ratios")
+>>>>>>> f612c139bbee93d0e08532f249d5d28e26216b45

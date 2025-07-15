@@ -333,4 +333,3 @@ st.markdown(
 st.markdown(
     "<p style='text-align: center; color: #999; font-size: 0.8rem;'>* Data retention: 6 months (180 days)</p>", 
     unsafe_allow_html=True
-)

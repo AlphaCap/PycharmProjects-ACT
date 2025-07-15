@@ -244,5 +244,4 @@ if __name__ == "__main__":
     print("USAGE:")
     print("  python list_me_ratios.py                    # Last 30 days")
     print("  python list_me_ratios.py 60                 # Last 60 days") 
-    print("  python list_me_ratios.py 30 --details       # Show detailed breakdown")
     print(f"{'='*40}")

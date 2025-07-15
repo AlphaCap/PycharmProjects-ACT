@@ -273,4 +273,8 @@ if __name__ == "__main__":
     if result is not None:
         print("\n✓ M/E ratio calculation completed successfully!")
     else:
+<<<<<<< HEAD
         print("\n✗ M/E ratio calculation failed. Check error messages above.")
+=======
+        print("\n✗ M/E ratio calculation failed. Check error messages above.")
+>>>>>>> f612c139bbee93d0e08532f249d5d28e26216b45

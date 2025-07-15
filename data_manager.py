@@ -1075,4 +1075,8 @@ if __name__ == "__main__":
     initialize()
     logger.info("data_manager.py loaded successfully with 6-month data retention")
     
+<<<<<<< HEAD
 # END OF FILE - data_manager.py
+=======
+# END OF FILE - data_manager.py
+>>>>>>> f612c139bbee93d0e08532f249d5d28e26216b45

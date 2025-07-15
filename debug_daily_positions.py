@@ -115,4 +115,8 @@ def debug_me_calculation():
     print(f"Maximum concurrent positions: {max_concurrent}")
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     debug_me_calculation()
+=======
+    debug_me_calculation()
+>>>>>>> f612c139bbee93d0e08532f249d5d28e26216b45
