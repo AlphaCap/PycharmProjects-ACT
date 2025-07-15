@@ -1,27 +1,37 @@
 #!/usr/bin/env python3
 """
 Trade Data Diagnostic Tool
-Check what's actually in the trade history file
+Check what's actually in the trade history file.
+
+This script performs detailed analysis on trade history data to identify
+potential issues or synthetic patterns.
 """
 
 import os
 import pandas as pd
 from datetime import datetime
+from typing import Optional, List
 
-def diagnose_trade_data():
-    """Examine the trade history file in detail"""
+def diagnose_trade_data() -> None:
+    """
+    Examine the trade history file in detail.
+
+    Raises:
+        FileNotFoundError: If the trade history file is missing.
+        pd.errors.ParserError: If CSV parsing fails.
+    """
     print("=" * 60)
     print("TRADE DATA DIAGNOSTIC")
     print("=" * 60)
     
-    trades_file = "data/trades/trade_history.csv"
+    trades_file: str = "data/trades/trade_history.csv"
     
     # Check if file exists
     if not os.path.exists(trades_file):
         print(f"❌ Trade history file not found: {trades_file}")
         
         # Check for alternative locations
-        alt_files = [
+        alt_files: List[str] = [
             "trade_history.csv",
             "data/trade_history.csv",
             "trades.csv"
@@ -40,7 +50,7 @@ def diagnose_trade_data():
     
     try:
         # Load the data
-        df = pd.read_csv(trades_file)
+        df: pd.DataFrame = pd.read_csv(trades_file)
         
         print(f"📊 BASIC INFO:")
         print(f"   Total rows: {len(df)}")
@@ -64,8 +74,8 @@ def diagnose_trade_data():
             print(f"   Entry dates: {df['entry_date'].min()} to {df['entry_date'].max()}")
             
             # Check for future dates
-            today = datetime.now()
-            future_entries = df[df['entry_date'] > today]
+            today: datetime = datetime.now()
+            future_entries: pd.DataFrame = df[df['entry_date'] > today]
             if not future_entries.empty:
                 print(f"   ⚠️  WARNING: {len(future_entries)} trades have FUTURE entry dates!")
         
@@ -74,39 +84,39 @@ def diagnose_trade_data():
             print(f"   Exit dates: {df['exit_date'].min()} to {df['exit_date'].max()}")
             
             # Check for future dates
-            future_exits = df[df['exit_date'] > today]
+            future_exits: pd.DataFrame = df[df['exit_date'] > today]
             if not future_exits.empty:
                 print(f"   ⚠️  WARNING: {len(future_exits)} trades have FUTURE exit dates!")
         
         # Symbol analysis
         if 'symbol' in df.columns:
-            unique_symbols = df['symbol'].nunique()
+            unique_symbols: int = df['symbol'].nunique()
             print(f"   Unique symbols: {unique_symbols}")
             if unique_symbols > 100:
                 print(f"   ⚠️  WARNING: {unique_symbols} symbols seems very high!")
             
             # Show symbol counts
-            symbol_counts = df['symbol'].value_counts().head(10)
+            symbol_counts: pd.Series = df['symbol'].value_counts().head(10)
             print(f"   Top symbols:")
             for symbol, count in symbol_counts.items():
                 print(f"      {symbol}: {count} trades")
         
         # Profit analysis
         if 'profit' in df.columns:
-            total_profit = df['profit'].sum()
-            avg_profit = df['profit'].mean()
+            total_profit: float = df['profit'].sum()
+            avg_profit: float = df['profit'].mean()
             print(f"   Total profit: ${total_profit:,.2f}")
             print(f"   Average profit: ${avg_profit:.2f}")
             
             # Check for unrealistic profits
-            huge_profits = df[df['profit'].abs() > 10000]
+            huge_profits: pd.DataFrame = df[df['profit'].abs() > 10000]
             if not huge_profits.empty:
                 print(f"   ⚠️  WARNING: {len(huge_profits)} trades with profit > $10,000")
         
         # Shares analysis
         if 'shares' in df.columns:
-            avg_shares = df['shares'].mean()
-            max_shares = df['shares'].max()
+            avg_shares: float = df['shares'].mean()
+            max_shares: int = df['shares'].max()
             print(f"   Average shares: {avg_shares:.0f}")
             print(f"   Maximum shares: {max_shares:,.0f}")
             
@@ -115,7 +125,7 @@ def diagnose_trade_data():
         
         # Trade type analysis
         if 'type' in df.columns:
-            type_counts = df['type'].value_counts()
+            type_counts: pd.Series = df['type'].value_counts()
             print(f"   Trade types:")
             for trade_type, count in type_counts.items():
                 print(f"      {trade_type}: {count} trades")
@@ -125,7 +135,7 @@ def diagnose_trade_data():
         
         # Check for round numbers (common in synthetic data)
         if 'profit' in df.columns:
-            round_profits = df[df['profit'] % 100 == 0]
+            round_profits: pd.DataFrame = df[df['profit'] % 100 == 0]
             if len(round_profits) / len(df) > 0.5:
                 print(f"   ⚠️  WARNING: {len(round_profits)}/{len(df)} profits are round numbers (synthetic?)")
         
@@ -137,13 +147,13 @@ def diagnose_trade_data():
         
         # Check for identical values
         if 'entry_price' in df.columns:
-            unique_prices = df['entry_price'].nunique()
+            unique_prices: int = df['entry_price'].nunique()
             if unique_prices < len(df) * 0.5:
                 print(f"   ⚠️  WARNING: Too many identical entry prices (synthetic?)")
         
         # Recent trades check
         print(f"\n📅 RECENT TRADES (last 10):")
-        recent = df.tail(10)[['symbol', 'entry_date', 'exit_date', 'profit']].copy()
+        recent: pd.DataFrame = df.tail(10)[['symbol', 'entry_date', 'exit_date', 'profit']].copy()
         if 'entry_date' in recent.columns:
             recent['entry_date'] = recent['entry_date'].dt.strftime('%Y-%m-%d')
         if 'exit_date' in recent.columns:
@@ -157,9 +167,16 @@ def diagnose_trade_data():
     except Exception as e:
         print(f"❌ Error reading trade data: {e}")
 
-def analyze_position_overlap(df):
-    """Analyze how many positions were open simultaneously"""
-    
+def analyze_position_overlap(df: pd.DataFrame) -> None:
+    """
+    Analyze how many positions were open simultaneously.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing trade data with date columns.
+
+    Raises:
+        KeyError: If required date columns are missing.
+    """
     if 'entry_date' not in df.columns or 'exit_date' not in df.columns:
         print("   Cannot analyze - missing date columns")
         return
@@ -171,23 +188,23 @@ def analyze_position_overlap(df):
         df['exit_date'] = pd.to_datetime(df['exit_date'])
         
         # Find date range
-        min_date = df['entry_date'].min()
-        max_date = df['exit_date'].max()
+        min_date: datetime = df['entry_date'].min()
+        max_date: datetime = df['exit_date'].max()
         
         # Sample some dates to check overlap
-        sample_dates = pd.date_range(start=min_date, end=max_date, periods=10)
+        sample_dates: pd.DatetimeIndex = pd.date_range(start=min_date, end=max_date, periods=10)
         
-        max_overlap = 0
-        max_date = None
+        max_overlap: int = 0
+        max_date: Optional[datetime] = None
         
         for check_date in sample_dates:
             # Find trades open on this date
-            open_trades = df[
+            open_trades: pd.DataFrame = df[
                 (df['entry_date'] <= check_date) & 
                 (df['exit_date'] > check_date)
             ]
             
-            overlap_count = len(open_trades)
+            overlap_count: int = len(open_trades)
             if overlap_count > max_overlap:
                 max_overlap = overlap_count
                 max_date = check_date
@@ -203,15 +220,17 @@ def analyze_position_overlap(df):
     except Exception as e:
         print(f"   Error in overlap analysis: {e}")
 
-def check_file_source():
-    """Check if this might be synthetic data"""
+def check_file_source() -> None:
+    """
+    Check if this might be synthetic data based on file metadata.
+    """
     print(f"\n🔍 FILE SOURCE CHECK:")
     
-    trades_file = "data/trades/trade_history.csv"
+    trades_file: str = "data/trades/trade_history.csv"
     if os.path.exists(trades_file):
         # Check file creation time
-        create_time = datetime.fromtimestamp(os.path.getctime(trades_file))
-        modify_time = datetime.fromtimestamp(os.path.getmtime(trades_file))
+        create_time: datetime = datetime.fromtimestamp(os.path.getctime(trades_file))
+        modify_time: datetime = datetime.fromtimestamp(os.path.getmtime(trades_file))
         
         print(f"   File created: {create_time}")
         print(f"   Last modified: {modify_time}")
@@ -221,7 +240,7 @@ def check_file_source():
             print(f"   ⚠️  WARNING: File is very recent - might be synthetic test data")
     
     # Look for strategy files that might generate synthetic data
-    strategy_files = [
+    strategy_files: List[str] = [
         "nGS_Revised_Strategy.py",
         "strategy.py",
         "backtest.py",
