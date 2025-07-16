@@ -10,7 +10,7 @@ import sys
 from data_manager import (
     save_trades, save_positions, load_price_data,
     save_signals, get_positions, initialize as init_data_manager,
-    RETENTION_DAYS  # Import the 6-month retention setting
+    RETENTION_DAYS
 )
 
 # Integrate me_ratio_calculator logic directly (copy-pasted class for self-contained)
@@ -979,7 +979,7 @@ class NGSStrategy:
         save_positions(all_positions)
         
         # Final M/E status with position details for verification
-        print(f"\nFinal M/E Status: {self.current_me_ratio:.2f}%")
+        print(f"\nFinal M/E Status: {self.calculate_current_me_ratio():.2f}%")
         
         # Debug: Show M/E calculation details
         total_equity = 0
