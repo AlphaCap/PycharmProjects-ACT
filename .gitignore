@@ -12,3 +12,6 @@ pycache/
 .venv
 venv/
 env/
+"__pycache__/" 
+"*.pyc" 
+"*.log" 
