@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Union
 DATA_DIR = "."  # Use current directory
 DAILY_DIR = os.path.join("data", "daily")  # Added missing DAILY_DIR
 POSITIONS_FILE = "positions.csv"
-TRADES_HISTORY_FILE = "data/trades/trade_history.csv"  # Updated path
+TRADES_HISTORY_FILE = "trade_history.csv" 
 SIGNALS_FILE = "recent_signals.csv"
 SYSTEM_STATUS_FILE = "system_status.csv"
 METADATA_FILE = "metadata.json"
