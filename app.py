@@ -313,4 +313,4 @@ with col2:
 
 with col3:
     st.markdown("**📅 Data Retention**")
-    st.caption(f"{dm.RETENTION_DAYS} days (6 months)")"" 
+    st.caption(f"{dm.RETENTION_DAYS} days (6 months)")
