@@ -145,7 +145,7 @@ if long_count == 0 and short_count == 0:
 elif long_count >= short_count:
     ls_ratio = (long_count / short_count) if short_count > 0 else float('inf')
 else:
-    ls_ratio = (short_count / long_count)
+    ls_ratio = -(short_count / long_count)
 
 ls_ratio_display = f"{ls_ratio:.2f}" if ls_ratio != float('inf') else "∞" if (long_count > 0 or short_count > 0) else "0.00"
 
