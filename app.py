@@ -90,6 +90,17 @@ st.markdown("""
     [data-testid="stHeader"] {display: none;}
     .stApp > header {display: none;}
     [data-testid="stSidebarNav"] {display: none;}
+    
+    /* Smaller font sizes for compressed 6-column layout */
+    .stMetric {
+        font-size: 0.85rem !important;
+    }
+    .stMetric > div {
+        font-size: 0.85rem !important;
+    }
+    .stMetric label {
+        font-size: 0.75rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -123,12 +134,20 @@ except Exception as e:
     st.error(f"Error loading portfolio data: {e}")
     st.stop()
 
-# Calculate L/S Ratio for CHANGE #3
+# Calculate L/S Ratio for CHANGE #3 - Fixed logic for dominant side
 positions = dm.get_positions()
 long_count = sum(1 for pos in positions if pos.get('shares', 0) > 0)
 short_count = sum(1 for pos in positions if pos.get('shares', 0) < 0)
-ls_ratio = (long_count / short_count) if short_count > 0 else float('inf') if long_count > 0 else 0.0
-ls_ratio_display = f"{ls_ratio:.2f}" if ls_ratio != float('inf') else "∞" if long_count > 0 else "0.00"
+
+# L/S ratio shows dominant side (always positive, >= 1.0)
+if long_count == 0 and short_count == 0:
+    ls_ratio = 0.0
+elif long_count >= short_count:
+    ls_ratio = (long_count / short_count) if short_count > 0 else float('inf')
+else:
+    ls_ratio = (short_count / long_count)
+
+ls_ratio_display = f"{ls_ratio:.2f}" if ls_ratio != float('inf') else "∞" if (long_count > 0 or short_count > 0) else "0.00"
 
 # --- CONSOLIDATED PERFORMANCE METRICS (SINGLE ROW) ---
 st.markdown('<div class="section-header">Portfolio Performance</div>', unsafe_allow_html=True)
