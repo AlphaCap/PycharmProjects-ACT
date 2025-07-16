@@ -25,8 +25,3 @@ jobs:
           python backfill_all_symbols.py
         env:
           POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
-      - name: Deploy to Streamlit Community Cloud
-        if: success()
-        run: streamlit run app.py --server.enableCORS false --server.port 8501
-        env:
-          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
