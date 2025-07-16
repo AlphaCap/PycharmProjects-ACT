@@ -81,6 +81,15 @@ st.markdown("""
         font-weight: bold;
         margin-bottom: 0.5rem;
     }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    .stDecoration {display:none;}
+    [data-testid="stToolbar"] {display: none;}
+    [data-testid="stHeader"] {display: none;}
+    .stApp > header {display: none;}
+    [data-testid="stSidebarNav"] {display: none;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -89,7 +98,8 @@ with st.sidebar:
     st.markdown("## nGulfStream")
     st.markdown("---")
     
-    initial_account_size = st.number_input("Initial Account Size", value=100000, min_value=1000, step=1000)
+    # CHANGE #1: Default account size changed from $100,000 to $1,000,000
+    initial_account_size = st.number_input("Initial Account Size", value=1000000, min_value=1000, step=1000)
     
     if st.button("Performance Analytics nGS", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
@@ -113,11 +123,18 @@ except Exception as e:
     st.error(f"Error loading portfolio data: {e}")
     st.stop()
 
+# Calculate L/S Ratio for CHANGE #3
+positions = dm.get_positions()
+long_count = sum(1 for pos in positions if pos.get('shares', 0) > 0)
+short_count = sum(1 for pos in positions if pos.get('shares', 0) < 0)
+ls_ratio = (long_count / short_count) if short_count > 0 else float('inf') if long_count > 0 else 0.0
+ls_ratio_display = f"{ls_ratio:.2f}" if ls_ratio != float('inf') else "∞" if long_count > 0 else "0.00"
+
 # --- CONSOLIDATED PERFORMANCE METRICS (SINGLE ROW) ---
 st.markdown('<div class="section-header">Portfolio Performance</div>', unsafe_allow_html=True)
 
-# Single row with 5 key metrics
-col1, col2, col3, col4, col5 = st.columns(5)
+# CHANGE #3: Updated to 6 columns to include L/S Ratio
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 with col1:
     st.metric(
@@ -134,10 +151,10 @@ with col2:
     )
 
 with col3:
+    # CHANGE #4: Removed delta to eliminate duplicate % indicator
     st.metric(
         label="📅 MTD Return", 
         value=portfolio_metrics['mtd_return'],
-        delta=portfolio_metrics['mtd_delta'],
         help="Month-to-date performance"
     )
 
@@ -153,6 +170,14 @@ with col5:
         label="⚖️ M/E Ratio",
         value=portfolio_metrics['me_ratio'],
         help="Market Exposure to Equity ratio - risk indicator"
+    )
+
+with col6:
+    # CHANGE #3: Added L/S Ratio column
+    st.metric(
+        label="🔄 L/S Ratio",
+        value=ls_ratio_display,
+        help="Long to Short positions ratio"
     )
 
 # --- CURRENT POSITIONS ---
@@ -196,16 +221,8 @@ with col2:
     else:
         st.info("No short positions currently held")
 
-# --- EXPOSURE SUMMARY ---
-total_positions = len(long_positions) + len(short_positions)
-if total_positions > 0:
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("📊 Total Positions", total_positions)
-    with col2:
-        st.metric("🟢 Long Exposure", portfolio_metrics['long_exposure'])
-    with col3:
-        st.metric("🔴 Short Exposure", portfolio_metrics['short_exposure'])
+# CHANGE #5: Removed redundant exposure summary section
+# (Previously showed Total Positions, Long Exposure, Short Exposure)
 
 # --- TODAY'S TRADES ---
 st.markdown('<div class="section-header">Today\'s Trades</div>', unsafe_allow_html=True)
