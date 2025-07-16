@@ -24,8 +24,4 @@ jobs:
           mkdir -p data/daily
           python backfill_all_symbols.py
         env:
-<<<<<<< HEAD
           POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
-=======
-          POLYGON_API_KEY: ${{ secrets.POLYGON_API_KEY }}
->>>>>>> d982fc6be90420afd57756f125f15b445325fe38
