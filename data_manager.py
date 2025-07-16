@@ -717,7 +717,7 @@ def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
     mtd_trades = trades_df[trades_df['exit_date'] >= current_month_start]
     mtd_profit = mtd_trades['profit'].sum() if not mtd_trades.empty else 0
     
-    # Calculate percentage
+    # Calculate percentage - FIXED: Use consistent variable name
     mtd_pct = (mtd_profit / initial_value * 100) if initial_value > 0 else 0
     
     return format_dollars(mtd_profit), f"{mtd_pct:.2f}%"
@@ -774,7 +774,8 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical
         
         # Returns based on closed trades
         total_return = total_trade_profit
-        total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_value > 0 else "0.00%"
+        # FIXED: Use consistent variable name
+        total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_portfolio_value > 0 else "0.00%"
         
         # Calculate proper MTD and YTD
         mtd_return, mtd_pct = calculate_mtd_return(trades_df, initial_portfolio_value)
