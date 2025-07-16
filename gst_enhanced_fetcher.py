@@ -407,3 +407,4 @@ if __name__ == "__main__":
             print(f"  Intraday points: {len(data['intraday_data'])}")
 
     print(f"API requests used: {fetcher.requests_made}")
+
