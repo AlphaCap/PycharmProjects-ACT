@@ -208,8 +208,7 @@ if total_positions > 0:
         st.metric("🔴 Short Exposure", portfolio_metrics['short_exposure'])
 
 # --- TODAY'S TRADES ---
-st.markdown('<div class="section-header">Today's Trades</div>', unsafe_allow_html=True)
-
+st.markdown('<div class="section-header">Today\'s Trades</div>', unsafe_allow_html=True)
 try:
     # Get today's trades (entries and exits)
     today = datetime.now().strftime('%Y-%m-%d')
