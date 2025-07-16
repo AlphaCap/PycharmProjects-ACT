@@ -718,7 +718,7 @@ def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
     mtd_profit = mtd_trades['profit'].sum() if not mtd_trades.empty else 0
     
     # Calculate percentage
-    mtd_pct = (mtd_profit / initial_value * 100) if initial_value > 0 else 0
+    mtd_pct = (mtd_profit / initial_value * 100) if initial_portfolio_value > 0 else 0
     
     return format_dollars(mtd_profit), f"{mtd_pct:.2f}%"
 
