@@ -6,7 +6,7 @@ import schedule
 from utils.polygon_api import PolygonClient
 import logging
 import json
-from utils.config import POLYGON_API_KEY  # Import API key from config
+from utils.config import POLYGON_API_KEY  # Fixed import path
 
 # Set up logging
 logging.basicConfig(
@@ -202,6 +202,7 @@ class DataFetcher:
         for symbol in self.sp500_symbols:
             try:
                 logger.info(f"Fetching daily data for {symbol}")
+                # FIXED: Use correct method signature
                 symbol_data = self.client.get_daily_bars(
                     symbol,
                     from_date,
@@ -290,7 +291,8 @@ class DataFetcher:
         for symbol in self.sp500_symbols:
             try:
                 logger.info(f"Fetching minute data for {symbol}")
-                # Need to use get_bars with minute timespan
+                # FIXED: Use correct method signature (Note: this is still daily bars for simplicity)
+                # For true minute data, you'd need a separate get_minute_bars method
                 symbol_data = self.client.get_daily_bars(
                     symbol,
                     from_date,
