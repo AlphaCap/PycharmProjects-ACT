@@ -6,7 +6,7 @@ import schedule
 from utils.polygon_api import PolygonClient
 import logging
 import json
-from config import POLYGON_API_KEY  # Import API key from config
+from utils.config import POLYGON_API_KEY  # Import API key from config
 
 # Set up logging
 logging.basicConfig(
