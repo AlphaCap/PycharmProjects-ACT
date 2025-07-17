@@ -202,7 +202,7 @@ class DataFetcher:
         for symbol in self.sp500_symbols:
             try:
                 logger.info(f"Fetching daily data for {symbol}")
-                symbol_data = self.client.get_bars(
+                symbol_data = self.client.get_daily_bars(
                     symbol,
                     timespan="day",
                     multiplier=1,
@@ -293,7 +293,7 @@ class DataFetcher:
             try:
                 logger.info(f"Fetching minute data for {symbol}")
                 # Need to use get_bars with minute timespan
-                symbol_data = self.client.get_bars(
+                symbol_data = self.client.get_daily_bars(
                     symbol,
                     timespan="minute",
                     multiplier=1,
