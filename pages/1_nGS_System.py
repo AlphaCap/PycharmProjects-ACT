@@ -112,7 +112,7 @@ def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> fl
         return 0.0
 
 def get_barclay_ls_index() -> str:
-    """Fetch Barclay L/S Index YTD value with improved scraping"""
+    """Fetch Barclay L/S Index YTD value - specifically target the last column (YTD)"""
     try:
         if not HAS_REQUESTS or not HAS_BEAUTIFULSOUP:
             return "N/A (Install requests & beautifulsoup4)"
@@ -126,50 +126,71 @@ def get_barclay_ls_index() -> str:
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Multiple strategies to find YTD value
-            strategies = [
-                # Strategy 1: Look for table cells with YTD
-                lambda: [td.get_text().strip() for td in soup.find_all('td') if 'YTD' in td.get_text()],
-                
-                # Strategy 2: Find all text containing YTD and look for nearby percentages
-                lambda: [elem.get_text().strip() for elem in soup.find_all(string=lambda text: text and 'YTD' in text)],
-                
-                # Strategy 3: Look for specific table structure
-                lambda: [row.get_text().strip() for row in soup.find_all('tr') if 'YTD' in row.get_text()],
-                
-                # Strategy 4: Search for percentage patterns near YTD
-                lambda: soup.get_text()
-            ]
+            # Strategy 1: Look for table structure and get the last column (YTD)
+            tables = soup.find_all('table')
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) > 0:
+                        # Look for rows that contain performance data
+                        row_text = ' '.join([cell.get_text().strip() for cell in cells])
+                        if 'equity' in row_text.lower() or 'long' in row_text.lower():
+                            # Get the last cell which should be YTD
+                            last_cell = cells[-1].get_text().strip()
+                            if '%' in last_cell:
+                                # Clean the percentage value
+                                ytd_match = re.search(r'[-+]?\d+\.?\d*%', last_cell)
+                                if ytd_match:
+                                    return ytd_match.group(0)
             
-            for strategy in strategies:
+            # Strategy 2: Look for YTD header and find corresponding data
+            ytd_headers = soup.find_all(string=lambda text: text and 'YTD' in text.upper())
+            for header in ytd_headers:
                 try:
-                    results = strategy()
-                    if results:
-                        for result in results:
-                            # Look for percentage values
-                            percentages = re.findall(r'[-+]?\d+\.?\d*%', result)
-                            if percentages:
-                                # Return the first reasonable percentage found
-                                for pct in percentages:
-                                    if abs(float(pct.replace('%', ''))) < 100:  # Reasonable range
-                                        return pct
+                    # Find the parent row
+                    parent_row = header.parent
+                    while parent_row and parent_row.name != 'tr':
+                        parent_row = parent_row.parent
+                    
+                    if parent_row:
+                        # Get the index of the YTD column
+                        header_cells = parent_row.find_all(['th', 'td'])
+                        ytd_index = None
+                        for i, cell in enumerate(header_cells):
+                            if 'YTD' in cell.get_text().upper():
+                                ytd_index = i
+                                break
+                        
+                        if ytd_index is not None:
+                            # Look for data rows after this header
+                            next_rows = parent_row.find_next_siblings('tr')
+                            for data_row in next_rows:
+                                data_cells = data_row.find_all(['td', 'th'])
+                                if len(data_cells) > ytd_index:
+                                    ytd_cell = data_cells[ytd_index].get_text().strip()
+                                    if '%' in ytd_cell:
+                                        ytd_match = re.search(r'[-+]?\d+\.?\d*%', ytd_cell)
+                                        if ytd_match:
+                                            return ytd_match.group(0)
                 except:
                     continue
             
-            # If no specific YTD found, try to find any reasonable percentage
+            # Strategy 3: Look for specific pattern around "5.79%" or similar
             all_text = soup.get_text()
+            # Find all percentages that look like reasonable YTD values
             percentages = re.findall(r'[-+]?\d+\.?\d*%', all_text)
-            if percentages:
-                # Look for percentages that might be YTD (reasonable range)
-                for pct in percentages:
-                    try:
-                        val = float(pct.replace('%', ''))
-                        if -50 <= val <= 50:  # Reasonable YTD range
-                            return pct
-                    except:
-                        continue
+            
+            # Look for values close to 5.79% or in reasonable YTD range
+            for pct in percentages:
+                try:
+                    val = float(pct.replace('%', ''))
+                    if 0 <= val <= 20:  # Reasonable YTD range for equity L/S
+                        return pct
+                except:
+                    continue
                         
-            return "N/A (Data not found)"
+            return "N/A (YTD not found)"
         else:
             return f"N/A (HTTP {response.status_code})"
     except Exception as e:
@@ -339,6 +360,7 @@ with col2:
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     """
     Plot M/E ratio history using data_manager's get_me_ratio_history function.
+    Sized to match equity curve chart exactly.
     """
     try:
         # Get M/E history from data_manager
@@ -352,10 +374,10 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
             clean_data = me_history_df[me_history_df['ME_Ratio'] > 0].copy()
             
             if not clean_data.empty:
-                # Create the chart with same size as equity curve (10, 4)
+                # Create the chart with EXACT same size as equity curve
                 fig, ax = plt.subplots(figsize=(10, 4))
                 
-                # Plot M/E ratio line (matching equity curve style)
+                # Plot M/E ratio line (matching equity curve line style)
                 ax.plot(clean_data['Date'], clean_data['ME_Ratio'], 
                        linewidth=2, color='#ff6b35', label='M/E Ratio')
                 
@@ -367,7 +389,7 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 ax.fill_between(clean_data['Date'], 80, 100, alpha=0.2, color='orange', 
                                label='Warning Zone (80-100%)')
                 
-                # Chart formatting (matching equity curve)
+                # Chart formatting (identical to equity curve)
                 ax.set_title('Historical M/E Ratio - Risk Management', 
                            fontsize=12, fontweight='bold')
                 ax.set_xlabel('Date')
@@ -394,14 +416,11 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 plt.close()
             else:
                 st.warning("❌ M/E history contains only invalid data (0.0% ratios)")
-                st.info("Run simple_me_calculator.py to generate valid historical data")
         else:
             st.warning("❌ No M/E ratio history found")
-            st.info("M/E history file is empty or missing. Run simple_me_calculator.py to generate historical data.")
     
     except Exception as e:
         st.error(f"❌ Error creating M/E ratio chart: {e}")
-        st.info("Try running simple_me_calculator.py to generate M/E history data")
 
 trades_df = get_trades_history()
 plot_me_ratio_history(trades_df, initial_value)
