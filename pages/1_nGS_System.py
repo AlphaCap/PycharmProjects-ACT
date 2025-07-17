@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import sys
 import os
+import requests
+import numpy as np
+from bs4 import BeautifulSoup
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -75,6 +78,100 @@ initial_value = st.number_input(
     key="account_size_input"
 )
 st.session_state.initial_value = initial_value
+
+def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> float:
+    """Calculate Value at Risk from historical trades"""
+    try:
+        if trades_df.empty:
+            return 0.0
+        
+        # Get all profit/loss values
+        returns = trades_df['profit'].dropna()
+        if len(returns) == 0:
+            return 0.0
+            
+        # Calculate VaR at the specified confidence level
+        var_percentile = (1 - confidence_level) * 100
+        var_value = np.percentile(returns, var_percentile)
+        
+        return abs(var_value)  # Return positive value for display
+    except Exception as e:
+        st.error(f"Error calculating VaR: {e}")
+        return 0.0
+
+def get_barclay_ls_index() -> str:
+    """Fetch Barclay L/S Index YTD value"""
+    try:
+        url = "https://portal.barclayhedge.com/cgi-bin/indices/displayHfIndex.cgi?indexCat=Barclay-Hedge-Fund-Indices&indexName=Equity-Long-Short-Index"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Look for YTD value in the page
+            # This will need to be adjusted based on the actual page structure
+            ytd_elements = soup.find_all(string=lambda text: text and 'YTD' in text)
+            
+            if ytd_elements:
+                # Extract YTD value - this may need adjustment based on actual HTML structure
+                for element in ytd_elements:
+                    parent = element.parent
+                    if parent:
+                        # Look for percentage values near YTD
+                        siblings = parent.find_next_siblings()
+                        for sibling in siblings:
+                            if '%' in sibling.text:
+                                return sibling.text.strip()
+                
+            return "N/A"
+        else:
+            return "N/A"
+    except Exception as e:
+        st.error(f"Error fetching Barclay L/S Index: {e}")
+        return "N/A"
+
+def get_enhanced_portfolio_performance_stats() -> pd.DataFrame:
+    """Get enhanced performance statistics including VaR and benchmark"""
+    try:
+        # Get original performance stats
+        original_stats = get_portfolio_performance_stats()
+        
+        # Get trades for VaR calculation
+        trades_df = get_trades_history()
+        var_95 = calculate_var(trades_df, 0.95)
+        
+        # Get benchmark data
+        barclay_ytd = get_barclay_ls_index()
+        
+        # Create enhanced stats dataframe
+        enhanced_stats = original_stats.copy() if not original_stats.empty else pd.DataFrame()
+        
+        # Add VaR row
+        var_row = pd.DataFrame({
+            'Metric': ['Value at Risk (95%)'],
+            'Value': [f"${var_95:,.2f}"]
+        })
+        
+        # Add benchmark row
+        benchmark_row = pd.DataFrame({
+            'Metric': ['Barclay L/S Index (YTD)'],
+            'Value': [barclay_ytd]
+        })
+        
+        # Combine all stats
+        if not enhanced_stats.empty:
+            enhanced_stats = pd.concat([enhanced_stats, var_row, benchmark_row], ignore_index=True)
+        else:
+            enhanced_stats = pd.concat([var_row, benchmark_row], ignore_index=True)
+        
+        return enhanced_stats
+        
+    except Exception as e:
+        st.error(f"Error creating enhanced performance stats: {e}")
+        return pd.DataFrame()
 
 def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
     try:
@@ -160,109 +257,12 @@ else:
     st.info("No strategy performance data available.")
 
 st.markdown("---")
-st.subheader("⚠️ M/E Ratio Risk Management")
-
-def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
-    """
-    Plot M/E ratio history using data_manager's get_me_ratio_history function.
-    FIXED: Uses working data_manager instead of deleted me_ratio_calculator
-    """
-    try:
-        # Get M/E history from data_manager
-        me_history_df = get_me_ratio_history()
-        
-        if not me_history_df.empty:
-            # Convert Date column to datetime if it's not already
-            me_history_df['Date'] = pd.to_datetime(me_history_df['Date'])
-            
-            # Filter out any bad data (0.0% M/E ratios)
-            clean_data = me_history_df[me_history_df['ME_Ratio'] > 0].copy()
-            
-            if not clean_data.empty:
-                st.success(f"✅ Loaded {len(clean_data)} days of M/E ratio history")
-                
-                # Create the chart
-                fig, ax = plt.subplots(figsize=(12, 6))
-                
-                # Plot M/E ratio line
-                ax.plot(clean_data['Date'], clean_data['ME_Ratio'], 
-                       linewidth=3, color='#ff6b35', label='M/E Ratio', 
-                       marker='o', markersize=4)
-                
-                # Add risk zones
-                ax.axhline(y=100, color='red', linestyle='--', linewidth=2, 
-                          alpha=0.8, label='CRITICAL LIMIT (100%)')
-                ax.fill_between(clean_data['Date'], 0, 80, alpha=0.2, color='green', 
-                               label='Safe Zone (<80%)')
-                ax.fill_between(clean_data['Date'], 80, 100, alpha=0.2, color='orange', 
-                               label='Warning Zone (80-100%)')
-                
-                # Chart formatting
-                ax.set_title('Historical M/E Ratio - Risk Management', 
-                           fontsize=16, fontweight='bold')
-                ax.set_xlabel('Date')
-                ax.set_ylabel('M/E Ratio (%)')
-                ax.set_ylim(0, max(110, clean_data['ME_Ratio'].max() * 1.1))
-                ax.grid(True, alpha=0.3)
-                ax.legend(loc='upper left')
-                ax.tick_params(axis='x', rotation=45)
-                
-                # Calculate statistics
-                avg_me = clean_data['ME_Ratio'].mean()
-                max_me = clean_data['ME_Ratio'].max()
-                min_me = clean_data['ME_Ratio'].min()
-                
-                # Add statistics box
-                stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
-                ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, 
-                       verticalalignment='top', 
-                       bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8), 
-                       fontsize=10)
-                
-                plt.tight_layout()
-                st.pyplot(fig)
-                plt.close()
-
-                # Risk assessment metrics
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    if max_me > 90:
-                        st.error(f"🚨 HIGH RISK\nMax M/E: {max_me:.1f}%\n(>90% Critical)")
-                    elif max_me > 80:
-                        st.warning(f"⚠️ MODERATE RISK\nMax M/E: {max_me:.1f}%\n(>80% Warning)")
-                    else:
-                        st.success(f"✅ LOW RISK\nMax M/E: {max_me:.1f}%\n(<80% Safe)")
-                
-                with col2:
-                    st.info(f"📊 **Average M/E Ratio**\n{avg_me:.1f}%\n(Historical Average)")
-                
-                with col3:
-                    target_me = 75
-                    if avg_me > target_me:
-                        st.warning(f"🎯 **Rebalancing Signal**\nAvg: {avg_me:.1f}% > {target_me}%\nConsider reducing position sizes")
-                    else:
-                        st.success(f"🎯 **Portfolio Balanced**\nAvg: {avg_me:.1f}% ≤ {target_me}%\nWithin target range")
-            else:
-                st.warning("❌ M/E history contains only invalid data (0.0% ratios)")
-                st.info("Run simple_me_calculator.py to generate valid historical data")
-        else:
-            st.warning("❌ No M/E ratio history found")
-            st.info("M/E history file is empty or missing. Run simple_me_calculator.py to generate historical data.")
-    
-    except Exception as e:
-        st.error(f"❌ Error creating M/E ratio chart: {e}")
-        st.info("Try running simple_me_calculator.py to generate M/E history data")
-
-trades_df = get_trades_history()
-plot_me_ratio_history(trades_df, initial_value)
-
-st.markdown("---")
 st.subheader("📊 Performance Statistics")
 col1, col2 = st.columns([1, 1])
 with col1:
     try:
-        perf_stats_df = get_portfolio_performance_stats()
+        # Use enhanced performance stats with VaR and benchmark
+        perf_stats_df = get_enhanced_portfolio_performance_stats()
         if not perf_stats_df.empty:
             st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
         else:
@@ -293,6 +293,83 @@ with col2:
             st.info("No trade history available for equity curve.")
     except Exception as e:
         st.error(f"Error creating equity curve: {e}")
+
+# M/E Ratio Chart positioned underneath Equity Curve with same size
+st.subheader("⚠️ M/E Ratio Risk Management")
+
+def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
+    """
+    Plot M/E ratio history using data_manager's get_me_ratio_history function.
+    FIXED: Uses working data_manager instead of deleted me_ratio_calculator
+    """
+    try:
+        # Get M/E history from data_manager
+        me_history_df = get_me_ratio_history()
+        
+        if not me_history_df.empty:
+            # Convert Date column to datetime if it's not already
+            me_history_df['Date'] = pd.to_datetime(me_history_df['Date'])
+            
+            # Filter out any bad data (0.0% M/E ratios)
+            clean_data = me_history_df[me_history_df['ME_Ratio'] > 0].copy()
+            
+            if not clean_data.empty:
+                st.success(f"✅ Loaded {len(clean_data)} days of M/E ratio history")
+                
+                # Create the chart with same size as equity curve
+                fig, ax = plt.subplots(figsize=(10, 4))
+                
+                # Plot M/E ratio line
+                ax.plot(clean_data['Date'], clean_data['ME_Ratio'], 
+                       linewidth=3, color='#ff6b35', label='M/E Ratio', 
+                       marker='o', markersize=4)
+                
+                # Add risk zones
+                ax.axhline(y=100, color='red', linestyle='--', linewidth=2, 
+                          alpha=0.8, label='CRITICAL LIMIT (100%)')
+                ax.fill_between(clean_data['Date'], 0, 80, alpha=0.2, color='green', 
+                               label='Safe Zone (<80%)')
+                ax.fill_between(clean_data['Date'], 80, 100, alpha=0.2, color='orange', 
+                               label='Warning Zone (80-100%)')
+                
+                # Chart formatting
+                ax.set_title('Historical M/E Ratio - Risk Management', 
+                           fontsize=12, fontweight='bold')
+                ax.set_xlabel('Date')
+                ax.set_ylabel('M/E Ratio (%)')
+                ax.set_ylim(0, max(110, clean_data['ME_Ratio'].max() * 1.1))
+                ax.grid(True, alpha=0.3)
+                ax.legend(loc='upper left')
+                ax.tick_params(axis='x', rotation=45)
+                
+                # Calculate statistics
+                avg_me = clean_data['ME_Ratio'].mean()
+                max_me = clean_data['ME_Ratio'].max()
+                min_me = clean_data['ME_Ratio'].min()
+                
+                # Add statistics box
+                stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
+                ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, 
+                       verticalalignment='top', 
+                       bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8), 
+                       fontsize=10)
+                
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close()
+            else:
+                st.warning("❌ M/E history contains only invalid data (0.0% ratios)")
+                st.info("Run simple_me_calculator.py to generate valid historical data")
+        else:
+            st.warning("❌ No M/E ratio history found")
+            st.info("M/E history file is empty or missing. Run simple_me_calculator.py to generate historical data.")
+    
+    except Exception as e:
+        st.error(f"❌ Error creating M/E ratio chart: {e}")
+        st.info("Try running simple_me_calculator.py to generate M/E history data")
+
+trades_df = get_trades_history()
+plot_me_ratio_history(trades_df, initial_value)
 
 st.markdown("---")
 st.subheader("📋 Complete Trade History")
