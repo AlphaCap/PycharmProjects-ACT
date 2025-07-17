@@ -376,7 +376,7 @@ def get_me_ratio_history() -> pd.DataFrame:
         DataFrame with Date and ME_Ratio columns
     """
     try:
-        filename = os.path.join(DAILY_DIR, "portfolio_ME.csv")
+        filename = "data/me_ratio_history.csv"
         
         if not os.path.exists(filename):
             logger.warning(f"Portfolio M/E history file not found: {filename}")
