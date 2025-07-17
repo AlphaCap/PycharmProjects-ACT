@@ -204,10 +204,8 @@ class DataFetcher:
                 logger.info(f"Fetching daily data for {symbol}")
                 symbol_data = self.client.get_daily_bars(
                     symbol,
-                    timespan="day",
-                    multiplier=1,
-                    from_date=from_date,
-                    to_date=to_date
+                    from_date,
+                    to_date
                 )
                 
                 if not symbol_data.empty:
@@ -295,11 +293,9 @@ class DataFetcher:
                 # Need to use get_bars with minute timespan
                 symbol_data = self.client.get_daily_bars(
                     symbol,
-                    timespan="minute",
-                    multiplier=1,
-                    from_date=from_date,
-                    to_date=to_date,
-                    limit=50000  # Higher limit for minute data
+                    from_date,
+                    to_date,
+                    limit=50000
                 )
                 
                 if not symbol_data.empty:
