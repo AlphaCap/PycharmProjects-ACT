@@ -5,9 +5,20 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import sys
 import os
-import requests
 import numpy as np
-from bs4 import BeautifulSoup
+
+# Optional imports with fallbacks
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
+
+try:
+    from bs4 import BeautifulSoup
+    HAS_BEAUTIFULSOUP = True
+except ImportError:
+    HAS_BEAUTIFULSOUP = False
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -102,6 +113,9 @@ def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> fl
 def get_barclay_ls_index() -> str:
     """Fetch Barclay L/S Index YTD value"""
     try:
+        if not HAS_REQUESTS or not HAS_BEAUTIFULSOUP:
+            return "N/A (Install requests & beautifulsoup4)"
+            
         url = "https://portal.barclayhedge.com/cgi-bin/indices/displayHfIndex.cgi?indexCat=Barclay-Hedge-Fund-Indices&indexName=Equity-Long-Short-Index"
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -130,8 +144,7 @@ def get_barclay_ls_index() -> str:
         else:
             return "N/A"
     except Exception as e:
-        st.error(f"Error fetching Barclay L/S Index: {e}")
-        return "N/A"
+        return f"Error: {str(e)[:50]}..."
 
 def get_enhanced_portfolio_performance_stats() -> pd.DataFrame:
     """Get enhanced performance statistics including VaR and benchmark"""
