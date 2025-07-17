@@ -6,6 +6,7 @@ from datetime import datetime
 import sys
 import os
 import numpy as np
+import re
 
 # Optional imports with fallbacks
 try:
@@ -111,40 +112,68 @@ def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> fl
         return 0.0
 
 def get_barclay_ls_index() -> str:
-    """Fetch Barclay L/S Index YTD value"""
+    """Fetch Barclay L/S Index YTD value with improved scraping"""
     try:
         if not HAS_REQUESTS or not HAS_BEAUTIFULSOUP:
             return "N/A (Install requests & beautifulsoup4)"
             
         url = "https://portal.barclayhedge.com/cgi-bin/indices/displayHfIndex.cgi?indexCat=Barclay-Hedge-Fund-Indices&indexName=Equity-Long-Short-Index"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
         
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Look for YTD value in the page
-            # This will need to be adjusted based on the actual page structure
-            ytd_elements = soup.find_all(string=lambda text: text and 'YTD' in text)
-            
-            if ytd_elements:
-                # Extract YTD value - this may need adjustment based on actual HTML structure
-                for element in ytd_elements:
-                    parent = element.parent
-                    if parent:
-                        # Look for percentage values near YTD
-                        siblings = parent.find_next_siblings()
-                        for sibling in siblings:
-                            if '%' in sibling.text:
-                                return sibling.text.strip()
+            # Multiple strategies to find YTD value
+            strategies = [
+                # Strategy 1: Look for table cells with YTD
+                lambda: [td.get_text().strip() for td in soup.find_all('td') if 'YTD' in td.get_text()],
                 
-            return "N/A"
+                # Strategy 2: Find all text containing YTD and look for nearby percentages
+                lambda: [elem.get_text().strip() for elem in soup.find_all(string=lambda text: text and 'YTD' in text)],
+                
+                # Strategy 3: Look for specific table structure
+                lambda: [row.get_text().strip() for row in soup.find_all('tr') if 'YTD' in row.get_text()],
+                
+                # Strategy 4: Search for percentage patterns near YTD
+                lambda: soup.get_text()
+            ]
+            
+            for strategy in strategies:
+                try:
+                    results = strategy()
+                    if results:
+                        for result in results:
+                            # Look for percentage values
+                            percentages = re.findall(r'[-+]?\d+\.?\d*%', result)
+                            if percentages:
+                                # Return the first reasonable percentage found
+                                for pct in percentages:
+                                    if abs(float(pct.replace('%', ''))) < 100:  # Reasonable range
+                                        return pct
+                except:
+                    continue
+            
+            # If no specific YTD found, try to find any reasonable percentage
+            all_text = soup.get_text()
+            percentages = re.findall(r'[-+]?\d+\.?\d*%', all_text)
+            if percentages:
+                # Look for percentages that might be YTD (reasonable range)
+                for pct in percentages:
+                    try:
+                        val = float(pct.replace('%', ''))
+                        if -50 <= val <= 50:  # Reasonable YTD range
+                            return pct
+                    except:
+                        continue
+                        
+            return "N/A (Data not found)"
         else:
-            return "N/A"
+            return f"N/A (HTTP {response.status_code})"
     except Exception as e:
-        return f"Error: {str(e)[:50]}..."
+        return f"N/A (Error: {str(e)[:30]}...)"
 
 def get_enhanced_portfolio_performance_stats() -> pd.DataFrame:
     """Get enhanced performance statistics including VaR and benchmark"""
@@ -307,13 +336,9 @@ with col2:
     except Exception as e:
         st.error(f"Error creating equity curve: {e}")
 
-# M/E Ratio Chart positioned underneath Equity Curve with same size
-st.subheader("⚠️ M/E Ratio Risk Management")
-
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     """
     Plot M/E ratio history using data_manager's get_me_ratio_history function.
-    FIXED: Uses working data_manager instead of deleted me_ratio_calculator
     """
     try:
         # Get M/E history from data_manager
@@ -327,15 +352,12 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
             clean_data = me_history_df[me_history_df['ME_Ratio'] > 0].copy()
             
             if not clean_data.empty:
-                st.success(f"✅ Loaded {len(clean_data)} days of M/E ratio history")
-                
-                # Create the chart with same size as equity curve
+                # Create the chart with same size as equity curve (10, 4)
                 fig, ax = plt.subplots(figsize=(10, 4))
                 
-                # Plot M/E ratio line
+                # Plot M/E ratio line (matching equity curve style)
                 ax.plot(clean_data['Date'], clean_data['ME_Ratio'], 
-                       linewidth=3, color='#ff6b35', label='M/E Ratio', 
-                       marker='o', markersize=4)
+                       linewidth=2, color='#ff6b35', label='M/E Ratio')
                 
                 # Add risk zones
                 ax.axhline(y=100, color='red', linestyle='--', linewidth=2, 
@@ -345,7 +367,7 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 ax.fill_between(clean_data['Date'], 80, 100, alpha=0.2, color='orange', 
                                label='Warning Zone (80-100%)')
                 
-                # Chart formatting
+                # Chart formatting (matching equity curve)
                 ax.set_title('Historical M/E Ratio - Risk Management', 
                            fontsize=12, fontweight='bold')
                 ax.set_xlabel('Date')
