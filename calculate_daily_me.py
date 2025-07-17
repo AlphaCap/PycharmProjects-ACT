@@ -112,8 +112,4 @@ def calculate_daily_me_ratios():
     return daily_df
 
 if __name__ == "__main__":
-<<<<<<< HEAD
     calculate_daily_me_ratios()
-=======
-    calculate_daily_me_ratios()
->>>>>>> f612c139bbee93d0e08532f249d5d28e26216b45

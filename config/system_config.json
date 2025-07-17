@@ -1,5 +1,5 @@
 {
-    "account_size": 100000,
+    "account_size": 1000000,
     "position_size": 5000,
     "max_positions": 20,
     "min_price": 10,

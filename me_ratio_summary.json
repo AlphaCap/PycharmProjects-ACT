@@ -1,12 +1,12 @@
 {
-  "calculation_date": "2025-07-13T15:13:19.053279",
+  "calculation_date": "2025-07-16T23:01:44.894938",
   "start_date": "2025-01-29T00:00:00",
   "end_date": "2025-07-07T00:00:00",
   "total_days": 160,
   "trades_used_for_positions": 848,
-  "trades_used_for_equity": 1199,
-  "average_me_ratio": 386.9541045897201,
-  "max_me_ratio": 1002.6829007087862,
+  "trades_used_for_equity": 848,
+  "average_me_ratio": 418.2140311651683,
+  "max_me_ratio": 1086.2588276102229,
   "min_me_ratio": 0.0,
   "initial_portfolio_value": 100000,
   "rolling_window_days": 180
