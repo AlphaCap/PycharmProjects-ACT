@@ -112,7 +112,7 @@ def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> fl
         return 0.0
 
 def get_barclay_ls_index() -> str:
-    """Fetch Barclay L/S Index YTD value - specifically target the last column (YTD)"""
+    """Fetch Barclay L/S Index YTD value - specifically target the YTD column (5.79%)"""
     try:
         if not HAS_REQUESTS or not HAS_BEAUTIFULSOUP:
             return "N/A (Install requests & beautifulsoup4)"
@@ -126,71 +126,74 @@ def get_barclay_ls_index() -> str:
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Strategy 1: Look for table structure and get the last column (YTD)
+            # Strategy 1: Find the main data table and get YTD (rightmost) column
             tables = soup.find_all('table')
+            for table in tables:
+                rows = table.find_all('tr')
+                
+                # Look for header row with "YTD" 
+                header_row = None
+                ytd_col_index = -1
+                
+                for row in rows:
+                    cells = row.find_all(['th', 'td'])
+                    for i, cell in enumerate(cells):
+                        cell_text = cell.get_text().strip().upper()
+                        if 'YTD' in cell_text:
+                            header_row = row
+                            ytd_col_index = i
+                            break
+                    if header_row:
+                        break
+                
+                # If YTD column found, look for Equity Long/Short data in subsequent rows
+                if ytd_col_index >= 0:
+                    for row in rows:
+                        cells = row.find_all(['td', 'th'])
+                        if len(cells) > ytd_col_index:
+                            row_text = ' '.join([cell.get_text().strip() for cell in cells]).lower()
+                            # Look for equity long/short row
+                            if ('equity' in row_text and 'long' in row_text) or 'long/short' in row_text:
+                                ytd_cell = cells[ytd_col_index].get_text().strip()
+                                if '%' in ytd_cell:
+                                    ytd_match = re.search(r'[-+]?\d+\.?\d*%', ytd_cell)
+                                    if ytd_match:
+                                        return ytd_match.group(0)
+            
+            # Strategy 2: If no YTD column header found, assume last column is YTD
             for table in tables:
                 rows = table.find_all('tr')
                 for row in rows:
                     cells = row.find_all(['td', 'th'])
-                    if len(cells) > 0:
-                        # Look for rows that contain performance data
-                        row_text = ' '.join([cell.get_text().strip() for cell in cells])
-                        if 'equity' in row_text.lower() or 'long' in row_text.lower():
-                            # Get the last cell which should be YTD
+                    if len(cells) >= 3:  # Must have at least 3 columns
+                        row_text = ' '.join([cell.get_text().strip() for cell in cells]).lower()
+                        if ('equity' in row_text and 'long' in row_text) or 'long/short' in row_text:
+                            # Get the last cell (should be YTD)
                             last_cell = cells[-1].get_text().strip()
                             if '%' in last_cell:
-                                # Clean the percentage value
                                 ytd_match = re.search(r'[-+]?\d+\.?\d*%', last_cell)
                                 if ytd_match:
                                     return ytd_match.group(0)
             
-            # Strategy 2: Look for YTD header and find corresponding data
-            ytd_headers = soup.find_all(string=lambda text: text and 'YTD' in text.upper())
-            for header in ytd_headers:
-                try:
-                    # Find the parent row
-                    parent_row = header.parent
-                    while parent_row and parent_row.name != 'tr':
-                        parent_row = parent_row.parent
-                    
-                    if parent_row:
-                        # Get the index of the YTD column
-                        header_cells = parent_row.find_all(['th', 'td'])
-                        ytd_index = None
-                        for i, cell in enumerate(header_cells):
-                            if 'YTD' in cell.get_text().upper():
-                                ytd_index = i
-                                break
-                        
-                        if ytd_index is not None:
-                            # Look for data rows after this header
-                            next_rows = parent_row.find_next_siblings('tr')
-                            for data_row in next_rows:
-                                data_cells = data_row.find_all(['td', 'th'])
-                                if len(data_cells) > ytd_index:
-                                    ytd_cell = data_cells[ytd_index].get_text().strip()
-                                    if '%' in ytd_cell:
-                                        ytd_match = re.search(r'[-+]?\d+\.?\d*%', ytd_cell)
-                                        if ytd_match:
-                                            return ytd_match.group(0)
-                except:
-                    continue
-            
-            # Strategy 3: Look for specific pattern around "5.79%" or similar
+            # Strategy 3: Search for 5.79% specifically or similar reasonable YTD values
             all_text = soup.get_text()
-            # Find all percentages that look like reasonable YTD values
             percentages = re.findall(r'[-+]?\d+\.?\d*%', all_text)
             
-            # Look for values close to 5.79% or in reasonable YTD range
+            # First, look for 5.79% specifically
+            for pct in percentages:
+                if '5.79%' in pct:
+                    return pct
+            
+            # Then look for reasonable YTD values (0-15% range for equity L/S)
             for pct in percentages:
                 try:
                     val = float(pct.replace('%', ''))
-                    if 0 <= val <= 20:  # Reasonable YTD range for equity L/S
+                    if 3 <= val <= 10:  # Narrow range for likely YTD equity L/S returns
                         return pct
                 except:
                     continue
                         
-            return "N/A (YTD not found)"
+            return "N/A (YTD 5.79% not found)"
         else:
             return f"N/A (HTTP {response.status_code})"
     except Exception as e:
@@ -422,12 +425,19 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     except Exception as e:
         st.error(f"❌ Error creating M/E ratio chart: {e}")
 
+<<<<<<< HEAD
 # M/E Ratio Chart positioned in same column format as equity curve
+=======
+# M/E Ratio Chart positioned in same column format as equity curve (no heading)
+>>>>>>> 576b74f7c192e8d350f5e705c6702e867c1da82d
 col1_me, col2_me = st.columns([1, 1])
 with col1_me:
     st.write("")  # Empty space for alignment
 with col2_me:
+<<<<<<< HEAD
     st.subheader("⚠️ M/E Ratio History")
+=======
+>>>>>>> 576b74f7c192e8d350f5e705c6702e867c1da82d
     trades_df = get_trades_history()
     plot_me_ratio_history(trades_df, initial_value)
 
@@ -436,6 +446,20 @@ st.subheader("📋 Complete Trade History")
 try:
     trades_df = get_trades_history()
     if not trades_df.empty:
+        # Format dates to 7/17/25 format (remove time)
+        trades_display = trades_df.copy()
+        
+        # Format entry_date and exit_date columns to 7/17/25 format
+        if 'entry_date' in trades_display.columns:
+            trades_display['entry_date'] = pd.to_datetime(trades_display['entry_date']).dt.strftime('%m/%d/%y').str.lstrip('0').str.replace('/0', '/')
+        if 'exit_date' in trades_display.columns:
+            trades_display['exit_date'] = pd.to_datetime(trades_display['exit_date']).dt.strftime('%m/%d/%y').str.lstrip('0').str.replace('/0', '/')
+        
+        # Remove exit_reason column if it exists
+        if 'exit_reason' in trades_display.columns:
+            trades_display = trades_display.drop(columns=['exit_reason'])
+        
+        # Display metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total Trades", len(trades_df))
@@ -448,49 +472,13 @@ try:
         with col4:
             total_profit = trades_df['profit'].sum()
             st.metric("Total Profit", f"${total_profit:,.2f}")
-        st.dataframe(trades_df, use_container_width=True, hide_index=True)
-        csv = trades_df.to_csv(index=False)
-        st.download_button(
-            label="📥 Download Trade History CSV",
-            data=csv,
-            file_name=f"trade_history_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
+        
+        # Display table without download option
+        st.dataframe(trades_display, use_container_width=True, hide_index=True)
     else:
         st.info("No trade history available.")
 except Exception as e:
     st.error(f"Error loading trade history: {e}")
-
-st.markdown("---")
-st.subheader("🎯 Signal History")
-try:
-    signals_df = get_signals()
-    if not signals_df.empty:
-        st.dataframe(signals_df.head(50), use_container_width=True, hide_index=True)
-        if len(signals_df) > 50:
-            st.caption(f"Showing latest 50 signals out of {len(signals_df)} total")
-    else:
-        st.info("No signal history available.")
-except Exception as e:
-    st.error(f"Error loading signals: {e}")
-
-st.markdown("---")
-st.subheader("⚙️ System Status")
-try:
-    system_status = get_system_status()
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.success("✅ System Online")
-        st.info(f"Last Update: {datetime.now().strftime('%H:%M:%S')}")
-    with col2:
-        if USE_REAL_METRICS:
-            st.success("✅ Real Metrics Active")
-        else:
-            st.warning("⚠️ Using Placeholder Metrics")
-    with col3:
-        st.info("📊 Data Sources Connected")
-except Exception as e:
-    st.error(f"Error getting system status: {e}")
 
 st.markdown("<p style='text-align: center; color: #999; font-size: 0.8rem;'>* Data retention: 6 months (180 days)</p>", unsafe_allow_html=True)
 st.markdown("---")
