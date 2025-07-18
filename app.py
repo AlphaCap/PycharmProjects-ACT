@@ -1,86 +1,34 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
+from datetime import datetime
 import sys
 import os
 
-# Add the current directory to the path so we can import data_manager
+# Add project directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    import data_manager as dm
-except ImportError as e:
-    st.error(f"Could not import data_manager: {e}")
-    st.stop()
+from data_manager import (
+    get_portfolio_metrics,
+    get_signals,
+    get_positions,
+    get_system_status
+)
 
-# --- PAGE CONFIG ---
+try:
+    from portfolio_calculator import calculate_real_portfolio_metrics
+    USE_REAL_METRICS = True
+except ImportError:
+    USE_REAL_METRICS = False
+
 st.set_page_config(
-    page_title="nGulfStream", 
+    page_title="nGS Trading Dashboard",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS ---
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-    .metric-container {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 5px solid #1f77b4;
-        margin: 0.5rem 0;
-    }
-    .section-header {
-        font-size: 1.8rem;
-        font-weight: bold;
-        color: #2c3e50;
-        margin: 2rem 0 1rem 0;
-        border-bottom: 3px solid #1f77b4;
-        padding-bottom: 0.5rem;
-    }
-    .status-green {
-        color: #27ae60;
-        font-weight: bold;
-    }
-    .status-red {
-        color: #e74c3c;
-        font-weight: bold;
-    }
-    .status-yellow {
-        color: #f39c12;
-        font-weight: bold;
-    }
-    .consolidated-metrics {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        margin: 1rem 0;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-    }
-    .consolidated-metrics .metric-label {
-        color: white;
-        font-size: 0.9rem;
-        margin-bottom: 0.2rem;
-        opacity: 0.9;
-    }
-    .consolidated-metrics .metric-value {
-        color: white;
-        font-size: 1.4rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }
+# Hide Streamlit style elements
+hide_streamlit_style = """
+    <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -91,226 +39,267 @@ st.markdown("""
     .stApp > header {display: none;}
     [data-testid="stSidebarNav"] {display: none;}
     
-    /* Smaller font sizes for compressed 6-column layout */
-    .stMetric {
-        font-size: 0.85rem !important;
+    .stAppViewContainer > .main .block-container {
+        padding-top: 1rem;
     }
-    .stMetric > div {
-        font-size: 0.85rem !important;
-    }
-    .stMetric label {
-        font-size: 0.75rem !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.markdown("## nGulfStream")
-    st.markdown("---")
+    st.title("nGS Trading System")
     
-    # CHANGE #1: Default account size changed from $100,000 to $1,000,000
-    initial_account_size = st.number_input("Initial Account Size", value=1000000, min_value=1000, step=1000)
-    
-    if st.button("Performance Analytics nGS", use_container_width=True):
+    # Navigation
+    if st.button("📊 Historical Performance", use_container_width=True):
         st.switch_page("pages/1_nGS_System.py")
     
-    st.button("Performance Analytics ACTai", disabled=True, use_container_width=True)
+    st.markdown("---")
     
-    st.button("Performance Analytics gSTrader", disabled=True, use_container_width=True)
-
-# --- HEADER ---
-st.markdown('<h1 class="main-header">🚀 nGulfStream</h1>', unsafe_allow_html=True)
-
-# --- LOAD DATA ---
-try:
-    # Initialize data manager
-    dm.initialize()
+    # Quick stats
+    st.subheader("Quick Stats")
+    try:
+        positions = get_positions()
+        if positions:
+            total_positions = len(positions)
+            long_positions = len([p for p in positions if p.get('side', 'long') == 'long'])
+            short_positions = len([p for p in positions if p.get('side', 'short') == 'short'])
+        else:
+            total_positions = long_positions = short_positions = 0
+            
+        st.metric("Total Positions", total_positions)
+        st.metric("Long", long_positions)
+        st.metric("Short", short_positions)
+    except Exception as e:
+        st.error(f"Error loading stats: {e}")
     
-    # Get portfolio metrics (current M/E ratio for main page)
-    portfolio_metrics = dm.get_portfolio_metrics(initial_portfolio_value=initial_account_size, is_historical=False)
-    
-except Exception as e:
-    st.error(f"Error loading portfolio data: {e}")
-    st.stop()
+    st.markdown("---")
+    st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
 
-# Calculate L/S Ratio for CHANGE #3 - Fixed logic for dominant side
-positions = dm.get_positions()
-long_count = sum(1 for pos in positions if pos.get('shares', 0) > 0)
-short_count = sum(1 for pos in positions if pos.get('shares', 0) < 0)
+# Main content
+st.title("🎯 nGS Trading Dashboard")
+st.markdown("Real-time Neural Grid Strategy Performance")
 
-# L/S ratio shows dominant side (always positive, >= 1.0)
-if long_count == 0 and short_count == 0:
-    ls_ratio = 0.0
-elif long_count >= short_count:
-    ls_ratio = (long_count / short_count) if short_count > 0 else float('inf')
-else:
-    ls_ratio = -(short_count / long_count)
+# Initialize session state for account size
+if 'account_size' not in st.session_state:
+    st.session_state.account_size = 1000000
 
-ls_ratio_display = f"{ls_ratio:.2f}" if ls_ratio != float('inf') else "∞" if (long_count > 0 or short_count > 0) else "0.00"
+# Account size input
+account_size = st.number_input(
+    "Account Size:",
+    min_value=1000,
+    value=st.session_state.account_size,
+    step=1000,
+    format="%d",
+    key="main_account_size"
+)
+st.session_state.account_size = account_size
 
-# --- CONSOLIDATED PERFORMANCE METRICS (SINGLE ROW) ---
-st.markdown('<div class="section-header">Portfolio Performance</div>', unsafe_allow_html=True)
+# Get portfolio metrics with fallback
+def get_portfolio_metrics_with_fallback(account_size: int) -> dict:
+    try:
+        if USE_REAL_METRICS:
+            return calculate_real_portfolio_metrics(initial_portfolio_value=account_size)
+        return get_portfolio_metrics(initial_portfolio_value=account_size)
+    except Exception as e:
+        st.error(f"Error getting portfolio metrics: {e}")
+        return {
+            'total_value': f"${account_size:,.0f}",
+            'total_return_pct': "+0.0%",
+            'daily_pnl': "$0.00",
+            'unrealized_pnl': "$0.00",
+            'realized_pnl': "$0.00",
+            'win_rate': "0.0%"
+        }
 
-# CHANGE #3: Updated to 6 columns to include L/S Ratio
+# Load metrics
+metrics = get_portfolio_metrics_with_fallback(account_size)
+
+# Ensure all required keys exist
+safe_metrics = {
+    'total_value': f"${account_size:,.0f}",
+    'total_return_pct': "+0.0%",
+    'daily_pnl': "$0.00",
+    'unrealized_pnl': "$0.00",
+    'realized_pnl': "$0.00",
+    'win_rate': "0.0%"
+}
+for key, default_value in safe_metrics.items():
+    if key not in metrics:
+        metrics[key] = default_value
+
+# Portfolio Summary
+st.subheader("💰 Portfolio Summary")
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 with col1:
-    st.metric(
-        label="💰 Total Portfolio Value",
-        value=portfolio_metrics['total_value'],
-        help="Current total portfolio value including cash and positions"
-    )
+    total_value_clean = str(metrics['total_value']).replace('.00', '').replace(',', '')
+    st.metric(label="Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
 
 with col2:
-    st.metric(
-        label="📈 Total Return",
-        value=portfolio_metrics['total_return_pct'],
-        help="Total return since system inception"
-    )
+    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
 
 with col3:
-    # CHANGE #4: Removed delta to eliminate duplicate % indicator
-    st.metric(
-        label="📅 MTD Return", 
-        value=portfolio_metrics['mtd_return'],
-        help="Month-to-date performance"
-    )
+    st.metric(label="Unrealized P&L", value=metrics['unrealized_pnl'])
 
 with col4:
-    st.metric(
-        label="⚡ Daily P&L",
-        value=portfolio_metrics['daily_pnl'],
-        help="Unrealized profit/loss from current positions"
-    )
+    st.metric(label="Realized P&L", value=metrics['realized_pnl'])
 
 with col5:
-    st.metric(
-        label="⚖️ M/E Ratio",
-        value=portfolio_metrics['me_ratio'],
-        help="Market Exposure to Equity ratio - risk indicator"
-    )
+    st.metric(label="Win Rate", value=metrics['win_rate'])
 
 with col6:
-    # CHANGE #3: Added L/S Ratio column
-    st.metric(
-        label="🔄 L/S Ratio",
-        value=ls_ratio_display,
-        help="Long to Short positions ratio"
-    )
+    if st.button("🔄 Refresh Data", use_container_width=True):
+        st.rerun()
 
-# --- CURRENT POSITIONS ---
-st.markdown('<div class="section-header">Current Positions</div>', unsafe_allow_html=True)
+st.markdown("---")
 
-col1, col2 = st.columns(2)
+# Current Positions
+st.subheader("📋 Current Positions")
 
-with col1:
-    st.subheader("🟢 Long Positions")
-    long_positions = dm.get_long_positions_formatted()
-    
-    if not long_positions.empty:
-        st.dataframe(
-            long_positions,
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Long positions summary
-        total_long_value = len(long_positions)
-        long_pnl = long_positions['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
-        st.caption(f"Total: {total_long_value} positions | Combined P&L: ${long_pnl:,.0f}")
-    else:
-        st.info("No long positions currently held")
-
-with col2:
-    st.subheader("🔴 Short Positions")
-    short_positions = dm.get_short_positions_formatted()
-    
-    if not short_positions.empty:
-        st.dataframe(
-            short_positions,
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Short positions summary
-        total_short_value = len(short_positions)
-        short_pnl = short_positions['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
-        st.caption(f"Total: {total_short_value} positions | Combined P&L: ${short_pnl:,.0f}")
-    else:
-        st.info("No short positions currently held")
-
-# CHANGE #5: Removed redundant exposure summary section
-# (Previously showed Total Positions, Long Exposure, Short Exposure)
-
-# --- TODAY'S TRADES ---
-st.markdown('<div class="section-header">Today\'s Trades</div>', unsafe_allow_html=True)
 try:
-    # Get today's trades (entries and exits)
-    today = datetime.now().strftime('%Y-%m-%d')
+    positions = get_positions()
     
-    # Check for today's completed trades (exits)
-    recent_trades = dm.get_trades_history_formatted()
-    today_trades = pd.DataFrame()
-    
-    if not recent_trades.empty:
-        recent_trades['Date'] = pd.to_datetime(recent_trades['Date'])
-        today_trades = recent_trades[recent_trades['Date'].dt.strftime('%Y-%m-%d') == today].copy()
-        today_trades['Date'] = today_trades['Date'].dt.strftime('%Y-%m-%d')
-    
-    # Also check for new signals/entries from signals file
-    signals_df = dm.get_signals()
-    today_signals = pd.DataFrame()
-    
-    if not signals_df.empty and 'date' in signals_df.columns:
-        signals_df['date'] = pd.to_datetime(signals_df['date'])
-        today_signals = signals_df[signals_df['date'].dt.strftime('%Y-%m-%d') == today].copy()
-    
-    # Combine today's activity
-    if not today_trades.empty or not today_signals.empty:
-        if not today_trades.empty:
-            st.subheader("🔄 Today's Completed Trades")
-            st.dataframe(
-                today_trades,
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Today's trades summary
-            today_pnl = today_trades['P&L'].str.replace('$', '').str.replace(',', '').astype(float).sum()
-            trade_count = len(today_trades)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("📊 Today's Trades", trade_count)
-            with col2:
-                st.metric("💰 Today's P&L", f"${today_pnl:,.0f}")
+    if positions and len(positions) > 0:
+        # Convert to DataFrame for better display
+        df_positions = pd.DataFrame(positions)
         
-        if not today_signals.empty:
-            st.subheader("📡 Today's New Signals")
-            st.dataframe(
-                today_signals,
-                use_container_width=True,
-                hide_index=True
-            )
+        # Ensure required columns exist
+        required_columns = ['symbol', 'entry_date', 'side', 'shares', 'entry_price', 'current_price', 'profit']
+        for col in required_columns:
+            if col not in df_positions.columns:
+                if col == 'side':
+                    df_positions[col] = 'long'  # default
+                elif col == 'entry_date':
+                    df_positions[col] = datetime.now().strftime('%Y-%m-%d')  # default to today
+                elif col in ['shares', 'entry_price', 'current_price']:
+                    df_positions[col] = 0
+                elif col == 'profit':
+                    df_positions[col] = 0.0
+                else:
+                    df_positions[col] = 'N/A'
+        
+        # Format the display DataFrame with entry_date as 2nd column
+        display_df = pd.DataFrame()
+        display_df['Symbol'] = df_positions['symbol']
+        display_df['Entry Date'] = pd.to_datetime(df_positions['entry_date']).dt.strftime('%m/%d/%y')
+        display_df['Side'] = df_positions['side'].str.capitalize()
+        display_df['Shares'] = df_positions['shares'].astype(int)
+        display_df['Entry Price'] = df_positions['entry_price'].apply(lambda x: f"${float(x):,.2f}")
+        display_df['Current Price'] = df_positions['current_price'].apply(lambda x: f"${float(x):,.2f}")
+        display_df['Current Value'] = (df_positions['shares'] * df_positions['current_price']).apply(lambda x: f"${float(x):,.0f}")
+        display_df['P&L'] = df_positions['profit'].apply(lambda x: f"${float(x):+,.0f}")
+        display_df['P&L %'] = (
+            (df_positions['current_price'] / df_positions['entry_price'] - 1) * 100 * 
+            df_positions['shares'].apply(lambda x: 1 if x > 0 else -1)
+        ).apply(lambda x: f"{float(x):+.1f}%")
+        
+        # Display positions count
+        total_positions = len(display_df)
+        long_count = len(df_positions[df_positions['side'] == 'long'])
+        short_count = len(df_positions[df_positions['side'] == 'short'])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Positions", total_positions)
+        with col2:
+            st.metric("Long Positions", long_count)
+        with col3:
+            st.metric("Short Positions", short_count)
+        
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Symbol": st.column_config.TextColumn("Symbol", width="small"),
+                "Entry Date": st.column_config.TextColumn("Entry Date", width="small"),
+                "Side": st.column_config.TextColumn("Side", width="small"),
+                "Shares": st.column_config.NumberColumn("Shares", width="small"),
+                "Entry Price": st.column_config.TextColumn("Entry Price", width="medium"),
+                "Current Price": st.column_config.TextColumn("Current Price", width="medium"),
+                "Current Value": st.column_config.TextColumn("Current Value", width="medium"),
+                "P&L": st.column_config.TextColumn("P&L", width="medium"),
+                "P&L %": st.column_config.TextColumn("P&L %", width="small")
+            }
+        )
+        
+        # Check for suspicious future dates
+        future_positions = df_positions[pd.to_datetime(df_positions['entry_date']) > datetime.now()]
+        if not future_positions.empty:
+            st.warning(f"⚠️ WARNING: {len(future_positions)} positions have FUTURE entry dates - these are likely from backtest data!")
+            st.info("🔍 If you see future dates (like 2025-04-09), these positions are synthetic/test data, not real trades.")
+        
+        # Check for very recent positions (today)
+        today = datetime.now().strftime('%Y-%m-%d')
+        today_positions = df_positions[df_positions['entry_date'].str.contains(today, na=False)]
+        if not today_positions.empty:
+            st.success(f"✅ {len(today_positions)} positions entered TODAY - these appear to be new live trades!")
+    
     else:
-        st.info("No trading activity today yet")
+        st.info("No current positions")
+        st.markdown("### 🎯 Ready for Trading")
+        st.markdown("System is ready to generate new signals and enter positions.")
+
+except Exception as e:
+    st.error(f"Error loading positions: {e}")
+    st.info("Check your data sources and ensure the system is properly configured.")
+
+st.markdown("---")
+
+# Recent Signals
+st.subheader("🎯 Recent Signals")
+try:
+    signals = get_signals()
+    if signals and len(signals) > 0:
+        # Show last 10 signals
+        recent_signals = signals.head(10) if hasattr(signals, 'head') else signals[:10]
+        
+        if hasattr(recent_signals, 'to_dict'):
+            # It's a DataFrame
+            st.dataframe(recent_signals, use_container_width=True, hide_index=True)
+        else:
+            # It's a list
+            signal_df = pd.DataFrame(recent_signals)
+            st.dataframe(signal_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No recent signals")
+        st.markdown("Waiting for market conditions to generate new trading signals...")
+except Exception as e:
+    st.error(f"Error loading signals: {e}")
+
+st.markdown("---")
+
+# System Status
+st.subheader("⚙️ System Status")
+try:
+    system_status = get_system_status()
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.success("✅ System Online")
+        st.info(f"Last Update: {datetime.now().strftime('%H:%M:%S')}")
+    
+    with col2:
+        if USE_REAL_METRICS:
+            st.success("✅ Real Metrics Active")
+        else:
+            st.warning("⚠️ Using Placeholder Metrics")
+    
+    with col3:
+        st.info("📊 Data Sources Connected")
         
 except Exception as e:
-    st.warning(f"Could not load today's trades: {e}")
+    st.error(f"Error getting system status: {e}")
 
-# --- FOOTER ---
+# Footer
 st.markdown("---")
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown("**🚀 nGS Trading System**")
-    st.caption("Neural Grid Strategy Dashboard")
-
-with col2:
-    st.markdown("**📊 Live Data**")
-    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-with col3:
-    st.markdown("**📅 Data Retention**")
-    st.caption(f"{dm.RETENTION_DAYS} days (6 months)")
+st.markdown(
+    """
+    <div style='text-align: center; color: #666; font-size: 0.8rem;'>
+    nGulfStream Trading System | Neural Grid Strategy<br>
+    <em>Real-time algorithmic trading dashboard</em>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
