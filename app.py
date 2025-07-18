@@ -227,7 +227,7 @@ try:
         future_positions = df_positions[pd.to_datetime(df_positions['entry_date']) > datetime.now()]
         if not future_positions.empty:
             st.warning(f"⚠️ WARNING: {len(future_positions)} positions have FUTURE entry dates - these are likely from backtest data!")
-            st.info("🔍 If you see future dates (like 2025-04-09), these positions are synthetic/test data, not real trades.")
+            st.info("🔍 If you see future dates (like 04/09/25), these positions are synthetic/test data, not real trades.")
         
         # Check for very recent positions (today)
         today = datetime.now().strftime('%Y-%m-%d')
@@ -250,22 +250,32 @@ st.markdown("---")
 st.subheader("🎯 Recent Signals")
 try:
     signals = get_signals()
-    if signals and len(signals) > 0:
-        # Show last 10 signals
-        recent_signals = signals.head(10) if hasattr(signals, 'head') else signals[:10]
-        
-        if hasattr(recent_signals, 'to_dict'):
-            # It's a DataFrame
-            st.dataframe(recent_signals, use_container_width=True, hide_index=True)
-        else:
-            # It's a list
+    
+    # Check if signals exist and are not empty
+    if signals is not None:
+        if isinstance(signals, pd.DataFrame):
+            if not signals.empty:
+                # Show last 10 signals for DataFrame
+                recent_signals = signals.head(10)
+                st.dataframe(recent_signals, use_container_width=True, hide_index=True)
+            else:
+                st.info("No recent signals")
+                st.markdown("Waiting for market conditions to generate new trading signals...")
+        elif isinstance(signals, list) and len(signals) > 0:
+            # Show last 10 signals for list
+            recent_signals = signals[:10]
             signal_df = pd.DataFrame(recent_signals)
             st.dataframe(signal_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No recent signals")
+            st.markdown("Waiting for market conditions to generate new trading signals...")
     else:
         st.info("No recent signals")
         st.markdown("Waiting for market conditions to generate new trading signals...")
+        
 except Exception as e:
     st.error(f"Error loading signals: {e}")
+    st.info("Check your data sources and ensure signals are being generated properly.")
 
 st.markdown("---")
 
