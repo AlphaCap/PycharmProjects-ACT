@@ -425,19 +425,11 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     except Exception as e:
         st.error(f"❌ Error creating M/E ratio chart: {e}")
 
-<<<<<<< HEAD
-# M/E Ratio Chart positioned in same column format as equity curve
-=======
 # M/E Ratio Chart positioned in same column format as equity curve (no heading)
->>>>>>> 576b74f7c192e8d350f5e705c6702e867c1da82d
 col1_me, col2_me = st.columns([1, 1])
 with col1_me:
     st.write("")  # Empty space for alignment
 with col2_me:
-<<<<<<< HEAD
-    st.subheader("⚠️ M/E Ratio History")
-=======
->>>>>>> 576b74f7c192e8d350f5e705c6702e867c1da82d
     trades_df = get_trades_history()
     plot_me_ratio_history(trades_df, initial_value)
 
