@@ -277,12 +277,13 @@ if USE_REAL_METRICS and metrics.get('total_trades', 0) > 0:
     st.success(f"✅ Real portfolio metrics calculated from {metrics['total_trades']} trades")
     st.info(f"💰 Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | Winners: {metrics.get('winning_trades', 0)} | Losers: {metrics.get('losing_trades', 0)}")
 
-col1, col2, col3, col4 = st.columns(4)
+# Single row of portfolio metrics
+col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     total_value_clean = str(metrics['total_value']).replace('.00', '').replace(',', '')
     st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
 with col2:
-    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
+    st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
 with col3:
     # FIXED: Get historical M/E from actual data_manager function
     try:
@@ -297,12 +298,8 @@ with col3:
     st.metric(label="Avg Historical M/E", value=f"{historical_me}%")
 with col4:
     st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
-
-col5, col6 = st.columns([1, 1])
 with col5:
-    st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
-with col6:
-    if st.button("🔄 Refresh Historical Data", use_container_width=True, key="refresh_button"):
+    if st.button("🔄 Refresh", use_container_width=True, key="refresh_button"):
         st.cache_data.clear()
         st.rerun()
 
@@ -359,6 +356,14 @@ with col2:
             st.info("No trade history available for equity curve.")
     except Exception as e:
         st.error(f"Error creating equity curve: {e}")
+
+# M/E Ratio Chart positioned right underneath equity curve
+col1_me, col2_me = st.columns([1, 1])
+with col1_me:
+    st.write("")  # Empty space for alignment
+with col2_me:
+    trades_df = get_trades_history()
+    plot_me_ratio_history(trades_df, initial_value)
 
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     """
@@ -424,14 +429,6 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     
     except Exception as e:
         st.error(f"❌ Error creating M/E ratio chart: {e}")
-
-# M/E Ratio Chart positioned in same column format as equity curve (no heading)
-col1_me, col2_me = st.columns([1, 1])
-with col1_me:
-    st.write("")  # Empty space for alignment
-with col2_me:
-    trades_df = get_trades_history()
-    plot_me_ratio_history(trades_df, initial_value)
 
 st.markdown("---")
 st.subheader("📋 Complete Trade History")
