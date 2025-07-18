@@ -54,30 +54,10 @@ with st.sidebar:
         st.switch_page("pages/1_nGS_System.py")
     
     st.markdown("---")
-    
-    # Quick stats
-    st.subheader("Quick Stats")
-    try:
-        positions = get_positions()
-        if positions:
-            total_positions = len(positions)
-            long_positions = len([p for p in positions if p.get('side', 'long') == 'long'])
-            short_positions = len([p for p in positions if p.get('side', 'short') == 'short'])
-        else:
-            total_positions = long_positions = short_positions = 0
-            
-        st.metric("Total Positions", total_positions)
-        st.metric("Long", long_positions)
-        st.metric("Short", short_positions)
-    except Exception as e:
-        st.error(f"Error loading stats: {e}")
-    
-    st.markdown("---")
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
 
 # Main content
 st.title("🎯 nGS Trading Dashboard")
-st.markdown("Real-time Neural Grid Strategy Performance")
 
 # Initialize session state for account size
 if 'account_size' not in st.session_state:
@@ -129,6 +109,34 @@ for key, default_value in safe_metrics.items():
 
 # Portfolio Summary
 st.subheader("💰 Portfolio Summary")
+
+# Custom CSS for smaller metric fonts
+st.markdown("""
+<style>
+[data-testid="metric-container"] {
+    background-color: rgba(28, 131, 225, 0.1);
+    border: 1px solid rgba(28, 131, 225, 0.1);
+    padding: 5% 5% 5% 10%;
+    border-radius: 5px;
+}
+
+[data-testid="metric-container"] > div {
+    width: fit-content;
+    margin: auto;
+}
+
+[data-testid="metric-container"] label {
+    width: fit-content;
+    margin: auto;
+    font-size: 0.8rem;
+}
+
+[data-testid="metric-container"] [data-testid="metric-value"] {
+    font-size: 1.2rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 with col1:
@@ -237,8 +245,6 @@ try:
     
     else:
         st.info("No current positions")
-        st.markdown("### 🎯 Ready for Trading")
-        st.markdown("System is ready to generate new signals and enter positions.")
 
 except Exception as e:
     st.error(f"Error loading positions: {e}")
@@ -246,8 +252,8 @@ except Exception as e:
 
 st.markdown("---")
 
-# Recent Signals
-st.subheader("🎯 Recent Signals")
+# Today's Signals
+st.subheader("🎯 Today's Signals")
 try:
     signals = get_signals()
     
@@ -259,48 +265,19 @@ try:
                 recent_signals = signals.head(10)
                 st.dataframe(recent_signals, use_container_width=True, hide_index=True)
             else:
-                st.info("No recent signals")
-                st.markdown("Waiting for market conditions to generate new trading signals...")
+                st.info("No signals today")
         elif isinstance(signals, list) and len(signals) > 0:
             # Show last 10 signals for list
             recent_signals = signals[:10]
             signal_df = pd.DataFrame(recent_signals)
             st.dataframe(signal_df, use_container_width=True, hide_index=True)
         else:
-            st.info("No recent signals")
-            st.markdown("Waiting for market conditions to generate new trading signals...")
+            st.info("No signals today")
     else:
-        st.info("No recent signals")
-        st.markdown("Waiting for market conditions to generate new trading signals...")
+        st.info("No signals today")
         
 except Exception as e:
     st.error(f"Error loading signals: {e}")
-    st.info("Check your data sources and ensure signals are being generated properly.")
-
-st.markdown("---")
-
-# System Status
-st.subheader("⚙️ System Status")
-try:
-    system_status = get_system_status()
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.success("✅ System Online")
-        st.info(f"Last Update: {datetime.now().strftime('%H:%M:%S')}")
-    
-    with col2:
-        if USE_REAL_METRICS:
-            st.success("✅ Real Metrics Active")
-        else:
-            st.warning("⚠️ Using Placeholder Metrics")
-    
-    with col3:
-        st.info("📊 Data Sources Connected")
-        
-except Exception as e:
-    st.error(f"Error getting system status: {e}")
 
 # Footer
 st.markdown("---")
