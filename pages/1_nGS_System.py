@@ -386,7 +386,7 @@ else:
 
 st.markdown("---")
 st.subheader("📊 Performance Statistics")
-col1, col2 = st.columns([1, 1])
+col1, col2 = st.columns([2, 3])  # Reduced Performance Statistics width (2:3 ratio)
 with col1:
     try:
         # Use enhanced performance stats with VaR and benchmark
@@ -421,14 +421,14 @@ with col2:
             st.info("No trade history available for equity curve.")
     except Exception as e:
         st.error(f"Error creating equity curve: {e}")
-
-# M/E Ratio Chart positioned right underneath equity curve
-col1_me, col2_me = st.columns([1, 1])
-with col1_me:
-    st.write("")  # Empty space for alignment
-with col2_me:
-    trades_df = get_trades_history()
-    plot_me_ratio_history(trades_df, initial_value)
+    
+    # M/E Ratio Chart positioned right underneath equity curve (no extra spacing)
+    st.write("")  # Small spacing
+    try:
+        trades_df = get_trades_history()
+        plot_me_ratio_history(trades_df, initial_value)
+    except Exception as e:
+        st.error(f"Error creating M/E chart: {e}")
 
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     """
