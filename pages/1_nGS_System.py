@@ -257,109 +257,6 @@ def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
             'ytd_delta': "+0.0%"
         }
 
-metrics = get_portfolio_metrics_with_fallback(initial_value)
-safe_metrics = {
-    'total_value': f"${initial_value:,.0f}",
-    'total_return_pct': "+0.0%",
-    'daily_pnl': "$0.00",
-    'me_ratio': "0.00",
-    'mtd_return': "+0.0%",
-    'mtd_delta': "+0.0%",
-    'ytd_return': "+0.0%",
-    'ytd_delta': "+0.0%"
-}
-for key, default_value in safe_metrics.items():
-    if key not in metrics:
-        metrics[key] = default_value
-
-st.subheader("📈 Detailed Portfolio Metrics")
-if USE_REAL_METRICS and metrics.get('total_trades', 0) > 0:
-    st.success(f"✅ Real portfolio metrics calculated from {metrics['total_trades']} trades")
-    st.info(f"💰 Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | Winners: {metrics.get('winning_trades', 0)} | Losers: {metrics.get('losing_trades', 0)}")
-
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    total_value_clean = str(metrics['total_value']).replace('.00', '').replace(',', '')
-    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
-with col2:
-    st.metric(label="Daily P&L", value=metrics['daily_pnl'])
-with col3:
-    # FIXED: Get historical M/E from actual data_manager function
-    try:
-        me_hist = get_me_ratio_history()
-        if not me_hist.empty:
-            clean_me_data = me_hist[me_hist['ME_Ratio'] > 0]
-            historical_me = f"{clean_me_data['ME_Ratio'].mean():.1f}" if not clean_me_data.empty else "0.0"
-        else:
-            historical_me = "0.0"
-    except:
-        historical_me = "0.0"
-    st.metric(label="Avg Historical M/E", value=f"{historical_me}%")
-with col4:
-    st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
-
-col5, col6 = st.columns([1, 1])
-with col5:
-    st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
-with col6:
-    if st.button("🔄 Refresh Historical Data", use_container_width=True, key="refresh_button"):
-        st.cache_data.clear()
-        st.rerun()
-
-st.markdown("---")
-st.subheader("🎯 Strategy Performance")
-def get_strategy_data(initial_value: int) -> pd.DataFrame:
-    try:
-        if USE_REAL_METRICS:
-            return get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
-        return get_strategy_performance(initial_portfolio_value=initial_value)
-    except Exception as e:
-        st.error(f"Error loading strategy performance: {e}")
-        return pd.DataFrame()
-strategy_df = get_strategy_data(initial_value)
-if not strategy_df.empty:
-    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
-else:
-    st.info("No strategy performance data available.")
-
-st.markdown("---")
-st.subheader("📊 Performance Statistics")
-col1, col2 = st.columns([1, 1])
-with col1:
-    try:
-        # Use enhanced performance stats with VaR and benchmark
-        perf_stats_df = get_enhanced_portfolio_performance_stats()
-        if not perf_stats_df.empty:
-            st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No performance statistics available.")
-    except Exception as e:
-        st.error(f"Error loading performance stats: {e}")
-with col2:
-    st.subheader("📈 Equity Curve")
-    try:
-        trades_df = get_trades_history()
-        if not trades_df.empty:
-            trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
-            trades_sorted = trades_df.sort_values('exit_date')
-            trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], linewidth=2, color='#1f77b4')
-            ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], where=(trades_sorted['cumulative_profit'] > 0), alpha=0.3, color='green')
-            ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], where=(trades_sorted['cumulative_profit'] <= 0), alpha=0.3, color='red')
-            ax.set_title('Cumulative Profit Over Time', fontsize=12, fontweight='bold')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Cumulative Profit ($)')
-            ax.grid(True, alpha=0.3)
-            ax.tick_params(axis='x', rotation=45)
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close()
-        else:
-            st.info("No trade history available for equity curve.")
-    except Exception as e:
-        st.error(f"Error creating equity curve: {e}")
-
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     """
     Plot M/E ratio history using data_manager's get_me_ratio_history function.
@@ -425,13 +322,178 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     except Exception as e:
         st.error(f"❌ Error creating M/E ratio chart: {e}")
 
-# M/E Ratio Chart positioned in same column format as equity curve (no heading)
-col1_me, col2_me = st.columns([1, 1])
-with col1_me:
-    st.write("")  # Empty space for alignment
-with col2_me:
-    trades_df = get_trades_history()
-    plot_me_ratio_history(trades_df, initial_value)
+metrics = get_portfolio_metrics_with_fallback(initial_value)
+safe_metrics = {
+    'total_value': f"${initial_value:,.0f}",
+    'total_return_pct': "+0.0%",
+    'daily_pnl': "$0.00",
+    'me_ratio': "0.00",
+    'mtd_return': "+0.0%",
+    'mtd_delta': "+0.0%",
+    'ytd_return': "+0.0%",
+    'ytd_delta': "+0.0%"
+}
+for key, default_value in safe_metrics.items():
+    if key not in metrics:
+        metrics[key] = default_value
+
+st.subheader("📈 Detailed Portfolio Metrics")
+if USE_REAL_METRICS and metrics.get('total_trades', 0) > 0:
+    st.success(f"✅ Real portfolio metrics calculated from {metrics['total_trades']} trades")
+    st.info(f"💰 Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | Winners: {metrics.get('winning_trades', 0)} | Losers: {metrics.get('losing_trades', 0)}")
+
+# Single row of portfolio metrics
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    total_value_clean = str(metrics['total_value']).replace('.00', '').replace(',', '')
+    st.metric(label="Total Portfolio Value", value=total_value_clean, delta=metrics['total_return_pct'])
+with col2:
+    st.metric(label="YTD Return", value=metrics['ytd_return'], delta=metrics['ytd_delta'])
+with col3:
+    # FIXED: Get historical M/E from actual data_manager function
+    try:
+        me_hist = get_me_ratio_history()
+        if not me_hist.empty:
+            clean_me_data = me_hist[me_hist['ME_Ratio'] > 0]
+            historical_me = f"{clean_me_data['ME_Ratio'].mean():.1f}" if not clean_me_data.empty else "0.0"
+        else:
+            historical_me = "0.0"
+    except:
+        historical_me = "0.0"
+    st.metric(label="Avg Historical M/E", value=f"{historical_me}%")
+with col4:
+    st.metric(label="MTD Return", value=metrics['mtd_return'], delta=metrics['mtd_delta'])
+with col5:
+    if st.button("🔄 Refresh", use_container_width=True, key="refresh_button"):
+        st.cache_data.clear()
+        st.rerun()
+
+st.markdown("---")
+st.subheader("🎯 Strategy Performance")
+def get_strategy_data(initial_value: int) -> pd.DataFrame:
+    try:
+        if USE_REAL_METRICS:
+            return get_enhanced_strategy_performance(initial_portfolio_value=initial_value)
+        return get_strategy_performance(initial_portfolio_value=initial_value)
+    except Exception as e:
+        st.error(f"Error loading strategy performance: {e}")
+        return pd.DataFrame()
+strategy_df = get_strategy_data(initial_value)
+if not strategy_df.empty:
+    st.dataframe(strategy_df, use_container_width=True, hide_index=True)
+else:
+    st.info("No strategy performance data available.")
+
+st.markdown("---")
+st.subheader("📊 Performance Statistics")
+col1, col2 = st.columns([2, 3])  # Reduced Performance Statistics width (2:3 ratio)
+with col1:
+    try:
+        # Use enhanced performance stats with VaR and benchmark
+        perf_stats_df = get_enhanced_portfolio_performance_stats()
+        if not perf_stats_df.empty:
+            st.dataframe(perf_stats_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No performance statistics available.")
+    except Exception as e:
+        st.error(f"Error loading performance stats: {e}")
+with col2:
+    st.subheader("📈 Equity Curve")
+    try:
+        trades_df = get_trades_history()
+        if not trades_df.empty:
+            trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
+            trades_sorted = trades_df.sort_values('exit_date')
+            trades_sorted['cumulative_profit'] = trades_sorted['profit'].cumsum()
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.plot(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], linewidth=2, color='#1f77b4')
+            ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], where=(trades_sorted['cumulative_profit'] > 0), alpha=0.3, color='green')
+            ax.fill_between(trades_sorted['exit_date'], trades_sorted['cumulative_profit'], where=(trades_sorted['cumulative_profit'] <= 0), alpha=0.3, color='red')
+            ax.set_title('Cumulative Profit Over Time', fontsize=12, fontweight='bold')
+            ax.set_xlabel('Date')
+            ax.set_ylabel('Cumulative Profit ($)')
+            ax.grid(True, alpha=0.3)
+            ax.tick_params(axis='x', rotation=45)
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close()
+        else:
+            st.info("No trade history available for equity curve.")
+    except Exception as e:
+        st.error(f"Error creating equity curve: {e}")
+    
+    # M/E Ratio Chart positioned right underneath equity curve (no extra spacing)
+    st.write("")  # Small spacing
+    try:
+        trades_df = get_trades_history()
+        plot_me_ratio_history(trades_df, initial_value)
+    except Exception as e:
+        st.error(f"Error creating M/E chart: {e}")
+
+def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
+    """
+    Plot M/E ratio history using data_manager's get_me_ratio_history function.
+    Sized to match equity curve chart exactly.
+    """
+    try:
+        # Get M/E history from data_manager
+        me_history_df = get_me_ratio_history()
+        
+        if not me_history_df.empty:
+            # Convert Date column to datetime if it's not already
+            me_history_df['Date'] = pd.to_datetime(me_history_df['Date'])
+            
+            # Filter out any bad data (0.0% M/E ratios)
+            clean_data = me_history_df[me_history_df['ME_Ratio'] > 0].copy()
+            
+            if not clean_data.empty:
+                # Create the chart with EXACT same size as equity curve
+                fig, ax = plt.subplots(figsize=(10, 4))
+                
+                # Plot M/E ratio line (matching equity curve line style)
+                ax.plot(clean_data['Date'], clean_data['ME_Ratio'], 
+                       linewidth=2, color='#ff6b35', label='M/E Ratio')
+                
+                # Add risk zones
+                ax.axhline(y=100, color='red', linestyle='--', linewidth=2, 
+                          alpha=0.8, label='CRITICAL LIMIT (100%)')
+                ax.fill_between(clean_data['Date'], 0, 80, alpha=0.2, color='green', 
+                               label='Safe Zone (<80%)')
+                ax.fill_between(clean_data['Date'], 80, 100, alpha=0.2, color='orange', 
+                               label='Warning Zone (80-100%)')
+                
+                # Chart formatting (identical to equity curve)
+                ax.set_title('Historical M/E Ratio - Risk Management', 
+                           fontsize=12, fontweight='bold')
+                ax.set_xlabel('Date')
+                ax.set_ylabel('M/E Ratio (%)')
+                ax.set_ylim(0, max(110, clean_data['ME_Ratio'].max() * 1.1))
+                ax.grid(True, alpha=0.3)
+                ax.legend(loc='upper left')
+                ax.tick_params(axis='x', rotation=45)
+                
+                # Calculate statistics
+                avg_me = clean_data['ME_Ratio'].mean()
+                max_me = clean_data['ME_Ratio'].max()
+                min_me = clean_data['ME_Ratio'].min()
+                
+                # Add statistics box
+                stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
+                ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, 
+                       verticalalignment='top', 
+                       bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8), 
+                       fontsize=10)
+                
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close()
+            else:
+                st.warning("❌ M/E history contains only invalid data (0.0% ratios)")
+        else:
+            st.warning("❌ No M/E ratio history found")
+    
+    except Exception as e:
+        st.error(f"❌ Error creating M/E ratio chart: {e}")
 
 st.markdown("---")
 st.subheader("📋 Complete Trade History")
