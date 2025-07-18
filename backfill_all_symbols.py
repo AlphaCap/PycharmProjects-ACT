@@ -47,7 +47,7 @@ def backfill_all_symbols():
         return
 
     # Process symbols in batches to manage rate limits
-    BATCH_SIZE = 50
+    BATCH_SIZE = 30
     for i in range(0, len(symbols), BATCH_SIZE):
         batch_symbols = symbols[i:i + BATCH_SIZE]
         logging.info(f"Processing batch {i // BATCH_SIZE + 1} of {len(symbols) // BATCH_SIZE + 1}: {batch_symbols[:5]}...")
@@ -64,10 +64,10 @@ def backfill_all_symbols():
                 logging.error(f"Error backfilling {symbol}: {e}")
             # Add a small delay between requests within a batch
             import time
-            time.sleep(1)  # 1-second delay to reduce load
+            time.sleep(12)  # 1-second delay to reduce load
 
         # Larger delay between batches
-        time.sleep(10)  # 10-second delay between batches
+        time.sleep(12)  # 10-second delay between batches
 
     # Check if finalize_backfill exists before calling
     if hasattr(strategy, 'finalize_backfill'):
