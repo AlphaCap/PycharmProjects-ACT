@@ -257,6 +257,71 @@ def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
             'ytd_delta': "+0.0%"
         }
 
+def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
+    """
+    Plot M/E ratio history using data_manager's get_me_ratio_history function.
+    Sized to match equity curve chart exactly.
+    """
+    try:
+        # Get M/E history from data_manager
+        me_history_df = get_me_ratio_history()
+        
+        if not me_history_df.empty:
+            # Convert Date column to datetime if it's not already
+            me_history_df['Date'] = pd.to_datetime(me_history_df['Date'])
+            
+            # Filter out any bad data (0.0% M/E ratios)
+            clean_data = me_history_df[me_history_df['ME_Ratio'] > 0].copy()
+            
+            if not clean_data.empty:
+                # Create the chart with EXACT same size as equity curve
+                fig, ax = plt.subplots(figsize=(10, 4))
+                
+                # Plot M/E ratio line (matching equity curve line style)
+                ax.plot(clean_data['Date'], clean_data['ME_Ratio'], 
+                       linewidth=2, color='#ff6b35', label='M/E Ratio')
+                
+                # Add risk zones
+                ax.axhline(y=100, color='red', linestyle='--', linewidth=2, 
+                          alpha=0.8, label='CRITICAL LIMIT (100%)')
+                ax.fill_between(clean_data['Date'], 0, 80, alpha=0.2, color='green', 
+                               label='Safe Zone (<80%)')
+                ax.fill_between(clean_data['Date'], 80, 100, alpha=0.2, color='orange', 
+                               label='Warning Zone (80-100%)')
+                
+                # Chart formatting (identical to equity curve)
+                ax.set_title('Historical M/E Ratio - Risk Management', 
+                           fontsize=12, fontweight='bold')
+                ax.set_xlabel('Date')
+                ax.set_ylabel('M/E Ratio (%)')
+                ax.set_ylim(0, max(110, clean_data['ME_Ratio'].max() * 1.1))
+                ax.grid(True, alpha=0.3)
+                ax.legend(loc='upper left')
+                ax.tick_params(axis='x', rotation=45)
+                
+                # Calculate statistics
+                avg_me = clean_data['ME_Ratio'].mean()
+                max_me = clean_data['ME_Ratio'].max()
+                min_me = clean_data['ME_Ratio'].min()
+                
+                # Add statistics box
+                stats_text = f'Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%'
+                ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, 
+                       verticalalignment='top', 
+                       bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8), 
+                       fontsize=10)
+                
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close()
+            else:
+                st.warning("❌ M/E history contains only invalid data (0.0% ratios)")
+        else:
+            st.warning("❌ No M/E ratio history found")
+    
+    except Exception as e:
+        st.error(f"❌ Error creating M/E ratio chart: {e}")
+
 metrics = get_portfolio_metrics_with_fallback(initial_value)
 safe_metrics = {
     'total_value': f"${initial_value:,.0f}",
