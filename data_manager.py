@@ -1102,12 +1102,12 @@ def get_historical_data(polygon_client, symbol: str, start_date: datetime, end_d
         end_str = end_date.strftime('%Y-%m-%d')
         # Fetch aggregated daily data from Polygon
         agg = polygon_client.get_aggs(symbol, 1, 'day', start_str, end_str)
-        if not agg or not agg.results:
+        if not agg:
             logger.warning(f"No historical data available for {symbol} from {start_str} to {end_str}")
             return pd.DataFrame()
 
         # Convert Polygon response to DataFrame
-        data = pd.DataFrame(agg.results)
+        data = pd.DataFrame(agg)
         data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
         data = data.rename(columns={
             'open': 'open',
