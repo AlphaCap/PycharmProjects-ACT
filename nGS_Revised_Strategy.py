@@ -1004,6 +1004,25 @@ class NGSStrategy:
         
         return results
 
+    def backfill_symbol(self, symbol: str, data: pd.DataFrame):
+        if data is not None and not data.empty:
+            df = data.reset_index().rename(columns={
+                'timestamp': 'Date',
+                'open': 'Open',
+                'high': 'High',
+                'low': 'Low',
+                'close': 'Close',
+                'volume': 'Volume'
+            })
+            df['Date'] = pd.to_datetime(df['Date']).dt.date
+            df_with_indicators = self.calculate_indicators(df)
+            if df_with_indicators is not None:
+                from data_manager import save_price_data
+                save_price_data(symbol, df_with_indicators)
+                logger.info(f"Backfilled and saved indicators for {symbol}")
+        else:
+            logger.warning(f"No data to backfill for {symbol}")
+
 def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
     """
     Load EOD data using your existing data_manager functions.
