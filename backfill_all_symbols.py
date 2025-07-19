@@ -33,7 +33,7 @@ def backfill_all_symbols():
 
     # Define historical date range (avoid future dates)
     end_date = datetime.now() - timedelta(days=1)  # Yesterday to ensure available data
-    start_date = end_date - timedelta(days=30)    # Last 30 days of historical data
+    start_date = end_date - timedelta(days=180)    # Last 30 days of historical data
 
     # Fetch all S&P 500 symbols from data_manager
     try:
