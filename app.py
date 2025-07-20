@@ -108,7 +108,7 @@ for key, default_value in safe_metrics.items():
         metrics[key] = default_value
 
 # Portfolio Summary
-st.subheader("💰 Portfolio Summary")
+st.subheader("Portfolio Summary")
 
 # Custom CSS for smaller metric fonts
 st.markdown("""
