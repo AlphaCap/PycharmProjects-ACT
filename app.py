@@ -21,7 +21,7 @@ except ImportError:
     USE_REAL_METRICS = False
 
 st.set_page_config(
-    page_title="nGS Trading Dashboard",
+    page_title="nGulfStream Trader",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -47,7 +47,7 @@ hide_streamlit_style = """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.title("nGS Trading System")
+    st.title("nGS Trading")
     
     # Navigation
     if st.button("📊 Historical Performance", use_container_width=True):
@@ -57,7 +57,7 @@ with st.sidebar:
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
 
 # Main content
-st.title("🎯 nGS Trading Dashboard")
+st.title("nGulfStream Trader")
 
 # Initialize session state for account size
 if 'account_size' not in st.session_state:
