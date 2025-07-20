@@ -1,10 +1,19 @@
-{
-  "daily": {
-    "full_history_date": "2025-07-16",
-    "last_update": "2025-07-16"
-  },
-  "minute": {
-    "full_history_date": null,
-    "last_update": null
-  }
-}
+import json
+from datetime import datetime
+
+# Check the JSON file vs actual file dates
+try:
+    with open('data/last_fetch_dates.json', 'r') as f:
+        dates = json.load(f)
+    print(f'JSON shows last update: {dates["daily"]["last_update"]}')
+except:
+    print('Could not read last_fetch_dates.json')
+
+print(f'Today is: {datetime.now().strftime("%Y-%m-%d")}')
+
+# Check if any symbols would be filtered by current criteria
+from nGS_Revised_Strategy import NGSStrategy
+strategy = NGSStrategy()
+print(f'Price filter: ${strategy.inputs["MinPrice"]} - ${strategy.inputs["MaxPrice"]}')
+print(f'Position size: ${strategy.inputs["PositionSize"]}')
+print(f'Data cutoff: {strategy.cutoff_date.strftime("%Y-%m-%d")}')
