@@ -57,7 +57,7 @@ with st.sidebar:
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
 
 # Main content
-st.title("🎯 nGS Trading Dashboard")
+st.title("nGulfStream Trader")
 
 # Initialize session state for account size
 if 'account_size' not in st.session_state:
@@ -108,7 +108,7 @@ for key, default_value in safe_metrics.items():
         metrics[key] = default_value
 
 # Portfolio Summary
-st.subheader("💰 Portfolio Summary")
+st.subheader("Portfolio Summary")
 
 # Custom CSS for smaller metric fonts
 st.markdown("""
