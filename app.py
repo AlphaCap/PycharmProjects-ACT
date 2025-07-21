@@ -74,14 +74,91 @@ account_size = st.number_input(
 )
 st.session_state.account_size = account_size
 
-# Get portfolio metrics with fallback
-def get_portfolio_metrics_with_fallback(account_size: int) -> dict:
+# Calculate L/S Ratio from current positions
+def calculate_ls_ratio():
     try:
-        if USE_REAL_METRICS:
-            return calculate_real_portfolio_metrics(initial_portfolio_value=account_size)
-        return get_portfolio_metrics(initial_portfolio_value=account_size)
+        positions = get_positions()
+        if not positions or len(positions) == 0:
+            return "N/A"
+        
+        df_positions = pd.DataFrame(positions)
+        
+        # Ensure side column exists
+        if 'side' not in df_positions.columns:
+            # Determine side from shares if side column missing
+            if 'shares' in df_positions.columns:
+                df_positions['side'] = df_positions['shares'].apply(lambda x: 'long' if x > 0 else 'short')
+            else:
+                return "N/A"
+        
+        long_count = len(df_positions[df_positions['side'] == 'long'])
+        short_count = len(df_positions[df_positions['side'] == 'short'])
+        
+        if long_count == 0 and short_count == 0:
+            return "N/A"
+        elif short_count == 0:
+            return f"{long_count}:0"
+        elif long_count == 0:
+            return f"0:{short_count}"
+        else:
+            # Calculate ratio
+            if long_count >= short_count:
+                ratio = long_count / short_count
+                return f"{ratio:.1f}:1"
+            else:
+                ratio = short_count / long_count
+                return f"1:{ratio:.1f}"
     except Exception as e:
-        st.error(f"Error getting portfolio metrics: {e}")
+        return "Error"
+
+# Enhanced portfolio metrics calculation
+def get_enhanced_portfolio_metrics(account_size: int) -> dict:
+    try:
+        # Get base metrics
+        if USE_REAL_METRICS:
+            metrics = calculate_real_portfolio_metrics(initial_portfolio_value=account_size)
+        else:
+            metrics = get_portfolio_metrics(initial_portfolio_value=account_size)
+        
+        # Calculate enhanced metrics from positions
+        positions = get_positions()
+        if positions and len(positions) > 0:
+            df_positions = pd.DataFrame(positions)
+            
+            # Calculate unrealized P&L from current positions
+            if all(col in df_positions.columns for col in ['current_price', 'entry_price', 'shares']):
+                df_positions['unrealized_pnl'] = (
+                    (df_positions['current_price'] - df_positions['entry_price']) * df_positions['shares']
+                )
+                total_unrealized = df_positions['unrealized_pnl'].sum()
+                metrics['unrealized_pnl'] = f"${total_unrealized:+,.0f}"
+            
+            # Calculate current portfolio value
+            if 'current_price' in df_positions.columns and 'shares' in df_positions.columns:
+                total_position_value = (df_positions['current_price'] * df_positions['shares'].abs()).sum()
+                cash_value = account_size + df_positions['unrealized_pnl'].sum() - total_position_value
+                total_portfolio_value = cash_value + total_position_value
+                metrics['total_value'] = f"${total_portfolio_value:,.0f}"
+                
+                # Calculate return percentage
+                return_pct = ((total_portfolio_value - account_size) / account_size * 100)
+                metrics['total_return_pct'] = f"{return_pct:+.2f}%"
+        
+        # Try to get realized P&L from trades data
+        try:
+            import os
+            if os.path.exists('data/trades.csv'):
+                trades_df = pd.read_csv('data/trades.csv')
+                if 'profit' in trades_df.columns:
+                    total_realized = trades_df['profit'].sum()
+                    metrics['realized_pnl'] = f"${total_realized:+,.0f}"
+        except:
+            pass
+            
+        return metrics
+        
+    except Exception as e:
+        st.error(f"Error getting enhanced portfolio metrics: {e}")
         return {
             'total_value': f"${account_size:,.0f}",
             'total_return_pct': "+0.0%",
@@ -91,8 +168,8 @@ def get_portfolio_metrics_with_fallback(account_size: int) -> dict:
             'win_rate': "0.0%"
         }
 
-# Load metrics
-metrics = get_portfolio_metrics_with_fallback(account_size)
+# Load enhanced metrics
+metrics = get_enhanced_portfolio_metrics(account_size)
 
 # Ensure all required keys exist
 safe_metrics = {
@@ -107,16 +184,19 @@ for key, default_value in safe_metrics.items():
     if key not in metrics:
         metrics[key] = default_value
 
+# Calculate L/S ratio
+ls_ratio = calculate_ls_ratio()
+
 # Portfolio Summary
 st.subheader("Portfolio Summary")
 
-# Custom CSS for smaller metric fonts
+# Custom CSS for smaller metric fonts to fit 7 columns
 st.markdown("""
 <style>
 [data-testid="metric-container"] {
     background-color: rgba(28, 131, 225, 0.1);
     border: 1px solid rgba(28, 131, 225, 0.1);
-    padding: 5% 5% 5% 10%;
+    padding: 3% 3% 3% 6%;
     border-radius: 5px;
 }
 
@@ -128,16 +208,23 @@ st.markdown("""
 [data-testid="metric-container"] label {
     width: fit-content;
     margin: auto;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
+    font-weight: 600;
 }
 
 [data-testid="metric-container"] [data-testid="metric-value"] {
-    font-size: 1.2rem;
+    font-size: 1.0rem;
+    font-weight: 700;
+}
+
+[data-testid="metric-container"] [data-testid="metric-delta"] {
+    font-size: 0.8rem;
 }
 </style>
 """, unsafe_allow_html=True)
 
-col1, col2, col3, col4, col5, col6 = st.columns(6)
+# Now using 7 columns to fit L/S ratio
+col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
 with col1:
     total_value_clean = str(metrics['total_value']).replace('.00', '').replace(',', '')
@@ -156,7 +243,10 @@ with col5:
     st.metric(label="Win Rate", value=metrics['win_rate'])
 
 with col6:
-    if st.button("🔄 Refresh Data", use_container_width=True):
+    st.metric(label="L/S Ratio", value=ls_ratio)
+
+with col7:
+    if st.button("🔄 Refresh", use_container_width=True):
         st.rerun()
 
 st.markdown("---")
@@ -209,18 +299,20 @@ try:
             df_positions['shares'].apply(lambda x: 1 if x > 0 else -1)
         ).apply(lambda x: f"{float(x):+.1f}%")
         
-        # Display positions count
+        # Display positions count with L/S breakdown
         total_positions = len(display_df)
         long_count = len(df_positions[df_positions['side'] == 'long'])
         short_count = len(df_positions[df_positions['side'] == 'short'])
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total Positions", total_positions)
         with col2:
             st.metric("Long Positions", long_count)
         with col3:
             st.metric("Short Positions", short_count)
+        with col4:
+            st.metric("L/S Ratio", ls_ratio)
         
         st.dataframe(
             display_df,
@@ -259,6 +351,16 @@ try:
     
     else:
         st.info("No current positions")
+        # Show L/S ratio as N/A when no positions
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Positions", 0)
+        with col2:
+            st.metric("Long Positions", 0)
+        with col3:
+            st.metric("Short Positions", 0)
+        with col4:
+            st.metric("L/S Ratio", "N/A")
 
 except Exception as e:
     st.error(f"Error loading positions: {e}")
