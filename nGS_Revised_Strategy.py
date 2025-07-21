@@ -123,7 +123,10 @@ class DailyMERatioCalculator:
         # Check if file exists
         if os.path.exists(filename):
             # Append to existing data
-            existing_df = pd.read_csv(filename, parse_dates=['Date'])
+            existing_df = pd.read_csv(filename)
+            
+            # Ensure Date column is datetime
+            existing_df['Date'] = pd.to_datetime(existing_df['Date'], errors='coerce')
             
             # Remove today's data if it exists (update)
             today = datetime.now().strftime('%Y-%m-%d')
