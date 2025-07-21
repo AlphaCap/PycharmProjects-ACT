@@ -111,7 +111,7 @@ def calculate_ls_ratio():
     except Exception as e:
         return "Error"
 
-# Enhanced portfolio metrics calculation
+# Enhanced portfolio metrics calculation - CORRECTED
 def get_enhanced_portfolio_metrics(account_size: int) -> dict:
     try:
         # Get base metrics
@@ -120,7 +120,26 @@ def get_enhanced_portfolio_metrics(account_size: int) -> dict:
         else:
             metrics = get_portfolio_metrics(initial_portfolio_value=account_size)
         
-        # Calculate enhanced metrics from positions
+        total_realized = 0.0
+        total_unrealized = 0.0
+        
+        # Get realized P&L from trades data
+        try:
+            import os
+            if os.path.exists('data/trades.csv'):
+                trades_df = pd.read_csv('data/trades.csv')
+                if 'profit' in trades_df.columns and len(trades_df) > 0:
+                    total_realized = trades_df['profit'].sum()
+                    metrics['realized_pnl'] = f"${total_realized:+,.0f}"
+            elif os.path.exists('trade_history.csv'):
+                trades_df = pd.read_csv('trade_history.csv')
+                if 'profit' in trades_df.columns and len(trades_df) > 0:
+                    total_realized = trades_df['profit'].sum()
+                    metrics['realized_pnl'] = f"${total_realized:+,.0f}"
+        except:
+            pass
+        
+        # Get unrealized P&L from current positions
         positions = get_positions()
         if positions and len(positions) > 0:
             df_positions = pd.DataFrame(positions)
@@ -132,29 +151,20 @@ def get_enhanced_portfolio_metrics(account_size: int) -> dict:
                 )
                 total_unrealized = df_positions['unrealized_pnl'].sum()
                 metrics['unrealized_pnl'] = f"${total_unrealized:+,.0f}"
-            
-            # Calculate current portfolio value
-            if 'current_price' in df_positions.columns and 'shares' in df_positions.columns:
-                total_position_value = (df_positions['current_price'] * df_positions['shares'].abs()).sum()
-                cash_value = account_size + df_positions['unrealized_pnl'].sum() - total_position_value
-                total_portfolio_value = cash_value + total_position_value
-                metrics['total_value'] = f"${total_portfolio_value:,.0f}"
-                
-                # Calculate return percentage
-                return_pct = ((total_portfolio_value - account_size) / account_size * 100)
-                metrics['total_return_pct'] = f"{return_pct:+.2f}%"
+            elif 'profit' in df_positions.columns:
+                # Use profit column if available
+                total_unrealized = df_positions['profit'].sum()
+                metrics['unrealized_pnl'] = f"${total_unrealized:+,.0f}"
         
-        # Try to get realized P&L from trades data
-        try:
-            import os
-            if os.path.exists('data/trades.csv'):
-                trades_df = pd.read_csv('data/trades.csv')
-                if 'profit' in trades_df.columns:
-                    total_realized = trades_df['profit'].sum()
-                    metrics['realized_pnl'] = f"${total_realized:+,.0f}"
-        except:
-            pass
-            
+        # CORRECTED: Portfolio value = Starting Account + Total P&L (realized + unrealized)
+        total_pnl = total_realized + total_unrealized
+        total_portfolio_value = account_size + total_pnl
+        metrics['total_value'] = f"${total_portfolio_value:,.0f}"
+        
+        # Calculate return percentage based on total P&L
+        return_pct = (total_pnl / account_size * 100) if account_size > 0 else 0.0
+        metrics['total_return_pct'] = f"{return_pct:+.2f}%"
+        
         return metrics
         
     except Exception as e:
