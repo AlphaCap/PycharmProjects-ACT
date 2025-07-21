@@ -3,9 +3,24 @@ import pandas as pd
 import numpy as np
 import json
 import logging
+import time
+import re
 from datetime import datetime, timedelta
 from polygon import RESTClient
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Set
+
+# Optional imports with fallbacks for sector functionality
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
+    
+try:
+    from bs4 import BeautifulSoup
+    HAS_BEAUTIFULSOUP = True
+except ImportError:
+    HAS_BEAUTIFULSOUP = False
 
 # --- CONFIG ---
 DATA_DIR = "."  # Use current directory
@@ -16,6 +31,10 @@ SIGNALS_FILE = "recent_signals.csv"
 SYSTEM_STATUS_FILE = "system_status.csv"
 METADATA_FILE = "metadata.json"
 SP500_SYMBOLS_FILE = os.path.join("data", "sp500_symbols.txt")
+
+# Sector Configuration
+SECTOR_DATA_FILE = os.path.join("data", "sp500_sectors.json")
+SECTOR_CACHE_HOURS = 24  # Refresh sector data daily
 
 RETENTION_DAYS = 180  # 6 months data retention
 PRIMARY_TIER_DAYS = 30
@@ -38,6 +57,21 @@ INDICATOR_COLUMNS = [
     "ME_Ratio"  # ADDED: M/E ratio as daily indicator
 ]
 ALL_COLUMNS = PRICE_COLUMNS + INDICATOR_COLUMNS
+
+# Standard S&P 500 Sectors (GICS - Global Industry Classification Standard)
+SP500_SECTORS = {
+    "Information Technology": [],
+    "Health Care": [],
+    "Financials": [],
+    "Communication Services": [],
+    "Consumer Discretionary": [],
+    "Industrials": [],
+    "Consumer Staples": [],
+    "Energy": [],
+    "Utilities": [],
+    "Real Estate": [],
+    "Materials": []
+}
 
 # --- LOGGING ---
 logging.basicConfig(
@@ -145,57 +179,40 @@ def get_sp500_symbols() -> list:
         return []
 
 def verify_sp500_coverage():
-    """Verify S&P 500 symbol coverage and log detailed status"""
+    """Simplified S&P 500 validation"""
     symbols = get_sp500_symbols()
-    if symbols:
-        symbol_count = len(symbols)
-        logger.info(f"S&P 500 symbol verification:")
-        logger.info(f"Total symbols loaded: {symbol_count}")
-        logger.info(f"Expected S&P 500 count: {SP500_EXPECTED_COUNT}")
-        logger.info(f"Minimum acceptable count: {SP500_MINIMUM_COUNT}")
-        
-        # Check for common blue-chip symbols
-        blue_chip_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'BRK.B', 'UNH', 'JNJ']
-        found_blue_chips = [s for s in blue_chip_symbols if s in symbols]
-        logger.info(f"Blue-chip symbols found ({len(found_blue_chips)}/{len(blue_chip_symbols)}): {found_blue_chips}")
-        
-        # Check for sector representation
-        tech_symbols = ['AAPL', 'MSFT', 'GOOGL', 'META', 'NVDA']
-        finance_symbols = ['JPM', 'BAC', 'WFC', 'GS', 'MS']
-        healthcare_symbols = ['UNH', 'JNJ', 'PFE', 'ABT', 'MRK']
-        
-        tech_found = len([s for s in tech_symbols if s in symbols])
-        finance_found = len([s for s in finance_symbols if s in symbols])
-        healthcare_found = len([s for s in healthcare_symbols if s in symbols])
-        
-        logger.info(f"Sector representation:")
-        logger.info(f"  Technology: {tech_found}/{len(tech_symbols)} symbols")
-        logger.info(f"  Finance: {finance_found}/{len(finance_symbols)} symbols")
-        logger.info(f"  Healthcare: {healthcare_found}/{len(healthcare_symbols)} symbols")
-        
-        # Validate count
-        if symbol_count >= SP500_MINIMUM_COUNT:
-            if symbol_count == SP500_EXPECTED_COUNT:
-                logger.info("✔ S&P 500 symbol count is EXACT and complete")
-            else:
-                logger.info(f"✔ S&P 500 symbol count is ACCEPTABLE ({symbol_count} >= {SP500_MINIMUM_COUNT})")
-            
-            # Check data quality
-            duplicate_count = len(symbols) - len(set(symbols))
-            if duplicate_count > 0:
-                logger.warning(f"Found {duplicate_count} duplicate symbols")
-            else:
-                logger.info("✔ No duplicate symbols found")
-                
-            return True
-        else:
-            logger.error(f"✗ S&P 500 symbol count is TOO LOW ({symbol_count} < {SP500_MINIMUM_COUNT})")
-            logger.error("This may impact system performance and coverage")
-            return False
-    else:
+    
+    if not symbols:
         logger.error("✗ No S&P 500 symbols loaded!")
-        logger.error("System will operate with limited functionality")
         return False
+    
+    symbol_count = len(symbols)
+    logger.info(f"S&P 500 symbols loaded: {symbol_count}")
+    
+    # Simple count validation (S&P 500 should be ~500)
+    if symbol_count < SP500_MINIMUM_COUNT:
+        logger.error(f"✗ Symbol count too low: {symbol_count} < {SP500_MINIMUM_COUNT}")
+        return False
+    elif symbol_count > 510:
+        logger.warning(f"⚠ Symbol count high: {symbol_count} > 510 (may include additional securities)")
+    
+    # Quick sanity check - just verify a few major symbols exist
+    must_have = ['AAPL', 'MSFT', 'GOOGL']  # Reduced to just 3 essential ones
+    missing = [s for s in must_have if s not in symbols]
+    
+    if missing:
+        logger.error(f"✗ Missing major symbols: {missing}")
+        return False
+    
+    # Check for duplicates
+    duplicate_count = len(symbols) - len(set(symbols))
+    if duplicate_count > 0:
+        logger.warning(f"Found {duplicate_count} duplicate symbols")
+    else:
+        logger.info("✔ No duplicate symbols found")
+    
+    logger.info("✅ S&P 500 symbol validation passed")
+    return True
 
 def get_sp500_symbol_stats():
     """Get detailed statistics about S&P 500 symbol coverage"""
@@ -212,6 +229,327 @@ def get_sp500_symbol_stats():
     }
     
     return stats
+
+# --- SECTOR MANAGEMENT ---
+def get_sp500_sector_data(force_refresh: bool = False) -> Dict[str, Dict]:
+    """
+    Get S&P 500 sector classifications with symbol mappings.
+    Returns: {
+        "sectors": {"Technology": ["AAPL", "MSFT", ...], ...},
+        "symbol_to_sector": {"AAPL": "Technology", ...},
+        "sector_info": {"Technology": {"count": 75, "weight": 0.28}, ...}
+    }
+    """
+    # Check if we have cached data
+    if os.path.exists(SECTOR_DATA_FILE) and not force_refresh:
+        try:
+            with open(SECTOR_DATA_FILE, 'r') as f:
+                cached_data = json.load(f)
+            
+            # Check if cache is still fresh
+            cache_time = datetime.fromisoformat(cached_data.get('last_updated', '2000-01-01'))
+            if datetime.now() - cache_time < timedelta(hours=SECTOR_CACHE_HOURS):
+                logger.info(f"Using cached sector data from {cache_time.strftime('%Y-%m-%d %H:%M')}")
+                return cached_data
+        except Exception as e:
+            logger.warning(f"Error reading sector cache: {e}")
+    
+    # Fetch fresh sector data
+    logger.info("Fetching fresh S&P 500 sector data...")
+    sector_data = fetch_sp500_sectors()
+    
+    # Save to cache
+    sector_data['last_updated'] = datetime.now().isoformat()
+    ensure_dir(SECTOR_DATA_FILE)
+    with open(SECTOR_DATA_FILE, 'w') as f:
+        json.dump(sector_data, f, indent=2)
+    
+    logger.info(f"Cached sector data for {len(sector_data.get('symbol_to_sector', {}))} symbols")
+    return sector_data
+
+def fetch_sp500_sectors() -> Dict[str, Dict]:
+    """
+    Fetch S&P 500 sector data from multiple sources with fallbacks.
+    Returns structured sector data.
+    """
+    # Method 1: Try Polygon API if available
+    polygon_data = fetch_sectors_from_polygon()
+    if polygon_data:
+        return polygon_data
+    
+    # Method 2: Try web scraping Wikipedia
+    wiki_data = fetch_sectors_from_wikipedia()
+    if wiki_data:
+        return wiki_data
+    
+    # Method 3: Use built-in static mapping (fallback)
+    logger.warning("Using static sector mapping - may be outdated")
+    return get_static_sector_mapping()
+
+def fetch_sectors_from_polygon() -> Dict[str, Dict]:
+    """Fetch sector data using Polygon API"""
+    try:
+        polygon_api_key = os.getenv("POLYGON_API_KEY")
+        if not polygon_api_key:
+            return None
+        
+        # Get S&P 500 symbols
+        symbols = get_sp500_symbols()
+        if not symbols:
+            return None
+        
+        polygon_client = RESTClient(polygon_api_key)
+        sectors = {}
+        symbol_to_sector = {}
+        
+        # Batch requests for efficiency
+        for i in range(0, len(symbols), 50):  # Process in batches of 50
+            batch = symbols[i:i+50]
+            for symbol in batch:
+                try:
+                    # Get ticker details
+                    ticker_details = polygon_client.get_ticker_details(symbol)
+                    if ticker_details and hasattr(ticker_details, 'sic_description'):
+                        sector = map_sic_to_sector(ticker_details.sic_description)
+                        if sector:
+                            if sector not in sectors:
+                                sectors[sector] = []
+                            sectors[sector].append(symbol)
+                            symbol_to_sector[symbol] = sector
+                except Exception as e:
+                    logger.debug(f"Error getting sector for {symbol}: {e}")
+            
+            time.sleep(0.1)  # Rate limiting
+        
+        if sectors:
+            return format_sector_data(sectors, symbol_to_sector)
+        
+    except Exception as e:
+        logger.warning(f"Polygon sector fetch failed: {e}")
+    
+    return None
+
+def fetch_sectors_from_wikipedia() -> Dict[str, Dict]:
+    """Fetch sector data from Wikipedia S&P 500 page"""
+    try:
+        if not HAS_REQUESTS or not HAS_BEAUTIFULSOUP:
+            return None
+        
+        url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        response = requests.get(url, timeout=15)
+        if response.status_code != 200:
+            return None
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Find the main S&P 500 table
+        table = soup.find('table', {'id': 'constituents'})
+        if not table:
+            table = soup.find('table', class_='wikitable')
+        
+        if not table:
+            return None
+        
+        sectors = {}
+        symbol_to_sector = {}
+        
+        rows = table.find_all('tr')[1:]  # Skip header
+        for row in rows:
+            cells = row.find_all('td')
+            if len(cells) >= 4:
+                symbol = cells[0].get_text().strip()
+                sector = cells[3].get_text().strip()  # GICS Sector column
+                
+                if sector and symbol:
+                    if sector not in sectors:
+                        sectors[sector] = []
+                    sectors[sector].append(symbol)
+                    symbol_to_sector[symbol] = sector
+        
+        if sectors:
+            logger.info(f"Wikipedia: Found {len(symbol_to_sector)} symbols in {len(sectors)} sectors")
+            return format_sector_data(sectors, symbol_to_sector)
+    
+    except Exception as e:
+        logger.warning(f"Wikipedia sector fetch failed: {e}")
+    
+    return None
+
+def get_static_sector_mapping() -> Dict[str, Dict]:
+    """Static sector mapping as fallback"""
+    static_sectors = {
+        "Information Technology": [
+            "AAPL", "MSFT", "GOOGL", "GOOG", "META", "TSLA", "NVDA", "CRM", "ORCL", "ADBE",
+            "NFLX", "INTC", "CSCO", "AMD", "IBM", "NOW", "TXN", "QCOM", "AMAT", "MU"
+        ],
+        "Health Care": [
+            "UNH", "JNJ", "PFE", "ABT", "TMO", "LLY", "ABBV", "MRK", "MDT", "BMY",
+            "AMGN", "GILD", "CVS", "DHR", "SYK", "BDX", "REGN", "VRTX", "ELV", "CI"
+        ],
+        "Financials": [
+            "BRK.B", "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "AXP", "BLK",
+            "SPGI", "C", "MMC", "CB", "PGR", "ICE", "TFC", "AON", "USB", "COF"
+        ],
+        "Communication Services": [
+            "GOOGL", "GOOG", "META", "NFLX", "DIS", "CMCSA", "VZ", "T", "TMUS", "CHTR"
+        ],
+        "Consumer Discretionary": [
+            "AMZN", "TSLA", "HD", "MCD", "NKE", "LOW", "SBUX", "TJX", "BKNG", "F",
+            "GM", "MAR", "HLT", "ABNB", "CMG", "LRCX", "ORLY", "TGT", "AZO", "ROST"
+        ],
+        "Industrials": [
+            "BA", "CAT", "UNP", "RTX", "HON", "UPS", "LMT", "DE", "ADP", "GE",
+            "MMM", "FDX", "NOC", "WM", "EMR", "ITW", "CSX", "GD", "NSC", "RSG"
+        ],
+        "Consumer Staples": [
+            "PG", "KO", "PEP", "WMT", "COST", "MDLZ", "CL", "KMB", "GIS", "K",
+            "SYY", "HSY", "MKC", "CPB", "CAG", "CLX", "TSN", "HRL", "LW", "CHD"
+        ],
+        "Energy": [
+            "XOM", "CVX", "COP", "EOG", "SLB", "PSX", "VLO", "MPC", "KMI", "OKE",
+            "WMB", "BKR", "HAL", "DVN", "FANG", "APA", "EQT", "CTRA", "MRO", "OXY"
+        ],
+        "Utilities": [
+            "NEE", "SO", "DUK", "AEP", "SRE", "D", "PEG", "EXC", "XEL", "ED",
+            "WEC", "AWK", "ES", "DTE", "ETR", "FE", "EIX", "PPL", "ATO", "CMS"
+        ],
+        "Real Estate": [
+            "PLD", "AMT", "CCI", "EQIX", "PSA", "EXR", "AVB", "EQR", "WELL", "DLR",
+            "SBAC", "VTR", "ESS", "MAA", "ARE", "INVH", "UDR", "CPT", "HST", "REG"
+        ],
+        "Materials": [
+            "LIN", "APD", "SHW", "FCX", "NUE", "NEM", "DOW", "VMC", "MLM", "PPG",
+            "ECL", "CTVA", "DD", "ALB", "IFF", "PKG", "BALL", "AMCR", "AVY", "CF"
+        ]
+    }
+    
+    symbol_to_sector = {}
+    for sector, symbols in static_sectors.items():
+        for symbol in symbols:
+            symbol_to_sector[symbol] = sector
+    
+    return format_sector_data(static_sectors, symbol_to_sector)
+
+def format_sector_data(sectors: Dict[str, List], symbol_to_sector: Dict[str, str]) -> Dict:
+    """Format sector data into standard structure"""
+    sector_info = {}
+    total_symbols = len(symbol_to_sector)
+    
+    for sector, symbols in sectors.items():
+        sector_info[sector] = {
+            "count": len(symbols),
+            "weight": len(symbols) / total_symbols if total_symbols > 0 else 0,
+            "symbols": sorted(symbols)
+        }
+    
+    return {
+        "sectors": sectors,
+        "symbol_to_sector": symbol_to_sector,
+        "sector_info": sector_info,
+        "total_symbols": total_symbols,
+        "sector_count": len(sectors)
+    }
+
+# --- SECTOR ACCESS FUNCTIONS ---
+def get_sector_symbols(sector_name: str) -> List[str]:
+    """Get all symbols in a specific sector"""
+    sector_data = get_sp500_sector_data()
+    return sector_data.get("sectors", {}).get(sector_name, [])
+
+def get_symbol_sector(symbol: str) -> str:
+    """Get the sector for a specific symbol"""
+    sector_data = get_sp500_sector_data()
+    return sector_data.get("symbol_to_sector", {}).get(symbol, "Unknown")
+
+def get_all_sectors() -> List[str]:
+    """Get list of all sector names"""
+    sector_data = get_sp500_sector_data()
+    return list(sector_data.get("sectors", {}).keys())
+
+def get_sector_weights() -> Dict[str, float]:
+    """Get sector weights (percentage of S&P 500)"""
+    sector_data = get_sp500_sector_data()
+    return {sector: info.get("weight", 0) for sector, info in sector_data.get("sector_info", {}).items()}
+
+def get_portfolio_sector_exposure(positions_df: pd.DataFrame) -> Dict[str, Dict]:
+    """
+    Calculate current portfolio exposure by sector
+    Args:
+        positions_df: DataFrame with position data including 'symbol' and 'current_value' columns
+    Returns:
+        Dict with sector exposure analysis
+    """
+    if positions_df.empty:
+        return {}
+    
+    sector_data = get_sp500_sector_data()
+    symbol_to_sector = sector_data.get("symbol_to_sector", {})
+    
+    sector_exposure = {}
+    total_portfolio_value = positions_df['current_value'].sum()
+    
+    for _, position in positions_df.iterrows():
+        symbol = position['symbol']
+        value = position['current_value']
+        sector = symbol_to_sector.get(symbol, "Unknown")
+        
+        if sector not in sector_exposure:
+            sector_exposure[sector] = {
+                "value": 0,
+                "weight": 0,
+                "symbols": [],
+                "count": 0
+            }
+        
+        sector_exposure[sector]["value"] += value
+        sector_exposure[sector]["symbols"].append(symbol)
+        sector_exposure[sector]["count"] += 1
+    
+    # Calculate weights
+    for sector in sector_exposure:
+        if total_portfolio_value > 0:
+            sector_exposure[sector]["weight"] = sector_exposure[sector]["value"] / total_portfolio_value
+    
+    return sector_exposure
+
+def get_sector_rebalance_targets(target_weights: Dict[str, float] = None) -> Dict[str, float]:
+    """
+    Get target sector weights for rebalancing
+    Args:
+        target_weights: Custom sector weights, defaults to S&P 500 sector weights
+    Returns:
+        Dict of sector -> target weight
+    """
+    if target_weights is None:
+        # Use S&P 500 sector weights as default
+        return get_sector_weights()
+    
+    return target_weights
+
+def calculate_sector_rebalance_needs(positions_df: pd.DataFrame, target_weights: Dict[str, float] = None) -> Dict[str, Dict]:
+    """
+    Calculate how much rebalancing is needed per sector
+    """
+    current_exposure = get_portfolio_sector_exposure(positions_df)
+    targets = get_sector_rebalance_targets(target_weights)
+    
+    rebalance_needs = {}
+    total_value = positions_df['current_value'].sum() if not positions_df.empty else 0
+    
+    for sector in targets:
+        current_weight = current_exposure.get(sector, {}).get("weight", 0)
+        target_weight = targets[sector]
+        difference = target_weight - current_weight
+        
+        rebalance_needs[sector] = {
+            "current_weight": current_weight,
+            "target_weight": target_weight,
+            "difference": difference,
+            "dollar_adjustment": difference * total_value if total_value > 0 else 0,
+            "action": "buy" if difference > 0 else "sell" if difference < 0 else "hold"
+        }
+    
+    return rebalance_needs
 
 # --- PRICE + INDICATOR DATA ---
 def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_DAYS):
@@ -1068,20 +1406,36 @@ def initialize():
     if not coverage_ok:
         logger.warning("⚠️  S&P 500 symbol coverage is incomplete - system performance may be affected")
     
+    # Initialize sector data
+    logger.info("Initializing sector classification data...")
+    try:
+        sector_data = get_sp500_sector_data()
+        sector_count = len(sector_data.get("sectors", {}))
+        symbol_count = len(sector_data.get("symbol_to_sector", {}))
+        logger.info(f"✅ Loaded {symbol_count} symbols across {sector_count} sectors")
+        
+        # Log sector summary
+        for sector, info in sector_data.get("sector_info", {}).items():
+            logger.info(f"  {sector}: {info['count']} symbols ({info['weight']:.1%})")
+            
+    except Exception as e:
+        logger.error(f"❌ Error initializing sector data: {e}")
+        logger.warning("Sector-based features will be limited")
+    
     # Log retention policy
     logger.info(f"Data retention policy: {RETENTION_DAYS} days (6 months)")
     logger.info(f"Current cutoff date: {get_cutoff_date().strftime('%Y-%m-%d')}")
     
-    logger.info("Data manager initialized with 6-month retention enforced")
+    logger.info("Data manager initialized with 6-month retention and sector support")
 
 if __name__ == "__main__":
     initialize()
-    logger.info("data_manager.py loaded successfully with 6-month data retention")
+    logger.info("data_manager.py loaded successfully with 6-month data retention and sector management")
 
-# --- HISTORICAL DATA WITH POLYGON ---
+# --- HISTORICAL DATA WITH POLYGON (FIXED COLUMN CASE) ---
 def get_historical_data(polygon_client, symbol: str, start_date: datetime, end_date: datetime) -> pd.DataFrame:
     """
-    Fetch historical data for a given symbol using Polygon API.
+    Fetch historical data for a given symbol using Polygon API with proper column formatting.
 
     Args:
         polygon_client: Initialized RESTClient instance.
@@ -1090,7 +1444,7 @@ def get_historical_data(polygon_client, symbol: str, start_date: datetime, end_d
         end_date (datetime): End date for data.
 
     Returns:
-        pd.DataFrame: Historical data with columns like 'open', 'high', 'low', 'close', 'volume'.
+        pd.DataFrame: Historical data with properly formatted columns.
     """
     if not polygon_client:
         logger.error("Polygon API client not provided. Ensure POLYGON_API_KEY is set.")
@@ -1100,6 +1454,7 @@ def get_historical_data(polygon_client, symbol: str, start_date: datetime, end_d
         # Convert datetime to string format expected by Polygon
         start_str = start_date.strftime('%Y-%m-%d')
         end_str = end_date.strftime('%Y-%m-%d')
+        
         # Fetch aggregated daily data from Polygon
         agg = polygon_client.get_aggs(symbol, 1, 'day', start_str, end_str)
         if not agg:
@@ -1109,16 +1464,35 @@ def get_historical_data(polygon_client, symbol: str, start_date: datetime, end_d
         # Convert Polygon response to DataFrame
         data = pd.DataFrame(agg)
         data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
+        
+        # FIXED: Rename columns to match system expectations (capitalized)
         data = data.rename(columns={
-            'open': 'open',
-            'high': 'high',
-            'low': 'low',
-            'close': 'close',
-            'volume': 'volume'
+            'timestamp': 'Date',
+            'open': 'Open',      # Fix: capitalize from lowercase
+            'high': 'High',      # Fix: capitalize from lowercase  
+            'low': 'Low',        # Fix: capitalize from lowercase
+            'close': 'Close',    # Fix: capitalize from lowercase
+            'volume': 'Volume'   # Fix: capitalize from lowercase
         })
-        data.set_index('timestamp', inplace=True)
-        logger.info(f"✔ Fetched historical data for {symbol} from {start_str} to {end_str}")
+        
+        # Ensure Date is in string format, not datetime index
+        data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
+        
+        # Add missing indicator columns with NaN values
+        # The system expects these columns to exist
+        for col in INDICATOR_COLUMNS:
+            data[col] = np.nan
+        
+        # Ensure numeric columns are proper type
+        numeric_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+        for col in numeric_cols:
+            data[col] = pd.to_numeric(data[col], errors='coerce')
+        
+        logger.info(f"✔ Fetched and formatted historical data for {symbol}: {len(data)} rows")
+        logger.debug(f"Columns: {list(data.columns)}")
+        
         return data
+        
     except Exception as e:
         logger.error(f"Error fetching data for {symbol}: {e}")
         return pd.DataFrame()

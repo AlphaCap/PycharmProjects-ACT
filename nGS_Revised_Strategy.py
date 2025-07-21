@@ -10,7 +10,15 @@ import sys
 from data_manager import (
     save_trades, save_positions, load_price_data,
     save_signals, get_positions, initialize as init_data_manager,
-    RETENTION_DAYS
+    RETENTION_DAYS,
+    # Import sector management functions
+    get_sector_symbols, 
+    get_symbol_sector,
+    get_portfolio_sector_exposure,
+    calculate_sector_rebalance_needs,
+    get_all_sectors,
+    get_sector_weights,
+    get_positions_df
 )
 
 # Integrate me_ratio_calculator logic directly (copy-pasted class for self-contained)
@@ -182,7 +190,7 @@ if sys.platform == 'win32':
 
 class NGSStrategy:
     """
-    Neural Grid Strategy (nGS) implementation.
+    Neural Grid Strategy (nGS) implementation with Sector Management, L/S Ratio VaR, and M/E Rebalancing.
     Handles both signal generation and position management with 6-month data retention.
     """
     def __init__(self, account_size: float = 1000000, data_dir: str = 'data'):
@@ -197,6 +205,19 @@ class NGSStrategy:
         # Initialize M/E calculator
         self.me_calculator = DailyMERatioCalculator(initial_portfolio_value=account_size)
         
+        # Sector Management Configuration
+        self.sector_allocation_enabled = False
+        self.sector_targets = {}  # Will be populated from config or adaptive logic
+        self.max_sector_weight = 0.35  # Max 35% in any single sector
+        self.min_sector_weight = 0.02  # Min 2% in any single sector
+        self.sector_rebalance_threshold = 0.02  # 2% deviation threshold
+        
+        # NEW: M/E Rebalancing Configuration
+        self.me_target_min = 50.0  # 50% minimum M/E ratio
+        self.me_target_max = 80.0  # 80% maximum M/E ratio
+        self.min_positions_for_rebalance = 5  # Minimum positions to trigger upward rebalancing
+        self.rebalancing_enabled = True  # Can be disabled for testing
+        
         self.inputs = {
             'Length': 25,
             'NumDevs': 2,
@@ -204,14 +225,471 @@ class NGSStrategy:
             'MaxPrice': 500,
             'AfStep': 0.05,
             'AfLimit': 0.21,
-            'PositionSize': 5000
+            'PositionSize': 5000  # Base position size (will be adjusted by L/S ratio)
         }
         init_data_manager()
         self._load_positions()
         
         logger.info(f"nGS Strategy initialized with {self.retention_days}-day data retention")
         logger.info(f"Data cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
+        logger.info(f"Sector management: {'ENABLED' if self.sector_allocation_enabled else 'DISABLED'}")
+        logger.info(f"M/E Rebalancing: {'ENABLED' if self.rebalancing_enabled else 'DISABLED'} (Target: {self.me_target_min}-{self.me_target_max}%)")
 
+    # --- NEW: L/S RATIO CALCULATION AND POSITION SIZING ---
+    
+    def calculate_ls_ratio(self) -> Optional[float]:
+        """
+        Calculate Long/Short ratio based on position counts.
+        Returns:
+            - Positive value if net long (longs/shorts)
+            - Negative value if net short (-(shorts/longs))
+            - None if only longs or only shorts (can't calculate ratio)
+        """
+        try:
+            long_count = 0
+            short_count = 0
+            
+            for symbol, pos in self.positions.items():
+                if pos['shares'] > 0:
+                    long_count += 1
+                elif pos['shares'] < 0:
+                    short_count += 1
+            
+            # Only calculate ratio if we have both longs and shorts
+            if long_count > 0 and short_count > 0:
+                if long_count >= short_count:
+                    # Net long or equal: positive ratio
+                    ls_ratio = long_count / short_count
+                else:
+                    # Net short: negative ratio
+                    ls_ratio = -(short_count / long_count)
+                
+                logger.debug(f"L/S Ratio: {ls_ratio:.2f} (Longs: {long_count}, Shorts: {short_count})")
+                return ls_ratio
+            else:
+                logger.debug(f"L/S Ratio: N/A (Longs: {long_count}, Shorts: {short_count})")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error calculating L/S ratio: {e}")
+            return None
+    
+    def get_adjusted_short_position_size(self, base_price: float) -> int:
+        """
+        Calculate adjusted position size for short entries based on L/S ratio.
+        
+        Args:
+            base_price: Current price of the symbol
+            
+        Returns:
+            Adjusted shares for short position
+        """
+        try:
+            ls_ratio = self.calculate_ls_ratio()
+            
+            # If no L/S ratio available (all longs or all shorts), use base position size
+            if ls_ratio is None:
+                base_position_value = self.inputs['PositionSize']
+                shares = int(round(base_position_value / base_price))
+                logger.debug(f"No L/S ratio available, using base position size: {shares} shares")
+                return shares
+            
+            # Apply L/S ratio-based margin adjustments for SHORT entries only
+            if ls_ratio > 1.5:
+                # Lower risk (heavily net long): 50% short margin
+                # $10,000 position size
+                position_value = 10000
+                margin_type = "50% (Lower Risk)"
+            elif ls_ratio > -1.5:
+                # Higher risk (balanced to moderately net short): 75% short margin  
+                # $3,750 position size
+                position_value = 3750
+                margin_type = "75% (Higher Risk)"
+            else:
+                # Very net short: use conservative sizing
+                position_value = 2500
+                margin_type = "Conservative (Very Net Short)"
+            
+            shares = int(round(position_value / base_price))
+            logger.info(f"L/S Ratio: {ls_ratio:.2f} → Short margin: {margin_type} → {shares} shares (${position_value:,.0f})")
+            
+            return shares
+            
+        except Exception as e:
+            logger.error(f"Error calculating adjusted short position size: {e}")
+            # Fallback to base calculation
+            base_position_value = self.inputs['PositionSize']
+            return int(round(base_position_value / base_price))
+
+    # --- NEW: M/E REBALANCING LOGIC ---
+    
+    def check_me_rebalancing_needed(self) -> Dict[str, Union[bool, float, str]]:
+        """
+        Check if M/E ratio rebalancing is needed.
+        
+        Returns:
+            Dictionary with rebalancing status and details
+        """
+        try:
+            current_me = self.calculate_current_me_ratio()
+            total_positions = len(self.positions)
+            
+            rebalance_info = {
+                'rebalance_needed': False,
+                'current_me': current_me,
+                'target_min': self.me_target_min,
+                'target_max': self.me_target_max,
+                'total_positions': total_positions,
+                'action': 'none',
+                'reason': 'M/E within target range'
+            }
+            
+            if not self.rebalancing_enabled:
+                rebalance_info['reason'] = 'Rebalancing disabled'
+                return rebalance_info
+            
+            # Check if rebalancing needed
+            if current_me < self.me_target_min:
+                # Need to increase M/E (scale up positions)
+                if total_positions >= self.min_positions_for_rebalance:
+                    rebalance_info.update({
+                        'rebalance_needed': True,
+                        'action': 'scale_up',
+                        'reason': f'M/E too low ({current_me:.1f}% < {self.me_target_min}%)'
+                    })
+                else:
+                    rebalance_info['reason'] = f'M/E low but insufficient positions ({total_positions} < {self.min_positions_for_rebalance})'
+                    
+            elif current_me > self.me_target_max:
+                # Need to decrease M/E (scale down positions)
+                rebalance_info.update({
+                    'rebalance_needed': True,
+                    'action': 'scale_down',
+                    'reason': f'M/E too high ({current_me:.1f}% > {self.me_target_max}%)'
+                })
+            
+            return rebalance_info
+            
+        except Exception as e:
+            logger.error(f"Error checking M/E rebalancing: {e}")
+            return {
+                'rebalance_needed': False,
+                'current_me': 0.0,
+                'action': 'error',
+                'reason': f'Error: {e}'
+            }
+    
+    def execute_me_rebalancing(self, action: str, current_me: float) -> bool:
+        """
+        Execute M/E ratio rebalancing by scaling all positions proportionally.
+        
+        Args:
+            action: 'scale_up' or 'scale_down'
+            current_me: Current M/E ratio
+            
+        Returns:
+            True if rebalancing executed successfully
+        """
+        try:
+            if not self.positions:
+                logger.warning("No positions to rebalance")
+                return False
+            
+            # Calculate scaling factor
+            if action == 'scale_up':
+                # Scale up to reach minimum M/E
+                target_me = self.me_target_min
+                scale_factor = target_me / current_me if current_me > 0 else 1.0
+            elif action == 'scale_down':
+                # Scale down to reach maximum M/E
+                target_me = self.me_target_max
+                scale_factor = target_me / current_me if current_me > 0 else 1.0
+            else:
+                logger.error(f"Invalid rebalancing action: {action}")
+                return False
+            
+            logger.info(f"Executing M/E rebalancing: {action} with scale factor {scale_factor:.3f}")
+            logger.info(f"Target: {current_me:.1f}% → {target_me:.1f}%")
+            
+            # Track rebalancing for reporting
+            rebalanced_positions = []
+            
+            # Scale all positions proportionally
+            for symbol, position in self.positions.items():
+                try:
+                    old_shares = position['shares']
+                    
+                    # Skip if no position
+                    if old_shares == 0:
+                        continue
+                    
+                    # Calculate new shares (maintain sign for long/short)
+                    new_shares = int(round(old_shares * scale_factor))
+                    
+                    # Ensure we don't go to zero unless scale factor is very small
+                    if new_shares == 0 and abs(old_shares) > 0:
+                        new_shares = 1 if old_shares > 0 else -1
+                    
+                    # Update position
+                    position['shares'] = new_shares
+                    
+                    # Update M/E calculator
+                    trade_type = 'long' if new_shares > 0 else 'short'
+                    current_price = position.get('current_price', position['entry_price'])
+                    self.me_calculator.update_position(symbol, new_shares, position['entry_price'], current_price, trade_type)
+                    
+                    rebalanced_positions.append({
+                        'symbol': symbol,
+                        'old_shares': old_shares,
+                        'new_shares': new_shares,
+                        'change': new_shares - old_shares
+                    })
+                    
+                    logger.debug(f"Rebalanced {symbol}: {old_shares} → {new_shares} shares")
+                    
+                except Exception as e:
+                    logger.error(f"Error rebalancing position {symbol}: {e}")
+            
+            # Log rebalancing summary
+            logger.info(f"M/E Rebalancing completed: {len(rebalanced_positions)} positions adjusted")
+            
+            # Show sample of changes
+            if rebalanced_positions:
+                logger.info("Sample position changes:")
+                for pos in rebalanced_positions[:5]:
+                    change_str = f"+{pos['change']}" if pos['change'] >= 0 else str(pos['change'])
+                    logger.info(f"  {pos['symbol']}: {pos['old_shares']} → {pos['new_shares']} ({change_str})")
+            
+            # Verify new M/E ratio
+            new_me = self.calculate_current_me_ratio()
+            logger.info(f"M/E Rebalancing result: {current_me:.1f}% → {new_me:.1f}%")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error executing M/E rebalancing: {e}")
+            return False
+    
+    def perform_eod_rebalancing(self):
+        """
+        Perform end-of-day M/E rebalancing check and execution.
+        Called at the end of each trading day/run.
+        """
+        try:
+            logger.info("Performing EOD M/E rebalancing check...")
+            
+            rebalance_info = self.check_me_rebalancing_needed()
+            
+            logger.info(f"M/E Status: {rebalance_info['current_me']:.1f}% "
+                       f"(Target: {self.me_target_min}-{self.me_target_max}%)")
+            logger.info(f"Positions: {rebalance_info['total_positions']}")
+            logger.info(f"Status: {rebalance_info['reason']}")
+            
+            if rebalance_info['rebalance_needed']:
+                logger.info(f"M/E Rebalancing triggered: {rebalance_info['action']}")
+                success = self.execute_me_rebalancing(
+                    rebalance_info['action'], 
+                    rebalance_info['current_me']
+                )
+                
+                if success:
+                    logger.info("✅ M/E Rebalancing completed successfully")
+                else:
+                    logger.error("❌ M/E Rebalancing failed")
+            else:
+                logger.info("✅ No M/E rebalancing needed")
+                
+        except Exception as e:
+            logger.error(f"Error in EOD rebalancing: {e}")
+
+    # --- SECTOR MANAGEMENT METHODS (PRESERVED) ---
+    
+    def enable_sector_rebalancing(self, custom_targets: Dict[str, float] = None):
+        """Enable sector-based rebalancing with optional custom targets"""
+        self.sector_allocation_enabled = True
+        
+        if custom_targets:
+            self.sector_targets = custom_targets
+        else:
+            # Use S&P 500 sector weights as baseline
+            self.sector_targets = get_sector_weights()
+        
+        logger.info("Sector rebalancing enabled with targets:")
+        for sector, weight in self.sector_targets.items():
+            logger.info(f"  {sector}: {weight:.1%}")
+    
+    def disable_sector_rebalancing(self):
+        """Disable sector-based rebalancing"""
+        self.sector_allocation_enabled = False
+        self.sector_targets = {}
+        logger.info("Sector rebalancing disabled")
+    
+    def get_rebalance_candidates(self, positions_df: pd.DataFrame) -> Dict[str, List[str]]:
+        """
+        Get symbols that need rebalancing by sector
+        Returns: {"buy": [symbols], "sell": [symbols], "hold": [symbols]}
+        """
+        if not self.sector_allocation_enabled:
+            return {"buy": [], "sell": [], "hold": []}
+        
+        rebalance_needs = calculate_sector_rebalance_needs(positions_df, self.sector_targets)
+        
+        buy_sectors = [sector for sector, data in rebalance_needs.items() 
+                      if data["action"] == "buy" and abs(data["difference"]) > self.sector_rebalance_threshold]
+        sell_sectors = [sector for sector, data in rebalance_needs.items() 
+                       if data["action"] == "sell" and abs(data["difference"]) > self.sector_rebalance_threshold]
+        
+        buy_candidates = []
+        sell_candidates = []
+        
+        # Get symbols for underweight sectors (buy candidates)
+        for sector in buy_sectors:
+            sector_symbols = get_sector_symbols(sector)
+            # Filter to symbols with good technical signals
+            buy_candidates.extend(self.filter_buy_candidates(sector_symbols))
+        
+        # Get symbols for overweight sectors (sell candidates)  
+        current_positions = positions_df['symbol'].tolist() if not positions_df.empty else []
+        for sector in sell_sectors:
+            sector_positions = [symbol for symbol in current_positions 
+                              if get_symbol_sector(symbol) == sector]
+            sell_candidates.extend(self.filter_sell_candidates(sector_positions, positions_df))
+        
+        return {
+            "buy": buy_candidates,
+            "sell": sell_candidates, 
+            "hold": [symbol for symbol in current_positions 
+                    if symbol not in buy_candidates + sell_candidates]
+        }
+    
+    def filter_buy_candidates(self, sector_symbols: List[str]) -> List[str]:
+        """Filter sector symbols to best buy candidates based on technical analysis"""
+        candidates = []
+        
+        for symbol in sector_symbols:
+            # Apply your existing technical filters
+            if self.meets_buy_criteria(symbol):
+                candidates.append(symbol)
+        
+        # Sort by signal strength/ranking and return top candidates
+        return sorted(candidates, key=lambda x: self.get_signal_strength(x), reverse=True)[:5]
+    
+    def filter_sell_candidates(self, sector_positions: List[str], positions_df: pd.DataFrame) -> List[str]:
+        """Filter sector positions to best sell candidates"""
+        candidates = []
+        
+        for symbol in sector_positions:
+            # Check if position should be closed (loss limits, profit targets, etc.)
+            if self.meets_sell_criteria(symbol, positions_df):
+                candidates.append(symbol)
+        
+        return candidates
+    
+    def meets_buy_criteria(self, symbol: str) -> bool:
+        """Check if symbol meets technical buy criteria"""
+        try:
+            df = load_price_data(symbol)
+            if df.empty or len(df) < 2:
+                return False
+            
+            # Apply simplified buy criteria - price range check
+            current_price = df['Close'].iloc[-1]
+            return (self.inputs['MinPrice'] <= current_price <= self.inputs['MaxPrice'])
+            
+        except Exception as e:
+            logger.debug(f"Error checking buy criteria for {symbol}: {e}")
+            return False
+    
+    def meets_sell_criteria(self, symbol: str, positions_df: pd.DataFrame) -> bool:
+        """Check if position meets sell criteria"""
+        try:
+            if positions_df.empty:
+                return False
+            
+            position = positions_df[positions_df['symbol'] == symbol]
+            if position.empty:
+                return False
+            
+            # Simple sell criteria - profit target or stop loss
+            profit_pct = position['profit_pct'].iloc[0]
+            days_held = position['days_held'].iloc[0]
+            
+            # Sell if profit > 10% or loss > 5% or held > 30 days
+            return (profit_pct > 10 or profit_pct < -5 or days_held > 30)
+            
+        except Exception as e:
+            logger.debug(f"Error checking sell criteria for {symbol}: {e}")
+            return False
+    
+    def get_signal_strength(self, symbol: str) -> float:
+        """Get signal strength score for ranking (0-100)"""
+        try:
+            df = load_price_data(symbol)
+            if df.empty or len(df) < 5:
+                return 0.0
+            
+            # Simple signal strength based on recent price action
+            recent_returns = df['Close'].pct_change().tail(5)
+            momentum = recent_returns.mean() * 100
+            volatility = recent_returns.std() * 100
+            
+            # Higher momentum, lower volatility = higher signal strength
+            return max(0, momentum - volatility)
+            
+        except Exception as e:
+            logger.debug(f"Error calculating signal strength for {symbol}: {e}")
+            return 0.0
+    
+    def check_sector_limits(self, symbol: str, proposed_position_value: float, 
+                          current_portfolio_value: float) -> bool:
+        """
+        Check if adding this position would violate sector concentration limits
+        """
+        if not self.sector_allocation_enabled:
+            return True
+        
+        sector = get_symbol_sector(symbol)
+        if sector == "Unknown":
+            logger.warning(f"Unknown sector for {symbol} - allowing position")
+            return True  # Allow unknown sectors for now
+        
+        # Get current sector exposure
+        positions_df = get_positions_df()  # From data_manager
+        current_exposure = get_portfolio_sector_exposure(positions_df)
+        
+        current_sector_value = current_exposure.get(sector, {}).get("value", 0)
+        new_sector_value = current_sector_value + abs(proposed_position_value)
+        new_sector_weight = new_sector_value / current_portfolio_value if current_portfolio_value > 0 else 0
+        
+        if new_sector_weight > self.max_sector_weight:
+            logger.warning(f"Sector limit exceeded: {sector} would be {new_sector_weight:.1%} > {self.max_sector_weight:.1%}")
+            return False
+        
+        logger.debug(f"Sector check passed: {sector} would be {new_sector_weight:.1%}")
+        return True
+    
+    def generate_sector_report(self) -> Dict:
+        """Generate sector allocation report for dashboard"""
+        positions_df = get_positions_df()
+        current_exposure = get_portfolio_sector_exposure(positions_df)
+        
+        if self.sector_allocation_enabled:
+            rebalance_needs = calculate_sector_rebalance_needs(positions_df, self.sector_targets)
+        else:
+            rebalance_needs = {}
+        
+        return {
+            "current_exposure": current_exposure,
+            "target_weights": self.sector_targets if self.sector_allocation_enabled else {},
+            "rebalance_needs": rebalance_needs,
+            "sector_allocation_enabled": self.sector_allocation_enabled,
+            "max_sector_weight": self.max_sector_weight,
+            "min_sector_weight": self.min_sector_weight,
+            "rebalance_threshold": self.sector_rebalance_threshold
+        }
+
+    # --- EXISTING M/E RATIO METHODS (PRESERVED) ---
+    
     def calculate_current_me_ratio(self) -> float:
         return self.me_calculator.calculate_daily_me_ratio()['ME_Ratio']
 
@@ -221,6 +699,8 @@ class NGSStrategy:
     def record_historical_me_ratio(self, date_str: str, trade_occurred: bool = False, current_prices: Dict[str, float] = None):
         self.me_calculator.calculate_daily_me_ratio(date_str)  # Automatically appends to history
 
+    # --- DATA FILTERING AND INDICATOR CALCULATIONS (PRESERVED) ---
+    
     def _filter_recent_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Filter DataFrame to only include data from the last 6 months (retention period).
@@ -427,6 +907,8 @@ class NGSStrategy:
             except Exception as e:
                 logger.warning(f"LRV calculation error at index {i}: {e}")
 
+    # --- SIGNAL GENERATION (ENHANCED WITH L/S POSITION SIZING) ---
+    
     def _check_long_signals(self, df: pd.DataFrame, i: int) -> None:
         # Engulfing Long pattern
         if (df['Open'].iloc[i] < df['Close'].iloc[i-1] and
@@ -442,6 +924,7 @@ class NGSStrategy:
             df['Close'].iloc[i] <= df['UpperBB'].iloc[i] * 0.95):
             df.loc[df.index[i], 'Signal'] = 1
             df.loc[df.index[i], 'SignalType'] = 'Engf L'
+            # Use base position size for long entries
             df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
         # Engulfing Long with New Low pattern
         elif (df['Open'].iloc[i] < df['Close'].iloc[i-1] and
@@ -506,7 +989,8 @@ class NGSStrategy:
             df['Close'].iloc[i] >= df['LowerBB'].iloc[i] * 1.05):
             df.loc[df.index[i], 'Signal'] = -1
             df.loc[df.index[i], 'SignalType'] = 'Engf S'
-            df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
+            # NEW: Use L/S ratio-adjusted position size for SHORT entries
+            df.loc[df.index[i], 'Shares'] = self.get_adjusted_short_position_size(df['Close'].iloc[i])
         # Engulfing Short with New High pattern
         elif (df['Open'].iloc[i] > df['Close'].iloc[i-1] and
               df['Close'].iloc[i] < df['Open'].iloc[i-1] and
@@ -520,7 +1004,7 @@ class NGSStrategy:
               df['Close'].iloc[i] >= df['LowerBB'].iloc[i] * 1.05):
             df.loc[df.index[i], 'Signal'] = -1
             df.loc[df.index[i], 'SignalType'] = 'Engf S NuHu3'
-            df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
+            df.loc[df.index[i], 'Shares'] = self.get_adjusted_short_position_size(df['Close'].iloc[i])
         # Semi-Engulfing Short pattern
         elif (df['Open'].iloc[i] >= df['Close'].iloc[i-1] * 0.999 and
               df['Open'].iloc[i] < df['Close'].iloc[i-1] and
@@ -536,7 +1020,7 @@ class NGSStrategy:
               df['Close'].iloc[i] >= df['LowerBB'].iloc[i] * 1.05):
             df.loc[df.index[i], 'Signal'] = -1
             df.loc[df.index[i], 'SignalType'] = 'SemiEng S'
-            df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
+            df.loc[df.index[i], 'Shares'] = self.get_adjusted_short_position_size(df['Close'].iloc[i])
         # Semi-Engulfing Short with New High pattern
         elif (df['Open'].iloc[i] >= df['Close'].iloc[i-1] * 0.999 and
               df['Open'].iloc[i] < df['Close'].iloc[i-1] and
@@ -553,8 +1037,10 @@ class NGSStrategy:
               df['Close'].iloc[i] >= df['LowerBB'].iloc[i] * 1.05):
             df.loc[df.index[i], 'Signal'] = -1
             df.loc[df.index[i], 'SignalType'] = 'SemiEng S NuHi'
-            df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
+            df.loc[df.index[i], 'Shares'] = self.get_adjusted_short_position_size(df['Close'].iloc[i])
 
+    # --- EXIT SIGNAL LOGIC (PRESERVED) ---
+    
     def _check_long_exits(self, df: pd.DataFrame, i: int, position: Dict) -> None:
         possible_exits = []
 
@@ -648,9 +1134,15 @@ class NGSStrategy:
                     if entry_sig is not None:
                         df.loc[df.index[i], 'Signal'] = entry_sig
                         df.loc[df.index[i], 'SignalType'] = exit_label
-                        df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] * 2 / df['Close'].iloc[i]))
+                        # For reversal exits that become entries, use L/S adjusted sizing for shorts
+                        if entry_sig == -1:  # Short entry
+                            df.loc[df.index[i], 'Shares'] = self.get_adjusted_short_position_size(df['Close'].iloc[i]) * 2
+                        else:  # Long entry
+                            df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] * 2 / df['Close'].iloc[i]))
                     return  # Apply first in priority
 
+    # --- POSITION MANAGEMENT (ENHANCED WITH SECTOR CHECKS) ---
+    
     def _process_exit(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
         exit_price = round(float(df['Close'].iloc[i]), 2)
         profit = round(float(
@@ -701,6 +1193,13 @@ class NGSStrategy:
         entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
         
         if entry_datetime >= self.cutoff_date and abs(cost) <= self.cash:
+            
+            # Check sector limits before entering position
+            current_portfolio_value = self.cash  # Use cash as proxy for portfolio value
+            if not self.check_sector_limits(symbol, abs(cost), current_portfolio_value):
+                logger.warning(f"Position entry rejected for {symbol} due to sector limits")
+                return
+            
             self.cash = round(float(self.cash - cost), 2)
             position = {
                 'shares': shares,
@@ -718,7 +1217,12 @@ class NGSStrategy:
             # Record historical M/E after entry
             self.record_historical_me_ratio(entry_date, trade_occurred=True)
             
-            logger.info(f"Entry {symbol}: {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
+            # Log sector and L/S information
+            sector = get_symbol_sector(symbol)
+            ls_ratio = self.calculate_ls_ratio()
+            ls_info = f"L/S: {ls_ratio:.2f}" if ls_ratio is not None else "L/S: N/A"
+            logger.info(f"Entry {symbol} ({sector}) [{ls_info}]: {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
+            
         elif entry_datetime < self.cutoff_date:
             logger.debug(f"Entry {symbol} skipped - outside retention period")
         else:
@@ -787,6 +1291,8 @@ class NGSStrategy:
             self._check_short_signals(df, i)
         return df
 
+    # --- POSITION LOADING AND MANAGEMENT (PRESERVED) ---
+    
     def _load_positions(self) -> None:
         positions_list = get_positions()
         logger.info(f"Attempting to load {len(positions_list)} positions from data manager")
@@ -900,6 +1406,8 @@ class NGSStrategy:
             logger.error(f"Error processing {symbol}: {e}")
             return None
 
+    # --- MAIN RUN METHOD (ENHANCED WITH L/S VaR AND M/E REBALANCING) ---
+    
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
         # Initialize for this run
         self.trades = []
@@ -908,10 +1416,15 @@ class NGSStrategy:
         # Filter trades by retention period
         self._filter_trades_by_retention()
         
-        # Calculate initial M/E ratio for any existing positions
+        # Calculate initial M/E ratio and L/S ratio for any existing positions
         if self.positions:
             initial_me_ratio = self.calculate_current_me_ratio()
+            initial_ls_ratio = self.calculate_ls_ratio()
             logger.info(f"Initial M/E ratio with {len(self.positions)} existing positions: {initial_me_ratio:.2f}%")
+            if initial_ls_ratio is not None:
+                logger.info(f"Initial L/S ratio: {initial_ls_ratio:.2f}")
+            else:
+                logger.info("Initial L/S ratio: N/A (single-sided portfolio)")
         
         results = {}
         for i, (symbol, df) in enumerate(data.items()):
@@ -978,8 +1491,33 @@ class NGSStrategy:
         
         save_positions(all_positions)
         
-        # Final M/E status with position details for verification
-        print(f"\nFinal M/E Status: {self.calculate_current_me_ratio():.2f}%")
+        # NEW: Perform EOD M/E rebalancing
+        self.perform_eod_rebalancing()
+        
+        # Generate and display sector report if enabled
+        if self.sector_allocation_enabled:
+            sector_report = self.generate_sector_report()
+            self._display_sector_summary(sector_report)
+        
+        # Final status with enhanced reporting
+        current_me = self.calculate_current_me_ratio()
+        final_ls_ratio = self.calculate_ls_ratio()
+        
+        print(f"\n{'='*80}")
+        print("FINAL PORTFOLIO STATUS")
+        print(f"{'='*80}")
+        print(f"M/E Ratio: {current_me:.2f}% (Target: {self.me_target_min}-{self.me_target_max}%)")
+        
+        if final_ls_ratio is not None:
+            print(f"L/S Ratio: {final_ls_ratio:.2f}")
+            if final_ls_ratio > 1.5:
+                print(f"Portfolio Status: Heavily Net Long (Lower Risk for new shorts)")
+            elif final_ls_ratio > -1.5:
+                print(f"Portfolio Status: Balanced to Moderately Net Short (Higher Risk for new shorts)")
+            else:
+                print(f"Portfolio Status: Heavily Net Short (Conservative short sizing)")
+        else:
+            print(f"L/S Ratio: N/A (Single-sided portfolio)")
         
         # Debug: Show M/E calculation details
         total_equity = 0
@@ -991,18 +1529,54 @@ class NGSStrategy:
         print(f"\nM/E Calculation Details:")
         print(f"Total Open Trade Equity: ${total_equity:,.2f}")
         print(f"Account Value (Cash): ${self.cash:,.2f}")
-        print(f"Calculated M/E: {(total_equity/self.cash*100):.2f}% (should match Final M/E Status)")
+        if self.cash > 0:
+            print(f"Calculated M/E: {(total_equity/self.cash*100):.2f}%")
         
-        # Final M/E status
+        # Risk assessment
         risk = self.me_calculator.get_risk_assessment()
-        print(f"M/E Risk Status:      {risk['risk_level']}")
-        print(f"M/E Realized P&L:     ${self.me_calculator.realized_pnl:.2f}")
-        print(f"M/E Active Positions: {len(self.me_calculator.current_positions)}")
+        print(f"\nRisk Assessment:")
+        print(f"M/E Risk Level: {risk['risk_level']}")
+        print(f"M/E Realized P&L: ${self.me_calculator.realized_pnl:.2f}")
+        print(f"Active Positions: {len(self.me_calculator.current_positions)}")
+        
+        print(f"{'='*80}")
         
         logger.info(f"Strategy run complete. Processed {len(data)} symbols, currently have {len(all_positions)} positions")
         logger.info(f"Data retention: {self.retention_days} days, cutoff: {self.cutoff_date.strftime('%Y-%m-%d')}")
+        logger.info(f"Sector management: {'ENABLED' if self.sector_allocation_enabled else 'DISABLED'}")
+        logger.info(f"M/E Rebalancing: {'ENABLED' if self.rebalancing_enabled else 'DISABLED'}")
         
         return results
+
+    def _display_sector_summary(self, sector_report: Dict):
+        """Display sector allocation summary"""
+        print(f"\n{'='*60}")
+        print("SECTOR ALLOCATION SUMMARY")
+        print(f"{'='*60}")
+        
+        current_exposure = sector_report['current_exposure']
+        target_weights = sector_report['target_weights']
+        rebalance_needs = sector_report['rebalance_needs']
+        
+        if current_exposure:
+            print(f"\nCurrent Sector Exposure:")
+            for sector, data in current_exposure.items():
+                target_weight = target_weights.get(sector, 0) * 100
+                current_weight = data['weight'] * 100
+                print(f"  {sector:22s}: {current_weight:5.1f}% (target: {target_weight:5.1f}%) - {data['count']} positions")
+        
+        if rebalance_needs:
+            needs_rebalancing = [sector for sector, data in rebalance_needs.items() 
+                               if abs(data['difference']) > self.sector_rebalance_threshold]
+            if needs_rebalancing:
+                print(f"\nSectors needing rebalancing (>{self.sector_rebalance_threshold:.0%} threshold):")
+                for sector in needs_rebalancing:
+                    data = rebalance_needs[sector]
+                    print(f"  {sector:22s}: {data['action']:4s} {data['difference']:+5.1%} "
+                          f"(${data['dollar_adjustment']:+,.0f})")
+        
+        print(f"\nSector Limits: Max {self.max_sector_weight:.0%}, Min {self.min_sector_weight:.0%}")
+        print(f"{'='*60}")
 
     def backfill_symbol(self, symbol: str, data: pd.DataFrame):
         if data is not None and not data.empty:
@@ -1022,6 +1596,8 @@ class NGSStrategy:
                 logger.info(f"Backfilled and saved indicators for {symbol}")
         else:
             logger.warning(f"No data to backfill for {symbol}")
+
+# --- DATA LOADING FUNCTION (PRESERVED) ---
 
 def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
     """
@@ -1077,14 +1653,29 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
     logger.info(f"\nCompleted loading data. Successfully loaded {len(data)} out of {len(symbols)} symbols")
     return data
 
+# --- MAIN EXECUTION (ENHANCED WITH L/S VaR AND M/E REBALANCING) ---
+
 if __name__ == "__main__":
-    print("nGS Trading Strategy - Neural Grid System")
-    print("=" * 50)
+    print("nGS Trading Strategy - Neural Grid System with L/S VaR and M/E Rebalancing")
+    print("=" * 80)
     print(f"Data Retention: {RETENTION_DAYS} days (6 months)")
-    print("=" * 50)
+    print("=" * 80)
     
     try:
         strategy = NGSStrategy(account_size=1000000)
+        
+        # Demo: Enable sector rebalancing (optional)
+        print("\n🎯 SECTOR MANAGEMENT DEMO")
+        print("Enabling sector-based rebalancing...")
+        strategy.enable_sector_rebalancing()  # Use S&P 500 sector weights
+        
+        # Show configuration
+        print(f"\n⚙️  CONFIGURATION")
+        print(f"M/E Target Range: {strategy.me_target_min}% - {strategy.me_target_max}%")
+        print(f"Min Positions for Rebalancing: {strategy.min_positions_for_rebalance}")
+        print(f"L/S Ratio VaR: ENABLED")
+        print(f"  - L/S > 1.5: 50% short margin ($10,000 positions)")
+        print(f"  - L/S > -1.5: 75% short margin ($3,750 positions)")
         
         # Load ALL S&P 500 symbols from your data files
         sp500_file = os.path.join('data', 'sp500_symbols.txt')
@@ -1119,15 +1710,15 @@ if __name__ == "__main__":
         print(f"\nSuccessfully loaded data for {len(data)} symbols")
         
         # Run the strategy
-        print(f"\nRunning nGS strategy on {len(data)} symbols...")
-        print("Processing signals and managing positions...")
+        print(f"\nRunning enhanced nGS strategy on {len(data)} symbols...")
+        print("Processing signals, L/S VaR position sizing, and M/E rebalancing...")
         
         results = strategy.run(data)
         
         # Results summary
-        print(f"\n{'='*70}")
-        print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
-        print(f"{'='*70}")
+        print(f"\n{'='*80}")
+        print("ENHANCED STRATEGY BACKTEST RESULTS (Last 6 Months)")
+        print(f"{'='*80}")
         
         total_profit = sum(trade['profit'] for trade in strategy.trades)
         winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
@@ -1139,6 +1730,7 @@ if __name__ == "__main__":
         print(f"Total trades:         {len(strategy.trades)}")
         print(f"Symbols processed:    {len(data)}")
         print(f"Data period:          {strategy.cutoff_date.strftime('%Y-%m-%d')} to {datetime.now().strftime('%Y-%m-%d')}")
+        print(f"Features enabled:     L/S VaR, M/E Rebalancing, Sector Management")
         
         if strategy.trades:
             print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
@@ -1153,37 +1745,22 @@ if __name__ == "__main__":
             print(f"Best trade:           ${max_win:.2f}")
             print(f"Worst trade:          ${max_loss:.2f}")
             
-            # Symbol performance
-            symbol_profits = {}
-            for trade in strategy.trades:
-                symbol = trade['symbol']
-                if symbol not in symbol_profits:
-                    symbol_profits[symbol] = 0
-                symbol_profits[symbol] += trade['profit']
+            # L/S analysis
+            long_trades = [t for t in strategy.trades if t['type'] == 'long']
+            short_trades = [t for t in strategy.trades if t['type'] == 'short']
             
-            # Top performers
-            sorted_symbols = sorted(symbol_profits.items(), key=lambda x: x[1], reverse=True)
-            print(f"\nTop 5 performing symbols:")
-            for symbol, profit in sorted_symbols[:5]:
-                print(f"  {symbol:6s}: ${profit:+8.2f}")
-            
-            print(f"\nBottom 5 performing symbols:")
-            for symbol, profit in sorted_symbols[-5:]:
-                print(f"  {symbol:6s}: ${profit:+8.2f}")
+            print(f"\nL/S Trade Analysis:")
+            print(f"Long trades:          {len(long_trades)} (Avg P&L: ${np.mean([t['profit'] for t in long_trades]):.2f})" if long_trades else "Long trades: 0")
+            print(f"Short trades:         {len(short_trades)} (Avg P&L: ${np.mean([t['profit'] for t in short_trades]):.2f})" if short_trades else "Short trades: 0")
         
-        # Show recent trades
-        if strategy.trades:
-            print(f"\nRecent trades (last 10):")
-            for trade in strategy.trades[-10:]:
-                print(f"  {trade['symbol']} {trade['type']:5s} | "
-                      f"{trade['entry_date']} → {trade['exit_date']} | "
-                      f"${trade['entry_price']:7.2f} → ${trade['exit_price']:7.2f} | "
-                      f"P&L: ${trade['profit']:+8.2f} | {trade['exit_reason']}")
-        
-        # Current positions
+        # Current positions with L/S analysis
         long_pos, short_pos = strategy.get_current_positions()
         total_positions = len(long_pos) + len(short_pos)
+        current_ls_ratio = strategy.calculate_ls_ratio()
+        
         print(f"\nCurrent positions: {total_positions} total ({len(long_pos)} long, {len(short_pos)} short)")
+        if current_ls_ratio is not None:
+            print(f"Current L/S ratio: {current_ls_ratio:.2f}")
         
         if total_positions > 0:
             print(f"\nSample positions (first 10):")
@@ -1191,13 +1768,15 @@ if __name__ == "__main__":
             for pos in all_pos[:10]:
                 side = "Long " if pos in long_pos else "Short"
                 shares = pos['shares'] if pos in long_pos else pos['shares']
-                print(f"  {side} {pos['symbol']:6s}: {shares:4d} shares @ ${pos['entry_price']:7.2f}")
+                sector = get_symbol_sector(pos['symbol'])
+                print(f"  {side} {pos['symbol']:6s} ({sector:15s}): {shares:4d} shares @ ${pos['entry_price']:7.2f}")
         
-        print(f"\n+ Strategy backtest completed successfully!")
-        print(f"+ Processed all {len(data)} S&P 500 symbols")
-        print(f"+ Data retention enforced: {RETENTION_DAYS} days")
+        print(f"\n✅ Enhanced strategy backtest completed successfully!")
+        print(f"✅ Processed all {len(data)} S&P 500 symbols")
+        print(f"✅ Features: L/S VaR Position Sizing, M/E Rebalancing ({strategy.me_target_min}-{strategy.me_target_max}%), Sector Management")
+        print(f"✅ Data retention enforced: {RETENTION_DAYS} days")
         
     except Exception as e:
-        logger.error(f"Strategy backtest failed: {e}")
+        logger.error(f"Enhanced strategy backtest failed: {e}")
         import traceback
         traceback.print_exc()
