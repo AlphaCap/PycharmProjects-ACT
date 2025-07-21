@@ -218,17 +218,17 @@ st.markdown("""
 [data-testid="metric-container"] label {
     width: fit-content;
     margin: auto;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
 }
 
 [data-testid="metric-container"] [data-testid="metric-value"] {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 700;
 }
 
 [data-testid="metric-container"] [data-testid="metric-delta"] {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 </style>
 """, unsafe_allow_html=True)
