@@ -200,13 +200,13 @@ ls_ratio = calculate_ls_ratio()
 # Portfolio Summary
 st.subheader("Portfolio Summary")
 
-# Custom CSS for smaller metric fonts to fit 7 columns
+# Custom CSS for metric fonts optimized for 6 columns
 st.markdown("""
 <style>
 [data-testid="metric-container"] {
     background-color: rgba(28, 131, 225, 0.1);
     border: 1px solid rgba(28, 131, 225, 0.1);
-    padding: 3% 3% 3% 6%;
+    padding: 4% 4% 4% 8%;
     border-radius: 5px;
 }
 
@@ -218,23 +218,23 @@ st.markdown("""
 [data-testid="metric-container"] label {
     width: fit-content;
     margin: auto;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
 }
 
 [data-testid="metric-container"] [data-testid="metric-value"] {
-    font-size: 1.0rem;
+    font-size: 1.1rem;
     font-weight: 700;
 }
 
 [data-testid="metric-container"] [data-testid="metric-delta"] {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Now using 7 columns to fit L/S ratio
-col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+# Now using 6 columns for portfolio summary (removed refresh button)
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 with col1:
     total_value_clean = str(metrics['total_value']).replace('.00', '').replace(',', '')
@@ -254,10 +254,6 @@ with col5:
 
 with col6:
     st.metric(label="L/S Ratio", value=ls_ratio)
-
-with col7:
-    if st.button("🔄 Refresh", use_container_width=True):
-        st.rerun()
 
 st.markdown("---")
 
@@ -333,10 +329,10 @@ try:
                 "Entry Date": st.column_config.TextColumn("Entry Date", width="small"),
                 "Side": st.column_config.TextColumn("Side", width="small"),
                 "Shares": st.column_config.NumberColumn("Shares", width="small"),
-                "Entry Price": st.column_config.TextColumn("Entry Price", width="medium"),
-                "Current Price": st.column_config.TextColumn("Current Price", width="medium"),
-                "Current Value": st.column_config.TextColumn("Current Value", width="medium"),
-                "P&L": st.column_config.TextColumn("P&L", width="medium"),
+                "Entry Price": st.column_config.TextColumn("Entry Price", width="small"),
+                "Current Price": st.column_config.TextColumn("Current Price", width="small"),
+                "Current Value": st.column_config.TextColumn("Current Value", width="small"),
+                "P&L": st.column_config.TextColumn("P&L", width="small"),
                 "P&L %": st.column_config.TextColumn("P&L %", width="small")
             }
         )
