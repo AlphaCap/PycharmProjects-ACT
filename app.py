@@ -161,7 +161,7 @@ with col6:
 
 st.markdown("---")
 
-# Current Positions
+# Current Positions - FIXED VERSION
 st.subheader("📋 Current Positions")
 
 try:
@@ -185,6 +185,14 @@ try:
                     df_positions[col] = 0.0
                 else:
                     df_positions[col] = 'N/A'
+        
+        # FIXED: Ensure entry_date is properly formatted as string
+        try:
+            # Convert entry_date to datetime first, then to string
+            df_positions['entry_date'] = pd.to_datetime(df_positions['entry_date']).dt.strftime('%Y-%m-%d')
+        except:
+            # If conversion fails, ensure it's at least string
+            df_positions['entry_date'] = df_positions['entry_date'].astype(str)
         
         # Format the display DataFrame with entry_date as 2nd column
         display_df = pd.DataFrame()
@@ -231,17 +239,23 @@ try:
             }
         )
         
-        # Check for suspicious future dates
-        future_positions = df_positions[pd.to_datetime(df_positions['entry_date']) > datetime.now()]
-        if not future_positions.empty:
-            st.warning(f"⚠️ WARNING: {len(future_positions)} positions have FUTURE entry dates - these are likely from backtest data!")
-            st.info("🔍 If you see future dates (like 04/09/25), these positions are synthetic/test data, not real trades.")
+        # FIXED: Check for suspicious future dates - now safe to use
+        try:
+            future_positions = df_positions[pd.to_datetime(df_positions['entry_date']) > datetime.now()]
+            if not future_positions.empty:
+                st.warning(f"⚠️ WARNING: {len(future_positions)} positions have FUTURE entry dates - these are likely from backtest data!")
+                st.info("🔍 If you see future dates (like 04/09/25), these positions are synthetic/test data, not real trades.")
+        except Exception as e:
+            st.warning(f"Could not check for future dates: {e}")
         
-        # Check for very recent positions (today)
-        today = datetime.now().strftime('%Y-%m-%d')
-        today_positions = df_positions[df_positions['entry_date'].str.contains(today, na=False)]
-        if not today_positions.empty:
-            st.success(f"✅ {len(today_positions)} positions entered TODAY - these appear to be new live trades!")
+        # FIXED: Check for very recent positions (today) - now safe to use string comparison
+        try:
+            today = datetime.now().strftime('%Y-%m-%d')
+            today_positions = df_positions[df_positions['entry_date'] == today]  # Use == instead of .str.contains()
+            if not today_positions.empty:
+                st.success(f"✅ {len(today_positions)} positions entered TODAY - these appear to be new live trades!")
+        except Exception as e:
+            st.warning(f"Could not check for today's positions: {e}")
     
     else:
         st.info("No current positions")
@@ -249,6 +263,9 @@ try:
 except Exception as e:
     st.error(f"Error loading positions: {e}")
     st.info("Check your data sources and ensure the system is properly configured.")
+    # Add debug info
+    import traceback
+    st.code(traceback.format_exc())
 
 st.markdown("---")
 
