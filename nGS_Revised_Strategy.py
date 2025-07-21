@@ -208,12 +208,12 @@ class NGSStrategy:
         # Initialize M/E calculator
         self.me_calculator = DailyMERatioCalculator(initial_portfolio_value=account_size)
         
-        # Sector Management Configuration
-        self.sector_allocation_enabled = False
-        self.sector_targets = {}  # Will be populated from config or adaptive logic
-        self.max_sector_weight = 0.35  # Max 35% in any single sector
-        self.min_sector_weight = 0.02  # Min 2% in any single sector
-        self.sector_rebalance_threshold = 0.02  # 2% deviation threshold
+        # Sector Management Configuration (DISABLED - using M/E control instead)
+        self.sector_allocation_enabled = False  # Disabled: M/E ratio controls position management
+        self.sector_targets = {}  # Not used
+        self.max_sector_weight = 1.0  # No sector limits - natural allocation
+        self.min_sector_weight = 0.0  # No sector limits - natural allocation
+        self.sector_rebalance_threshold = 1.0  # Effectively disabled
         
         # L/S Ratio and M/E Rebalancing Configuration
         self.me_rebalancing_enabled = True  # Enable M/E band rebalancing
@@ -236,9 +236,9 @@ class NGSStrategy:
         
         logger.info(f"nGS Strategy initialized with {self.retention_days}-day data retention")
         logger.info(f"Data cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
-        logger.info(f"Sector management: {'ENABLED' if self.sector_allocation_enabled else 'DISABLED'}")
         logger.info(f"L/S ratio adjustments: {'ENABLED' if self.ls_ratio_enabled else 'DISABLED'}")
         logger.info(f"M/E rebalancing: {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
+        logger.info(f"Note: Sector management DISABLED - using M/E ratio control instead")
         if self.me_rebalancing_enabled:
             logger.info(f"M/E target range: {self.me_target_min}-{self.me_target_max}%")
             logger.info(f"Min positions for scale-up: {self.min_positions_for_scaling_up}")
@@ -1167,11 +1167,8 @@ class NGSStrategy:
         
         if entry_datetime >= self.cutoff_date and abs(cost) <= self.cash:
             
-            # NEW: Check sector limits before entering position
-            current_portfolio_value = self.cash  # Use cash as proxy for portfolio value
-            if not self.check_sector_limits(symbol, abs(cost), current_portfolio_value):
-                logger.warning(f"Position entry rejected for {symbol} due to sector limits")
-                return
+            # Note: Sector limits disabled - using M/E ratio control instead
+            # Position entry controlled by M/E rebalancing, not sector limits
             
             self.cash = round(float(self.cash - cost), 2)
             position = {
@@ -1460,10 +1457,10 @@ class NGSStrategy:
         # Perform end-of-day M/E rebalancing
         self.end_of_day_rebalancing()
         
-        # Generate and display sector report if enabled
-        if self.sector_allocation_enabled:
-            sector_report = self.generate_sector_report()
-            self._display_sector_summary(sector_report)
+        # Note: Sector reporting disabled - using M/E ratio control instead
+        # if self.sector_allocation_enabled:
+        #     sector_report = self.generate_sector_report()
+        #     self._display_sector_summary(sector_report)
         
         # Final M/E status with position details for verification
         print(f"\nFinal M/E Status: {self.calculate_current_me_ratio():.2f}%")
@@ -1488,9 +1485,9 @@ class NGSStrategy:
         
         logger.info(f"Strategy run complete. Processed {len(data)} symbols, currently have {len(all_positions)} positions")
         logger.info(f"Data retention: {self.retention_days} days, cutoff: {self.cutoff_date.strftime('%Y-%m-%d')}")
-        logger.info(f"Sector management: {'ENABLED' if self.sector_allocation_enabled else 'DISABLED'}")
         logger.info(f"L/S ratio adjustments: {'ENABLED' if self.ls_ratio_enabled else 'DISABLED'}")
         logger.info(f"M/E rebalancing: {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
+        logger.info(f"Note: Sector management DISABLED - using M/E ratio control instead")
         
         return results
 
@@ -1610,10 +1607,9 @@ if __name__ == "__main__":
     try:
         strategy = NGSStrategy(account_size=1000000)
         
-        # Demo: Enable sector rebalancing
-        print("\n🎯 SECTOR MANAGEMENT DEMO")
-        print("Enabling sector-based rebalancing...")
-        strategy.enable_sector_rebalancing()  # Use S&P 500 sector weights
+        # Note: Sector management disabled - using M/E ratio control instead
+        # strategy.enable_sector_rebalancing()  # Disabled
+        print("🎯 Using M/E Ratio Control (50-80% band) instead of sector limits")
         
         # Load ALL S&P 500 symbols from your data files
         sp500_file = os.path.join('data', 'sp500_symbols.txt')
