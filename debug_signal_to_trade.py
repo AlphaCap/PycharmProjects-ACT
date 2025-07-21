@@ -108,3 +108,4 @@ elif total_signals == 0:
     print("The strategy patterns may not be occurring in current market environment")
 
 print(f"\n=== DEBUG COMPLETE ===")
+

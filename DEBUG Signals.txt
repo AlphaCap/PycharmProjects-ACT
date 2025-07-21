@@ -1,0 +1,154 @@
+--- Signal #1: CAT 2025-07-18 ---
+Type: Engf S NuHu3 (Short)
+Price: $413.71 (Open: $418.7, Prev Close: $418.07)
+Shares: 12
+BB Position: middle (Upper: $427.08, Lower: $346.4)
+LR Trend: up (Value: 0.7800, Value2: 0.0900)
+Pattern Checks:
+  ✓ open_above_prev_close: True
+  ✓ close_below_prev_open: True
+  ✓ current_red: True
+  ✓ prev_green: True
+  ✓ prev_close_near_high: True
+  ✓ prev_body_size: True
+  ✗ lr_value_trend: False
+  ✓ high_near_bb_upper: True
+  ✓ close_above_bb_lower: True
+
+--- Signal #2: MSFT 2025-07-08 ---
+Type: SemiEng S (Short)
+Price: $496.62 (Open: $497.24, Prev Close: $497.72)
+Shares: 10
+BB Position: near upper (Upper: $506.45, Lower: $457.33)
+LR Trend: down (Value: -0.9100, Value2: 2.2200)
+
+--- Signal #3: AMZN 2025-07-08 ---
+Type: Engf S NuHu3 (Short)
+Price: $219.36 (Open: $223.91, Prev Close: $223.47)
+Shares: 23
+BB Position: middle (Upper: $225.42, Lower: $203.94)
+LR Trend: up (Value: 5.0700, Value2: 3.8700)
+Pattern Checks:
+  ✓ open_above_prev_close: True
+  ✓ close_below_prev_open: True
+  ✓ current_red: True
+  ✓ prev_green: True
+  ✓ prev_close_near_high: True
+  ✓ prev_body_size: True
+  ✗ lr_value_trend: False
+  ✓ high_near_bb_upper: True
+  ✓ close_above_bb_lower: True
+
+--- Signal #4: AMZN 2025-06-30 ---
+Type: Engf S NuHu3 (Short)
+Price: $219.39 (Open: $223.52, Prev Close: $223.3)
+Shares: 23
+BB Position: near upper (Upper: $222.17, Lower: $200.45)
+LR Trend: up (Value: -3.7700, Value2: -4.1000)
+Pattern Checks:
+  ✓ open_above_prev_close: True
+  ✓ close_below_prev_open: True
+  ✓ current_red: True
+  ✓ prev_green: True
+  ✓ prev_close_near_high: True
+  ✓ prev_body_size: True
+  ✗ lr_value_trend: False
+  ✓ high_near_bb_upper: True
+  ✓ close_above_bb_lower: True
+
+--- Signal #5: AMZN 2025-06-25 ---
+Type: Engf S (Short)
+Price: $211.99 (Open: $214.62, Prev Close: $212.77)
+Shares: 24
+BB Position: middle (Upper: $219.11, Lower: $199.39)
+LR Trend: down (Value: -4.6200, Value2: -3.9800)
+Pattern Checks:
+  ✓ open_above_prev_close: True
+  ✓ close_below_prev_open: True
+  ✓ current_red: True
+  ✓ prev_green: True
+  ✓ prev_close_near_high: True
+  ✓ prev_body_size: True
+  ✓ lr_value_trend: True
+  ✓ high_near_bb_upper: True
+  ✓ close_above_bb_lower: True
+
+--- Signal #6: V 2025-06-23 ---
+Type: Engf L NuLo (Long)
+Price: $343.75 (Open: $337.5, Prev Close: $338.57)
+Shares: 15
+BB Position: near lower (Upper: $379.74, Lower: $342.14)
+LR Trend: down (Value: -11.0400, Value2: -7.9600)
+Pattern Checks:
+  ✓ open_below_prev_close: True
+  ✓ close_above_prev_open: True
+  ✓ current_green: True
+  ✓ prev_red: True
+  ✓ prev_close_near_low: True
+  ✓ gap_within_2atr: True
+  ✓ prev_body_size: True
+  ✗ lr_value_trend: False
+  ✓ low_near_bb_lower: True
+  ✓ close_below_bb_upper: True
+
+--- Signal #7: MSFT 2025-06-20 ---
+Type: Engf S (Short)
+Price: $477.4 (Open: $482.23, Prev Close: $480.24)
+Shares: 10
+BB Position: near upper (Upper: $484.42, Lower: $446.06)
+LR Trend: down (Value: -3.9700, Value2: -3.8000)
+Pattern Checks:
+  ✓ open_above_prev_close: True
+  ✓ close_below_prev_open: True
+  ✓ current_red: True
+  ✓ prev_green: True
+  ✓ prev_close_near_high: True
+  ✓ prev_body_size: True
+  ✓ lr_value_trend: True
+  ✓ high_near_bb_upper: True
+  ✓ close_above_bb_lower: True
+
+--- Signal #8: NVDA 2025-06-20 ---
+Type: SemiEng S (Short)
+Price: $143.85 (Open: $145.45, Prev Close: $145.48)
+Shares: 35
+BB Position: middle (Upper: $148.26, Lower: $129.94)
+LR Trend: down (Value: -2.6300, Value2: -2.5100)
+
+--- Signal #9: GOOGL 2025-06-18 ---
+Type: Engf S (Short)
+Price: $173.32 (Open: $176.01, Prev Close: $175.95)
+Shares: 29
+BB Position: middle (Upper: $179.88, Lower: $162.24)
+LR Trend: down (Value: 3.2900, Value2: 3.3700)
+Pattern Checks:
+  ✓ open_above_prev_close: True
+  ✓ close_below_prev_open: True
+  ✓ current_red: True
+  ✓ prev_green: True
+  ✓ prev_close_near_high: True
+  ✓ prev_body_size: True
+  ✓ lr_value_trend: True
+  ✓ high_near_bb_upper: True
+  ✓ close_above_bb_lower: True
+
+--- Signal #10: PG 2025-06-04 ---
+Type: SemiEng S (Short)
+Price: $165.95 (Open: $166.69, Prev Close: $166.85)
+Shares: 30
+BB Position: middle (Upper: $170.86, Lower: $155.62)
+LR Trend: down (Value: 0.6400, Value2: 0.9200)
+
+✓ Saved detailed analysis to signal_analysis.json
+✓ Total signals analyzed: 32
+
+Signal Summary:
+  Long signals: 17
+  Short signals: 15
+  Date range: 2025-02-25 to 2025-07-18
+  Most common patterns:
+    Engf L NuLo: 16
+    Engf S NuHu3: 7
+    Engf S: 5
+    SemiEng S: 3
+    Engf L: 1
