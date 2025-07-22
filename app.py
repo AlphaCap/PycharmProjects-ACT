@@ -218,7 +218,7 @@ st.markdown("""
 [data-testid="metric-container"] label {
     width: fit-content;
     margin: auto;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 600;
 }
 
@@ -228,7 +228,7 @@ st.markdown("""
 }
 
 [data-testid="metric-container"] [data-testid="metric-delta"] {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
 }
 </style>
 """, unsafe_allow_html=True)
