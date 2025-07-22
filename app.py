@@ -74,7 +74,7 @@ account_size = st.number_input(
 )
 st.session_state.account_size = account_size
 
-# Calculate L/S Ratio from current positions
+# Calculate L/S Ratio from current positions - CORRECTED FOR VALUE-BASED CALCULATION
 def calculate_ls_ratio():
     try:
         positions = get_positions()
@@ -83,7 +83,7 @@ def calculate_ls_ratio():
         
         df_positions = pd.DataFrame(positions)
         
-        # Ensure side column exists
+        # Ensure required columns exist
         if 'side' not in df_positions.columns:
             # Determine side from shares if side column missing
             if 'shares' in df_positions.columns:
@@ -91,25 +91,52 @@ def calculate_ls_ratio():
             else:
                 return "N/A"
         
-        long_count = len(df_positions[df_positions['side'] == 'long'])
-        short_count = len(df_positions[df_positions['side'] == 'short'])
-        
-        if long_count == 0 and short_count == 0:
-            return "N/A"
-        elif short_count == 0:
-            return f"{long_count}:0"
-        elif long_count == 0:
-            return f"0:{short_count}"
-        else:
-            # Calculate ratio
-            if long_count >= short_count:
-                ratio = long_count / short_count
-                return f"{ratio:.1f}:1"
+        # Calculate position values (not just counts) - THIS IS THE KEY FIX
+        if all(col in df_positions.columns for col in ['current_price', 'shares']):
+            df_positions['position_value'] = df_positions['current_price'] * df_positions['shares'].abs()
+            
+            long_value = df_positions[df_positions['side'] == 'long']['position_value'].sum()
+            short_value = df_positions[df_positions['side'] == 'short']['position_value'].sum()
+            
+            if long_value == 0 and short_value == 0:
+                return "N/A"
+            elif short_value == 0:
+                return f"L Only"  # All long positions
+            elif long_value == 0:
+                return f"S Only"  # All short positions
             else:
-                ratio = short_count / long_count
-                return f"1:{ratio:.1f}"
+                # Calculate the ratio based on VALUES not counts
+                total_value = long_value + short_value
+                long_pct = (long_value / total_value) * 100
+                short_pct = (short_value / total_value) * 100
+                
+                if long_value >= short_value:
+                    ratio = long_value / short_value
+                    return f"L {ratio:.1f}:1"  # Net long by value
+                else:
+                    ratio = short_value / long_value
+                    return f"S {ratio:.1f}:1"  # Net short by value - shows magnitude of short bias
+        else:
+            # Fallback to position counts if values not available
+            long_count = len(df_positions[df_positions['side'] == 'long'])
+            short_count = len(df_positions[df_positions['side'] == 'short'])
+            
+            if long_count == 0 and short_count == 0:
+                return "N/A"
+            elif short_count == 0:
+                return f"L {long_count}:0"
+            elif long_count == 0:
+                return f"S 0:{short_count}"
+            else:
+                if long_count >= short_count:
+                    ratio = long_count / short_count
+                    return f"L {ratio:.1f}:1"
+                else:
+                    ratio = short_count / long_count
+                    return f"S {ratio:.1f}:1"  # Shows short dominance
+                    
     except Exception as e:
-        return "Error"
+        return f"Error: {str(e)[:20]}"
 
 # Enhanced portfolio metrics calculation - CORRECTED
 def get_enhanced_portfolio_metrics(account_size: int) -> dict:
@@ -200,9 +227,10 @@ ls_ratio = calculate_ls_ratio()
 # Portfolio Summary
 st.subheader("Portfolio Summary")
 
-# Custom CSS for metric fonts optimized for 6 columns
+# Custom CSS for metric fonts optimized for 6 columns - CACHE REFRESH v2.1
 st.markdown("""
 <style>
+/* Force cache refresh with version 2.1 */
 [data-testid="metric-container"] {
     background-color: rgba(28, 131, 225, 0.1);
     border: 1px solid rgba(28, 131, 225, 0.1);
@@ -218,17 +246,17 @@ st.markdown("""
 [data-testid="metric-container"] label {
     width: fit-content;
     margin: auto;
-    font-size: 0.6rem;
+    font-size: 0.7rem !important;  /* Reduced from 0.75rem + !important for cache override */
     font-weight: 600;
 }
 
 [data-testid="metric-container"] [data-testid="metric-value"] {
-    font-size: 0.9rem;
+    font-size: 1.0rem !important;  /* Reduced from 1.1rem + !important for cache override */
     font-weight: 700;
 }
 
 [data-testid="metric-container"] [data-testid="metric-delta"] {
-    font-size: 0.7rem;
+    font-size: 0.8rem !important;  /* Reduced from 0.85rem + !important for cache override */
 }
 </style>
 """, unsafe_allow_html=True)
