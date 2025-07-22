@@ -23,14 +23,23 @@ except ImportError:
     DATA_MANAGER_AVAILABLE = False
     print("⚠️  data_manager not available - using fallback data loader")
 
-# Try to import PyBroker (will guide user to install if missing)
+# Try to import optimization libraries (in order of preference)
 try:
-    import pybroker as pb
-    PYBROKER_AVAILABLE = True
-    print("✅ PyBroker available for optimization")
+    import optuna
+    OPTUNA_AVAILABLE = True
+    OPTIMIZATION_ENGINE = "optuna"
+    print("✅ Optuna available for optimization (recommended)")
 except ImportError:
-    PYBROKER_AVAILABLE = False
-    print("⚠️  PyBroker not installed. Install with: pip install pybroker")
+    OPTUNA_AVAILABLE = False
+    try:
+        from scipy import optimize
+        SCIPY_AVAILABLE = True
+        OPTIMIZATION_ENGINE = "scipy"
+        print("✅ Scipy available for optimization")
+    except ImportError:
+        SCIPY_AVAILABLE = False
+        OPTIMIZATION_ENGINE = "grid_search"
+        print("✅ Using built-in grid search optimization")
 
 class SectorETFOptimizer:
     """
@@ -291,83 +300,86 @@ class SectorETFOptimizer:
             return None
         
         print(f"🔄 Running {len(periods)} walk-forward periods")
+        print(f"🧠 Using {OPTIMIZATION_ENGINE} optimization engine")
         
-        # Test all parameter combinations across all periods
-        best_params = None
-        best_score = -999999
-        all_results = []
+        # Choose optimization method based on available libraries
+        if OPTIMIZATION_ENGINE == "optuna" and OPTUNA_AVAILABLE:
+            optimization_result = self.optimize_with_optuna(df, n_trials=100 if self.optimization_mode == "thorough" else 50)
+        else:
+            optimization_result = self.optimize_with_grid_search(df)
         
-        # Generate parameter combinations
-        param_combinations = self._generate_param_combinations()
-        
-        print(f"🧪 Testing {len(param_combinations)} parameter combinations...")
-        
-        for param_combo in param_combinations:
-            period_results = []
+        if optimization_result and optimization_result['best_parameters']:
+            best_params = optimization_result['best_parameters']
             
-            # Test this parameter combination across all walk-forward periods
+            # Calculate final performance metrics
+            periods = self.create_walk_forward_periods(df)
+            final_results = []
             for period in periods:
-                # Train period (not used in this simplified version)
-                train_result = self.simulate_ngs_strategy(period['train_data'], param_combo)
-                
-                # Test period (this is what we care about)
-                test_result = self.simulate_ngs_strategy(period['test_data'], param_combo)
-                
-                period_results.append({
-                    'train_roi': train_result['roi'],
-                    'test_roi': test_result['roi'],
-                    'test_sharpe': test_result['sharpe'],
-                    'test_trades': test_result['trades'],
-                    'test_win_rate': test_result['win_rate']
-                })
+                result = self.simulate_ngs_strategy(period['test_data'], best_params)
+                final_results.append(result)
             
-            # Calculate average performance across all test periods
-            if period_results:
-                avg_test_roi = np.mean([r['test_roi'] for r in period_results])
-                avg_test_sharpe = np.mean([r['test_sharpe'] for r in period_results])
-                total_test_trades = sum([r['test_trades'] for r in period_results])
-                
-                # Composite score (weighted average of ROI and Sharpe)
-                score = (avg_test_roi * 0.7) + (avg_test_sharpe * 30 * 0.3)
-                
-                all_results.append({
-                    'parameters': param_combo,
-                    'avg_test_roi': avg_test_roi,
-                    'avg_test_sharpe': avg_test_sharpe,
-                    'total_trades': total_test_trades,
-                    'score': score,
-                    'period_results': period_results
-                })
-                
-                if score > best_score and total_test_trades >= 5:  # Minimum trade requirement
-                    best_score = score
-                    best_params = param_combo.copy()
-        
-        if best_params:
-            # Find the result for best params
-            best_result = next(r for r in all_results if r['parameters'] == best_params)
+            avg_roi = np.mean([r['roi'] for r in final_results])
+            avg_sharpe = np.mean([r['sharpe'] for r in final_results])
+            total_trades = sum([r['trades'] for r in final_results])
             
             print(f"✅ Best parameters found for {sector}:")
             for key, value in best_params.items():
                 print(f"   {key}: {value}")
-            print(f"   Average Test ROI: {best_result['avg_test_roi']:.2f}%")
-            print(f"   Average Sharpe: {best_result['avg_test_sharpe']:.3f}")
-            print(f"   Total Test Trades: {best_result['total_trades']}")
+            print(f"   Average Test ROI: {avg_roi:.2f}%")
+            print(f"   Average Sharpe: {avg_sharpe:.3f}")
+            print(f"   Total Test Trades: {total_trades}")
             
             return {
                 'etf_symbol': etf_symbol,
                 'sector': sector,
                 'best_parameters': best_params,
-                'performance': best_result,
+                'performance': {
+                    'avg_test_roi': avg_roi,
+                    'avg_test_sharpe': avg_sharpe,
+                    'total_trades': total_trades,
+                    'optimization_method': OPTIMIZATION_ENGINE
+                },
                 'optimization_date': datetime.now().isoformat(),
                 'periods_tested': len(periods),
-                'combinations_tested': len(param_combinations)
+                'optimization_details': optimization_result
             }
         else:
             print(f"❌ No suitable parameters found for {sector}")
             return None
     
-    def _generate_param_combinations(self) -> List[Dict]:
+    def optimize_with_optuna(self, df: pd.DataFrame, n_trials: int = 50) -> Dict:
+        """Optimize using Optuna (most efficient)"""
+        def objective(trial):
+            params = {
+                'PositionSize': trial.suggest_categorical('PositionSize', self.param_ranges['PositionSize']),
+                'me_target_min': trial.suggest_categorical('me_target_min', self.param_ranges['me_target_min']),
+                'me_target_max': trial.suggest_categorical('me_target_max', self.param_ranges['me_target_max']),
+                'Length': trial.suggest_categorical('Length', self.param_ranges['Length']),
+                'NumDevs': trial.suggest_categorical('NumDevs', self.param_ranges['NumDevs']),
+                'profit_target_pct': trial.suggest_categorical('profit_target_pct', self.param_ranges['profit_target_pct']),
+                'stop_loss_pct': trial.suggest_categorical('stop_loss_pct', self.param_ranges['stop_loss_pct'])
+            }
+            
+            # Run walk-forward test with these parameters
+            periods = self.create_walk_forward_periods(df)
+            if not periods:
+                return -999999
+            
+            test_rois = []
+            for period in periods:
+                result = self.simulate_ngs_strategy(period['test_data'], params)
+                test_rois.append(result['roi'])
+            
+            return np.mean(test_rois) if test_rois else -999999
+        
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+        
+        return {
+            'best_parameters': study.best_params,
+            'best_score': study.best_value,
+            'n_trials': n_trials
+        }
         """Generate all combinations of parameters to test"""
         import itertools
         
@@ -379,7 +391,55 @@ class SectorETFOptimizer:
             param_dict = dict(zip(param_names, combo))
             combinations.append(param_dict)
         
+    def _generate_param_combinations(self) -> List[Dict]:
+        """Generate all combinations of parameters to test (Grid Search)"""
+        import itertools
+        
+        param_names = list(self.param_ranges.keys())
+        param_values = list(self.param_ranges.values())
+        
+        combinations = []
+        for combo in itertools.product(*param_values):
+            param_dict = dict(zip(param_names, combo))
+            combinations.append(param_dict)
+        
         return combinations
+    
+    def optimize_with_grid_search(self, df: pd.DataFrame) -> Dict:
+        """Optimize using grid search (reliable fallback)"""
+        periods = self.create_walk_forward_periods(df)
+        if not periods:
+            return None
+        
+        param_combinations = self._generate_param_combinations()
+        best_params = None
+        best_score = -999999
+        
+        print(f"🔍 Grid search testing {len(param_combinations)} combinations...")
+        
+        for i, param_combo in enumerate(param_combinations):
+            if i % 20 == 0:  # Progress indicator
+                print(f"   Progress: {i}/{len(param_combinations)} ({i/len(param_combinations)*100:.0f}%)")
+            
+            test_rois = []
+            total_trades = 0
+            
+            for period in periods:
+                result = self.simulate_ngs_strategy(period['test_data'], param_combo)
+                test_rois.append(result['roi'])
+                total_trades += result['trades']
+            
+            avg_roi = np.mean(test_rois) if test_rois else -999999
+            
+            if avg_roi > best_score and total_trades >= 5:
+                best_score = avg_roi
+                best_params = param_combo.copy()
+        
+        return {
+            'best_parameters': best_params,
+            'best_score': best_score,
+            'combinations_tested': len(param_combinations)
+        }
     
     def optimize_all_sectors(self, sectors_to_optimize: List[str] = None) -> Dict:
         """
@@ -424,6 +484,7 @@ class SectorETFOptimizer:
 if __name__ == "__main__":
     print("🎯 ETF Optimization Testing")
     print("=" * 50)
+    print(f"Optimization Engine: {OPTIMIZATION_ENGINE}")
     
     # Initialize optimizer
     optimizer = SectorETFOptimizer(optimization_mode="fast")
@@ -434,14 +495,18 @@ if __name__ == "__main__":
         result = optimizer.optimize_etf_parameters('XLK', 'Technology')
         if result:
             print("✅ Single sector optimization successful!")
+            print(f"   Best ROI: {result['performance']['avg_test_roi']:.2f}%")
         else:
             print("❌ Single sector optimization failed")
     except Exception as e:
         print(f"❌ Error in single sector test: {e}")
+        import traceback
+        traceback.print_exc()
     
-    # Uncomment to test full optimization (will take longer)
-    # print("\n🚀 Testing full sector optimization...")
-    # optimizer.optimize_all_sectors(['Technology', 'Financials'])
+    # Show installation recommendations
+    if OPTIMIZATION_ENGINE == "grid_search":
+        print("\n💡 For faster optimization, install Optuna:")
+        print("   pip install optuna")
     
     print("\n📋 Current optimization summary:")
     summary = optimizer.param_manager.get_optimization_summary()
