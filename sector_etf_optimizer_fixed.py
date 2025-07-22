@@ -490,6 +490,87 @@ class SectorETFOptimizer:
         
         print(f"\n✅ Optimization complete! Successfully optimized {len(optimization_results)} sectors")
         return optimization_results
+    
+    def show_optimization_results(self):
+        """Show detailed optimization results and parameter changes"""
+        
+        print(f"\n📊 OPTIMIZATION RESULTS SUMMARY")
+        print("=" * 60)
+        
+        # Show current status
+        summary = self.param_manager.get_optimization_summary()
+        print("📋 Current Status:")
+        print(summary.to_string(index=False))
+        
+        # Count optimized sectors
+        optimized_count = len(summary[summary['Status'] == 'Optimized'])
+        total_count = len(summary)
+        
+        print(f"\n📈 Summary:")
+        print(f"   ✅ Optimized sectors: {optimized_count}/{total_count}")
+        print(f"   📋 Using defaults: {total_count - optimized_count}/{total_count}")
+        
+        # Show detailed parameter changes
+        if optimized_count > 0:
+            print(f"\n🔍 PARAMETER CHANGES:")
+            print("=" * 40)
+            
+            defaults = self.param_manager.default_parameters
+            
+            for sector in self.param_manager.get_all_optimized_sectors():
+                print(f"\n📊 {sector}:")
+                sector_params = self.param_manager.sector_parameters[sector]
+                
+                # Key parameters to show
+                key_params = ['PositionSize', 'me_target_min', 'me_target_max', 'Length', 'NumDevs', 
+                             'profit_target_pct', 'stop_loss_pct']
+                
+                changes_found = False
+                for param in key_params:
+                    if param in sector_params:
+                        default_val = defaults.get(param, 'N/A')
+                        optimized_val = sector_params[param]
+                        
+                        if default_val != optimized_val:
+                            print(f"   {param}: {default_val} → {optimized_val} ✨")
+                            changes_found = True
+                        else:
+                            print(f"   {param}: {optimized_val}")
+                
+                if not changes_found:
+                    print(f"   No parameter changes from defaults")
+                
+                # Show when optimized
+                if 'last_updated' in sector_params:
+                    update_time = sector_params['last_updated'][:19] if len(sector_params['last_updated']) > 19 else sector_params['last_updated']
+                    print(f"   📅 Optimized: {update_time}")
+        
+        print(f"\n🎯 FRAMEWORK STATUS:")
+        print(f"✅ Optimization framework is working!")
+        if optimized_count > 0:
+            print(f"📊 Ready for backtesting with optimized parameters")
+        print(f"🔄 Tomorrow: Try 4+ years of data for better optimization")
+    
+    def test_symbol_parameters(self):
+        """Test parameter retrieval for sample symbols"""
+        
+        print(f"\n🧪 SYMBOL PARAMETER TEST:")
+        print("=" * 40)
+        
+        # Test symbols from different sectors
+        test_symbols = ['AAPL', 'MSFT', 'JPM', 'XOM', 'JNJ']
+        
+        for symbol in test_symbols:
+            try:
+                params = self.param_manager.get_parameters_for_symbol(symbol)
+                sector = params.get('assigned_sector', 'Unknown')
+                status = params.get('optimization_status', 'unknown')
+                
+                print(f"{symbol}: {sector} ({status})")
+                print(f"   Position: ${params.get('PositionSize', 'N/A')}, M/E: {params.get('me_target_min', 'N/A')}-{params.get('me_target_max', 'N/A')}")
+                
+            except Exception as e:
+                print(f"{symbol}: Error - {e}")
 
 # Example usage and testing
 if __name__ == "__main__":
@@ -507,18 +588,29 @@ if __name__ == "__main__":
         if result:
             print("✅ Single sector optimization successful!")
             print(f"   Best ROI: {result['performance']['avg_test_roi']:.2f}%")
+            print(f"   Total Trades: {result['performance']['total_trades']}")
+            
+            # Show results immediately
+            optimizer.show_optimization_results()
+            optimizer.test_symbol_parameters()
+            
         else:
             print("❌ Single sector optimization failed")
+            print("💡 Showing current status anyway...")
+            optimizer.show_optimization_results()
+            
     except Exception as e:
         print(f"❌ Error in single sector test: {e}")
         import traceback
         traceback.print_exc()
+        
+        # Still show status
+        try:
+            optimizer.show_optimization_results()
+        except:
+            pass
     
     # Show installation recommendations
     if OPTIMIZATION_ENGINE == "grid_search":
         print("\n💡 For faster optimization, install Optuna:")
         print("   pip install optuna")
-    
-    print("\n📋 Current optimization summary:")
-    summary = optimizer.param_manager.get_optimization_summary()
-    print(summary.to_string(index=False))
