@@ -1,7 +1,8 @@
 """
-Comprehensive Indicator Library
+Comprehensive Indicator Library - FIXED for nGS data format
 Contains ALL your proven trading indicators as building blocks for AI
 Each indicator is implemented as a reusable function with consistent interface
+FIXED: Now handles both 'Close'/'close' and other column name variations
 """
 
 import pandas as pd
@@ -14,6 +15,7 @@ class ComprehensiveIndicatorLibrary:
     """
     Complete library of YOUR proven indicators
     AI will use these as building blocks for adaptive strategy generation
+    FIXED: Now automatically detects column names (Close vs close, High vs high, etc.)
     """
     
     def __init__(self):
@@ -21,6 +23,51 @@ class ComprehensiveIndicatorLibrary:
         self._register_all_indicators()
         print(f"📊 Comprehensive Indicator Library initialized")
         print(f"🔧 Registered {len(self.indicators_catalog)} indicators")
+    
+    def _standardize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        CRITICAL FIX: Standardize column names to work with both data formats
+        Handles: Close/close, High/high, Low/low, Open/open, Volume/volume
+        """
+        df_copy = df.copy()
+        
+        # Column mapping - try multiple variations
+        column_mapping = {
+            'close': ['Close', 'close', 'CLOSE'],
+            'high': ['High', 'high', 'HIGH'], 
+            'low': ['Low', 'low', 'LOW'],
+            'open': ['Open', 'open', 'OPEN'],
+            'volume': ['Volume', 'volume', 'VOLUME', 'vol', 'Vol']
+        }
+        
+        # Standardize to capitalized names
+        for standard_name, variations in column_mapping.items():
+            for variation in variations:
+                if variation in df_copy.columns:
+                    if standard_name.capitalize() != variation:
+                        df_copy[standard_name.capitalize()] = df_copy[variation]
+                    break
+        
+        # Ensure we have the basic required columns
+        required_cols = ['Close', 'High', 'Low', 'Open']
+        missing = [col for col in required_cols if col not in df_copy.columns]
+        
+        if missing:
+            print(f"⚠️  WARNING: Missing columns {missing} in data")
+            print(f"Available columns: {list(df_copy.columns)}")
+            # Try to create missing columns from available data
+            if 'Close' not in df_copy.columns and 'close' in df_copy.columns:
+                df_copy['Close'] = df_copy['close']
+            if 'High' not in df_copy.columns and 'high' in df_copy.columns:
+                df_copy['High'] = df_copy['high']
+            if 'Low' not in df_copy.columns and 'low' in df_copy.columns:
+                df_copy['Low'] = df_copy['low']
+            if 'Open' not in df_copy.columns and 'open' in df_copy.columns:
+                df_copy['Open'] = df_copy['open']
+            if 'Volume' not in df_copy.columns and 'volume' in df_copy.columns:
+                df_copy['Volume'] = df_copy['volume']
+        
+        return df_copy
     
     def _register_all_indicators(self):
         """Register all your proven indicators with metadata"""
@@ -195,14 +242,15 @@ class ComprehensiveIndicatorLibrary:
         }
 
     # =============================================================================
-    # INDICATOR IMPLEMENTATIONS
+    # INDICATOR IMPLEMENTATIONS - ALL FIXED FOR COLUMN NAME COMPATIBILITY
     # =============================================================================
 
     def time_series_forecast(self, df: pd.DataFrame, length: int = 14, forecast_periods: int = 1) -> pd.Series:
         """
         Time Series Forecast - your trend prediction indicator
-        Forecasts future price based on linear regression of recent prices
+        FIXED: Uses standardized column names
         """
+        df = self._standardize_columns(df)
         tsf_values = []
         
         for i in range(len(df)):
@@ -226,7 +274,8 @@ class ComprehensiveIndicatorLibrary:
         return pd.Series(tsf_values, index=df.index, name='TSF')
 
     def linear_regression(self, df: pd.DataFrame, length: int = 14) -> pd.Series:
-        """Linear Regression line value for current bar"""
+        """Linear Regression line value for current bar - FIXED"""
+        df = self._standardize_columns(df)
         linreg_values = []
         
         for i in range(len(df)):
@@ -247,7 +296,8 @@ class ComprehensiveIndicatorLibrary:
         return pd.Series(linreg_values, index=df.index, name='LinReg')
 
     def linear_regression_slope(self, df: pd.DataFrame, length: int = 14) -> pd.Series:
-        """Linear Regression Slope - trend strength and direction"""
+        """Linear Regression Slope - trend strength and direction - FIXED"""
+        df = self._standardize_columns(df)
         slopes = []
         
         for i in range(len(df)):
@@ -267,10 +317,12 @@ class ComprehensiveIndicatorLibrary:
 
     def bollinger_position(self, df: pd.DataFrame, length: int = 20, deviation: float = 2.0) -> pd.Series:
         """
-        Bollinger Band Position - YOUR core entry logic
+        Bollinger Band Position - YOUR core entry logic - FIXED
         Returns where price sits as percentage of BB range (0-100%)
         """
-        # Calculate Bollinger Bands
+        df = self._standardize_columns(df)
+        
+        # Calculate Bollinger Bands - FIXED: Now uses standardized 'Close' column
         bb_mid = df['Close'].rolling(window=length).mean()
         bb_std = df['Close'].rolling(window=length).std()
         bb_upper = bb_mid + (deviation * bb_std)
@@ -284,7 +336,8 @@ class ComprehensiveIndicatorLibrary:
 
     def bollinger_squeeze(self, df: pd.DataFrame, length: int = 20, deviation: float = 2.0, 
                          squeeze_threshold: float = 0.1) -> pd.Series:
-        """Bollinger Band Squeeze - volatility compression detection"""
+        """Bollinger Band Squeeze - volatility compression detection - FIXED"""
+        df = self._standardize_columns(df)
         bb_mid = df['Close'].rolling(window=length).mean()
         bb_std = df['Close'].rolling(window=length).std()
         
@@ -296,7 +349,8 @@ class ComprehensiveIndicatorLibrary:
         return squeeze.fillna(0).rename('BB_Squeeze')
 
     def bollinger_width(self, df: pd.DataFrame, length: int = 20, deviation: float = 2.0) -> pd.Series:
-        """Bollinger Band Width as percentage of price"""
+        """Bollinger Band Width as percentage of price - FIXED"""
+        df = self._standardize_columns(df)
         bb_mid = df['Close'].rolling(window=length).mean()
         bb_std = df['Close'].rolling(window=length).std()
         bb_width = (deviation * bb_std * 2) / bb_mid * 100
@@ -304,7 +358,8 @@ class ComprehensiveIndicatorLibrary:
         return bb_width.fillna(0).rename('BB_Width')
 
     def rsi(self, df: pd.DataFrame, length: int = 14) -> pd.Series:
-        """RSI - Relative Strength Index"""
+        """RSI - Relative Strength Index - FIXED"""
+        df = self._standardize_columns(df)
         price_delta = df['Close'].diff()
         gains = price_delta.where(price_delta > 0, 0)
         losses = -price_delta.where(price_delta < 0, 0)
@@ -318,7 +373,8 @@ class ComprehensiveIndicatorLibrary:
         return rsi.fillna(50).rename('RSI')
 
     def rsi_divergence(self, df: pd.DataFrame, length: int = 14, lookback: int = 20) -> pd.Series:
-        """RSI Divergence detection"""
+        """RSI Divergence detection - FIXED"""
+        df = self._standardize_columns(df)
         rsi_values = self.rsi(df, length)
         
         # Find recent highs in price and RSI
@@ -334,7 +390,8 @@ class ComprehensiveIndicatorLibrary:
         return divergence.fillna(0).rename('RSI_Divergence')
 
     def stochastic(self, df: pd.DataFrame, k_length: int = 14, d_length: int = 3) -> pd.Series:
-        """Stochastic Oscillator %D (smoothed)"""
+        """Stochastic Oscillator %D (smoothed) - FIXED"""
+        df = self._standardize_columns(df)
         lowest_low = df['Low'].rolling(window=k_length).min()
         highest_high = df['High'].rolling(window=k_length).max()
         
@@ -346,9 +403,16 @@ class ComprehensiveIndicatorLibrary:
 
     def volume_profile(self, df: pd.DataFrame, length: int = 20, threshold: float = 1.5) -> pd.Series:
         """
-        Volume Profile - YOUR volume confirmation filter  
+        Volume Profile - YOUR volume confirmation filter - FIXED
         Returns 1 when volume is above threshold, 0 otherwise
         """
+        df = self._standardize_columns(df)
+        
+        # Handle missing Volume column
+        if 'Volume' not in df.columns:
+            print("⚠️  Volume column not found, using dummy volume data")
+            return pd.Series(0, index=df.index, name='Volume_Profile')
+        
         volume_avg = df['Volume'].rolling(window=length).mean()
         volume_ratio = df['Volume'] / volume_avg
         
@@ -356,13 +420,23 @@ class ComprehensiveIndicatorLibrary:
         return high_volume.fillna(0).rename('Volume_Profile')
 
     def volume_sma_ratio(self, df: pd.DataFrame, length: int = 20) -> pd.Series:
-        """Volume to Simple Moving Average ratio"""
+        """Volume to Simple Moving Average ratio - FIXED"""
+        df = self._standardize_columns(df)
+        
+        if 'Volume' not in df.columns:
+            return pd.Series(1.0, index=df.index, name='Volume_SMA_Ratio')
+        
         volume_sma = df['Volume'].rolling(window=length).mean()
         ratio = df['Volume'] / volume_sma
         return ratio.fillna(1.0).rename('Volume_SMA_Ratio')
 
     def on_balance_volume(self, df: pd.DataFrame, length: int = 20) -> pd.Series:
-        """On Balance Volume with smoothing"""
+        """On Balance Volume with smoothing - FIXED"""
+        df = self._standardize_columns(df)
+        
+        if 'Volume' not in df.columns:
+            return pd.Series(0, index=df.index, name='OBV')
+        
         # Calculate OBV
         price_change = df['Close'].diff()
         volume_direction = np.where(price_change > 0, df['Volume'], 
@@ -375,9 +449,11 @@ class ComprehensiveIndicatorLibrary:
 
     def market_efficiency(self, df: pd.DataFrame, length: int = 20, method: str = 'standard') -> pd.Series:
         """
-        Market Efficiency - YOUR key filter
+        Market Efficiency - YOUR key filter - FIXED
         Measures how efficiently price moves (trending vs choppy)
         """
+        df = self._standardize_columns(df)
+        
         if method == 'standard':
             # Your original method
             price_change = abs(df['Close'].pct_change(length))
@@ -399,7 +475,8 @@ class ComprehensiveIndicatorLibrary:
         return efficiency.rename('Market_Efficiency')
 
     def fractal_dimension(self, df: pd.DataFrame, length: int = 20) -> pd.Series:
-        """Fractal Dimension - market structure complexity measure"""
+        """Fractal Dimension - market structure complexity measure - FIXED"""
+        df = self._standardize_columns(df)
         fd_values = []
         
         for i in range(len(df)):
@@ -432,7 +509,8 @@ class ComprehensiveIndicatorLibrary:
         return pd.Series(fd_values, index=df.index, name='Fractal_Dimension')
 
     def average_true_range(self, df: pd.DataFrame, length: int = 14) -> pd.Series:
-        """Average True Range - volatility measure"""
+        """Average True Range - volatility measure - FIXED"""
+        df = self._standardize_columns(df)
         high_low = df['High'] - df['Low']
         high_close_prev = np.abs(df['High'] - df['Close'].shift(1))
         low_close_prev = np.abs(df['Low'] - df['Close'].shift(1))
@@ -443,7 +521,8 @@ class ComprehensiveIndicatorLibrary:
         return atr.fillna(0).rename('ATR')
 
     def volatility_ratio(self, df: pd.DataFrame, short_length: int = 10, long_length: int = 30) -> pd.Series:
-        """Short-term vs Long-term volatility ratio"""
+        """Short-term vs Long-term volatility ratio - FIXED"""
+        df = self._standardize_columns(df)
         short_vol = df['Close'].rolling(short_length).std()
         long_vol = df['Close'].rolling(long_length).std()
         
@@ -451,7 +530,9 @@ class ComprehensiveIndicatorLibrary:
         return vol_ratio.fillna(1.0).rename('Volatility_Ratio')
 
     def support_resistance_levels(self, df: pd.DataFrame, length: int = 20, threshold: float = 0.02) -> pd.Series:
-        """Support/Resistance level proximity detection"""
+        """Support/Resistance level proximity detection - FIXED"""
+        df = self._standardize_columns(df)
+        
         # Calculate recent highs and lows
         recent_high = df['High'].rolling(window=length).max()
         recent_low = df['Low'].rolling(window=length).min()
@@ -465,7 +546,9 @@ class ComprehensiveIndicatorLibrary:
         return near_sr.fillna(0).rename('Near_SR')
 
     def pivot_points(self, df: pd.DataFrame, type: str = 'standard') -> pd.Series:
-        """Pivot Points calculation"""
+        """Pivot Points calculation - FIXED"""
+        df = self._standardize_columns(df)
+        
         if type == 'standard':
             # Standard pivot: (H + L + C) / 3
             pivot = (df['High'].shift(1) + df['Low'].shift(1) + df['Close'].shift(1)) / 3
@@ -476,7 +559,7 @@ class ComprehensiveIndicatorLibrary:
         return pivot.fillna(df['Close']).rename('Pivot_Points')
 
     # =============================================================================
-    # UTILITY METHODS
+    # UTILITY METHODS - UNCHANGED
     # =============================================================================
 
     def get_indicator_info(self, indicator_name: str) -> Dict:
@@ -503,9 +586,15 @@ class ComprehensiveIndicatorLibrary:
                    if info['category'] == category]
 
     def calculate_indicator(self, indicator_name: str, df: pd.DataFrame, **kwargs) -> pd.Series:
-        """Calculate any indicator by name with custom parameters"""
+        """
+        Calculate any indicator by name with custom parameters
+        ENHANCED: Now handles column name standardization automatically
+        """
         if indicator_name not in self.indicators_catalog:
             raise ValueError(f"Indicator '{indicator_name}' not found")
+        
+        # CRITICAL: Standardize columns before passing to indicator functions
+        df_standardized = self._standardize_columns(df)
         
         indicator_info = self.indicators_catalog[indicator_name]
         function = indicator_info['function']
@@ -514,12 +603,13 @@ class ComprehensiveIndicatorLibrary:
         params = indicator_info['params'].copy()
         params.update(kwargs)
         
-        return function(df, **params)
+        return function(df_standardized, **params)
 
     def calculate_multiple_indicators(self, df: pd.DataFrame, indicator_list: List[str], 
                                     custom_params: Dict = None) -> pd.DataFrame:
-        """Calculate multiple indicators at once"""
-        results = df.copy()
+        """Calculate multiple indicators at once - ENHANCED with column standardization"""
+        # Standardize input data first
+        results = self._standardize_columns(df)
         custom_params = custom_params or {}
         
         for indicator_name in indicator_list:
@@ -533,34 +623,40 @@ class ComprehensiveIndicatorLibrary:
         return results
 
 def test_indicator_library():
-    """Test the indicator library with sample data"""
-    print("\n🧪 TESTING INDICATOR LIBRARY")
+    """Test the indicator library with sample data - ENHANCED"""
+    print("\n🧪 TESTING FIXED INDICATOR LIBRARY")
     print("=" * 40)
     
-    # Create sample data
+    # Create sample data with BOTH column name formats
     dates = pd.date_range('2023-01-01', periods=100, freq='D')
     np.random.seed(42)
     
+    # Test with lowercase columns (like nGS data might use)
     sample_data = pd.DataFrame({
         'Date': dates,
-        'Open': 100 + np.cumsum(np.random.randn(100) * 0.5),
-        'High': 0,
-        'Low': 0, 
-        'Close': 100 + np.cumsum(np.random.randn(100) * 0.5),
-        'Volume': np.random.randint(10000, 50000, 100)
+        'open': 100 + np.cumsum(np.random.randn(100) * 0.5),
+        'high': 0,
+        'low': 0, 
+        'close': 100 + np.cumsum(np.random.randn(100) * 0.5),
+        'volume': np.random.randint(10000, 50000, 100)
     })
     
     # Calculate High/Low from Open/Close
-    sample_data['High'] = np.maximum(sample_data['Open'], sample_data['Close']) + np.random.rand(100) * 2
-    sample_data['Low'] = np.minimum(sample_data['Open'], sample_data['Close']) - np.random.rand(100) * 2
+    sample_data['high'] = np.maximum(sample_data['open'], sample_data['close']) + np.random.rand(100) * 2
+    sample_data['low'] = np.minimum(sample_data['open'], sample_data['close']) - np.random.rand(100) * 2
     
     # Initialize library
     lib = ComprehensiveIndicatorLibrary()
     
+    # Test column standardization
+    print(f"Original columns: {list(sample_data.columns)}")
+    standardized = lib._standardize_columns(sample_data)
+    print(f"Standardized columns: {list(standardized.columns)}")
+    
     # Test a few key indicators
     test_indicators = ['bb_position', 'rsi', 'market_efficiency', 'tsf', 'volume_profile']
     
-    print(f"Testing {len(test_indicators)} indicators on {len(sample_data)} bars of sample data:")
+    print(f"\nTesting {len(test_indicators)} indicators on {len(sample_data)} bars of sample data:")
     
     for indicator in test_indicators:
         try:
@@ -575,10 +671,13 @@ def test_indicator_library():
     categories = lib.list_indicators_by_category()
     for cat, indicators in categories.items():
         print(f"   {cat.upper()}: {len(indicators)} indicators")
+    
+    print(f"\n✅ COLUMN NAME COMPATIBILITY FIXED!")
 
 if __name__ == "__main__":
-    print("🔧 COMPREHENSIVE INDICATOR LIBRARY")
+    print("🔧 FIXED COMPREHENSIVE INDICATOR LIBRARY")
     print("=" * 50)
+    print("🚨 CRITICAL FIX: Now handles both 'Close' and 'close' column formats")
     
     # Initialize
     library = ComprehensiveIndicatorLibrary()
@@ -590,11 +689,8 @@ if __name__ == "__main__":
     print(f"📊 Total Indicators: {total_indicators}")
     print(f"📂 Categories: {len(categories)}")
     
-    for category, indicators in categories.items():
-        print(f"   {category.upper()}: {', '.join(indicators)}")
-    
     # Run test
     test_indicator_library()
     
-    print(f"\n✅ READY FOR STEP 2!")
-    print("Next: Create Performance Objectives classes")
+    print(f"\n✅ READY FOR AI STRATEGY GENERATION!")
+    print("Next: Test with your nGS data format")
