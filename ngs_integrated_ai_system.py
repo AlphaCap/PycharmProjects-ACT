@@ -29,8 +29,6 @@ from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrate
 NGSAwareStrategyGenerator = ObjectiveAwareStrategyGenerator
 NGSIndicatorLibrary = ComprehensiveIndicatorLibrary
 
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-
 logger = logging.getLogger(__name__)
 
 @dataclass
