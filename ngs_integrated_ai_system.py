@@ -593,21 +593,21 @@ if __name__ == "__main__":
     print("   ✅ Multiple operating modes (original/AI/hybrid/comparison)")
     print("   ✅ Capital allocation management")
     class NGSAwareStrategyGenerator(ObjectiveAwareStrategyGenerator):
-    """
-    Enhanced AI that understands YOUR nGS patterns and parameters
-    Generates strategies using your proven thresholds and logic!
-    """
+        """
+        Enhanced AI that understands YOUR nGS patterns and parameters
+        Generates strategies using your proven thresholds and logic!
+        """
     
-    def __init__(self, indicator_library: NGSIndicatorLibrary, 
+        def __init__(self, indicator_library: NGSIndicatorLibrary, 
                  objective_manager: ObjectiveManager):
-        super().__init__(indicator_library, objective_manager)
-        self.ngs_params = NGSProvenParameters()
-        self.ngs_patterns = self._define_ngs_patterns()
+            super().__init__(indicator_library, objective_manager)
+            self.ngs_params = NGSProvenParameters()
+            self.ngs_patterns = self._define_ngs_patterns()
         
-        print("🎯 nGS-Aware AI initialized with YOUR proven parameters!")
-        print(f"   Your BB period: {self.ngs_params.CORE_PARAMS['bb_length']}")
-        print(f"   Your position size: ${self.ngs_params.CORE_PARAMS['position_size']:,}")
-        print(f"   Your M/E range: {self.ngs_params.ME_RATIO_PARAMS['target_min']:.0f}%-{self.ngs_params.ME_RATIO_PARAMS['target_max']:.0f}%")
+            print("🎯 nGS-Aware AI initialized with YOUR proven parameters!")
+            print(f"   Your BB period: {self.ngs_params.CORE_PARAMS['bb_length']}")
+            print(f"   Your position size: ${self.ngs_params.CORE_PARAMS['position_size']:,}")
+            print(f"   Your M/E range: {self.ngs_params.ME_RATIO_PARAMS['target_min']:.0f}%-{self.ngs_params.ME_RATIO_PARAMS['target_max']:.0f}%")
     
     def _define_ngs_patterns(self) -> Dict:
         """Define YOUR proven entry/exit patterns from nGS strategy"""
