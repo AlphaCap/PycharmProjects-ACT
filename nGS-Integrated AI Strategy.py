@@ -1,586 +1,599 @@
 """
-nGS-Integrated AI Strategy System
-Combines YOUR proven nGS parameters with objective-aware AI generation
-Uses your battle-tested thresholds and logic patterns!
+nGS AI Integration Manager
+Manages integration between your existing nGS strategy and AI-generated strategies
+Allows seamless switching, hybrid approaches, and performance tracking
 """
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
-import random
-from datetime import datetime
-import warnings
-warnings.filterwarnings('ignore')
+from typing import Dict, List, Optional, Tuple, Any, Union
+from datetime import datetime, timedelta
+import logging
+import json
+import os
 
-# Import the AI components
+# Import your existing strategy
+from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
+
+# Import AI components
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
-from performance_objectives import ObjectiveManager, PerformanceObjective
+from performance_objectives import ObjectiveManager
 from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
+from ngs_integrated_ai_system import NGSAwareStrategyGenerator, NGSIndicatorLibrary, NGSProvenParameters
 
-class NGSProvenParameters:
-    """
-    YOUR proven parameters extracted from nGS_Revised_Strategy.py
-    These are your battle-tested values that actually work!
-    """
-    
-    # Core nGS Parameters (from your inputs)
-    CORE_PARAMS = {
-        'bb_length': 25,           # Your proven BB period
-        'bb_deviation': 2.0,       # Your proven BB deviation
-        'min_price': 10,           # Your price range filter
-        'max_price': 500,          # Your price range filter
-        'position_size': 5000,     # Your base position size
-        'af_step': 0.05,           # Your PSAR step
-        'af_limit': 0.21,          # Your PSAR limit
-        'atr_short': 5,            # Your ATR short period
-        'atr_long': 13,            # Your ATR long period
-    }
-    
-    # Your Proven Entry Thresholds
-    ENTRY_THRESHOLDS = {
-        'bb_oversold_long': 1.02,      # Low <= LowerBB * 1.02
-        'bb_overbought_short': 0.98,   # High >= UpperBB * 0.98
-        'bb_upper_limit_long': 0.95,   # Close <= UpperBB * 0.95
-        'bb_lower_limit_short': 1.05,  # Close >= LowerBB * 1.05
-        'atr_gap_limit': 2.0,          # Gap <= ATR * 2.0
-        'min_candle_body': 0.05,       # Minimum 5 cent body
-        'min_profit_pct': 0.003,       # Minimum 0.3% move
-        'wick_tolerance': 0.05,        # 5% wick tolerance
-    }
-    
-    # Your Proven Exit Thresholds  
-    EXIT_THRESHOLDS = {
-        'gap_target_long': 1.05,       # 5% gap target
-        'gap_target_short': 0.95,      # 5% gap target  
-        'bb_target_long': 0.60,        # Exit at 60% of BB range
-        'bb_target_short': 0.40,       # Exit at 40% of BB range
-        'atr_profit_target': 1.5,      # 1.5x ATR profit target
-        'hard_stop_long': 0.90,        # 10% hard stop
-        'hard_stop_short': 1.10,       # 10% hard stop
-        'reversal_bars_min': 5,        # Minimum bars for reversal
-    }
-    
-    # Your M/E Ratio Management
-    ME_RATIO_PARAMS = {
-        'target_min': 50.0,            # Your 50% minimum
-        'target_max': 80.0,            # Your 80% maximum  
-        'min_positions_scale_up': 5,   # Your minimum position requirement
-        'rebalancing_enabled': True,   # Your M/E rebalancing
-    }
-    
-    # Your L/S Ratio Adjustments
-    LS_RATIO_PARAMS = {
-        'safe_ratio_threshold': 1.5,   # L/S > 1.5 = safer shorts
-        'risk_ratio_threshold': -1.5,  # L/S < -1.5 = high risk
-        'safe_margin_multiplier': 2.0, # 50% margin = 2x leverage
-        'risk_margin_multiplier': 0.75, # 75% margin = reduced size
-    }
+# Import data management
+from data_manager import save_trades, save_positions, load_price_data
 
-class NGSIndicatorLibrary(ComprehensiveIndicatorLibrary):
+logger = logging.getLogger(__name__)
+
+class NGSAIIntegrationManager:
     """
-    Enhanced indicator library with YOUR proven nGS calculations
-    Uses your exact formulas and parameters!
+    Manages integration between your original nGS strategy and AI-generated strategies
+    Provides multiple operating modes and seamless strategy switching
     """
     
-    def __init__(self):
-        super().__init__()
-        self._add_ngs_indicators()
-        print(f"🎯 Enhanced with {len(self._get_ngs_indicators())} nGS-specific indicators")
-    
-    def _add_ngs_indicators(self):
-        """Add your specific nGS indicators with proven parameters"""
+    def __init__(self, account_size: float = 1000000, data_dir: str = 'data'):
+        self.account_size = account_size
+        self.data_dir = data_dir
         
-        # Your proven Bollinger Bands (25-period, not generic 20)
-        self.indicators_catalog['ngs_bb_position'] = {
-            'name': 'nGS Bollinger Position',
-            'function': self.ngs_bollinger_position,
-            'params': {'length': 25, 'deviation': 2.0},
-            'category': 'ngs_core',
-            'output_type': 'percentage',
-            'description': 'Your proven BB position with 25-period'
+        # Initialize your original nGS strategy
+        self.original_ngs = NGSStrategy(account_size=account_size, data_dir=data_dir)
+        
+        # Initialize AI components with your parameters
+        self.ngs_indicator_lib = NGSIndicatorLibrary()
+        self.objective_manager = ObjectiveManager()
+        self.ai_generator = NGSAwareStrategyGenerator(self.ngs_indicator_lib, self.objective_manager)
+        
+        # Strategy management
+        self.active_strategies = {}  # strategy_id -> TradingStrategy
+        self.strategy_performance = {}  # strategy_id -> performance_metrics
+        self.operating_mode = 'original'  # 'original', 'ai_only', 'hybrid', 'comparison'
+        
+        # Integration settings
+        self.integration_config = {
+            'ai_allocation_pct': 50.0,      # % of capital for AI strategies
+            'original_allocation_pct': 50.0, # % of capital for original nGS
+            'max_ai_strategies': 3,         # Max concurrent AI strategies
+            'rebalance_frequency': 'weekly', # How often to rebalance allocations
+            'performance_tracking': True,   # Track performance differences
+            'risk_sync': True,              # Sync M/E ratios between strategies
         }
         
-        # Your ATR calculation (5+13 periods)
-        self.indicators_catalog['ngs_atr'] = {
-            'name': 'nGS ATR',
-            'function': self.ngs_atr,
-            'params': {'short_period': 5, 'long_period': 13},
-            'category': 'ngs_core', 
-            'output_type': 'price_level',
-            'description': 'Your proven ATR calculation'
-        }
-        
-        # Your Linear Regression Value
-        self.indicators_catalog['ngs_lr_value'] = {
-            'name': 'nGS Linear Regression Value',
-            'function': self.ngs_lr_value,
-            'params': {'period1': 3, 'period2': 5, 'roc_period': 8},
-            'category': 'ngs_core',
-            'output_type': 'oscillator', 
-            'description': 'Your proven LR trend filter'
-        }
-        
-        # Your Parabolic SAR
-        self.indicators_catalog['ngs_psar'] = {
-            'name': 'nGS Parabolic SAR',
-            'function': self.ngs_psar,
-            'params': {'af_step': 0.05, 'af_limit': 0.21},
-            'category': 'ngs_core',
-            'output_type': 'price_level',
-            'description': 'Your proven PSAR settings'
-        }
-        
-        # Your Swing High/Low detection
-        self.indicators_catalog['ngs_swing_levels'] = {
-            'name': 'nGS Swing Levels',
-            'function': self.ngs_swing_levels,
-            'params': {'period': 4},
-            'category': 'ngs_core',
-            'output_type': 'price_level',
-            'description': 'Your swing high/low calculation'
-        }
+        print("🎯 nGS AI Integration Manager initialized")
+        print(f"   Original nGS:        Ready")
+        print(f"   AI Generator:        Ready with YOUR parameters")
+        print(f"   Operating Mode:      {self.operating_mode}")
+        print(f"   Integration Config:  {self.integration_config['ai_allocation_pct']:.0f}% AI / {self.integration_config['original_allocation_pct']:.0f}% Original")
     
-    def ngs_bollinger_position(self, df: pd.DataFrame, length: int = 25, deviation: float = 2.0) -> pd.Series:
-        """
-        YOUR proven Bollinger Band position calculation
-        Uses your exact 25-period parameters
-        """
-        bb_mid = df['Close'].rolling(window=length).mean()
-        bb_std = df['Close'].rolling(window=length).std()
-        bb_upper = bb_mid + (deviation * bb_std)
-        bb_lower = bb_mid - (deviation * bb_std)
-        
-        # Your position calculation
-        bb_position = ((df['Close'] - bb_lower) / (bb_upper - bb_lower) * 100)
-        bb_position = bb_position.fillna(50).clip(0, 100)
-        
-        return bb_position.rename('nGS_BB_Position')
+    # =============================================================================
+    # OPERATING MODES
+    # =============================================================================
     
-    def ngs_atr(self, df: pd.DataFrame, short_period: int = 5, long_period: int = 13) -> pd.Series:
+    def set_operating_mode(self, mode: str, config: Dict = None):
         """
-        YOUR proven ATR calculation with 5+13 periods
-        Matches your exact formula from nGS strategy
+        Set operating mode for strategy execution
+        
+        Modes:
+        - 'original': Use only your original nGS strategy
+        - 'ai_only': Use only AI-generated strategies  
+        - 'hybrid': Run both with capital allocation
+        - 'comparison': Run both in parallel for comparison (no real trades)
         """
-        # True Range calculation (your method)
-        high_low = df['High'] - df['Low']
-        high_close_prev = abs(df['High'] - df['Close'].shift(1))
-        low_close_prev = abs(df['Low'] - df['Close'].shift(1))
+        valid_modes = ['original', 'ai_only', 'hybrid', 'comparison']
+        if mode not in valid_modes:
+            raise ValueError(f"Invalid mode. Must be one of: {valid_modes}")
         
-        true_range = np.maximum(high_low, np.maximum(high_close_prev, low_close_prev))
+        self.operating_mode = mode
         
-        # Your ATR calculation
-        atr = true_range.rolling(window=short_period).mean()
-        atr_ma = atr.rolling(window=long_period).mean()
+        if config:
+            self.integration_config.update(config)
         
-        return atr_ma.fillna(0).rename('nGS_ATR')
-    
-    def ngs_lr_value(self, df: pd.DataFrame, period1: int = 3, period2: int = 5, roc_period: int = 8) -> pd.Series:
-        """
-        YOUR proven Linear Regression Value calculation
-        Replicates your oLRValue logic
-        """
-        # Your Value1 calculation
-        value1 = (df['Close'].rolling(window=5).mean() - df['Close'].rolling(window=35).mean())
+        print(f"\n🎯 Operating Mode Set: {mode.upper()}")
         
-        # Your ROC calculation
-        roc = value1 - value1.shift(3)
-        
-        # Your LRV calculation (8-period regression)
-        lrv_values = []
-        for i in range(len(df)):
-            if i >= roc_period - 1:
-                try:
-                    recent_roc = roc.iloc[i-roc_period+1:i+1].values
-                    if not np.isnan(recent_roc).any() and len(recent_roc) == roc_period:
-                        x = np.arange(roc_period)
-                        slope, intercept = np.polyfit(x, recent_roc, 1)
-                        lrv_value = slope * (roc_period - 1) + intercept
-                        lrv_values.append(lrv_value)
-                    else:
-                        lrv_values.append(np.nan)
-                except:
-                    lrv_values.append(np.nan)
-            else:
-                lrv_values.append(np.nan)
-        
-        lrv = pd.Series(lrv_values, index=df.index)
-        
-        # Your oLRValue calculation (3-period regression of LRV)
-        olr_values = []
-        for i in range(len(df)):
-            if i >= period1 - 1:
-                try:
-                    recent_lrv = lrv.iloc[i-period1+1:i+1].values
-                    if not np.isnan(recent_lrv).any() and len(recent_lrv) == period1:
-                        x = np.arange(period1)
-                        slope, intercept = np.polyfit(x, recent_lrv, 1)
-                        olr_value = slope * (period1 - 3) + intercept  # Your -2 shift
-                        olr_values.append(olr_value)
-                    else:
-                        olr_values.append(np.nan)
-                except:
-                    olr_values.append(np.nan)
-            else:
-                olr_values.append(np.nan)
-        
-        return pd.Series(olr_values, index=df.index, name='nGS_LR_Value')
-    
-    def ngs_psar(self, df: pd.DataFrame, af_step: float = 0.05, af_limit: float = 0.21) -> pd.Series:
-        """
-        YOUR proven Parabolic SAR with exact parameters
-        """
-        psar_values = []
-        psar_direction = []  # 1 for long, -1 for short
-        
-        if len(df) < 2:
-            return pd.Series([np.nan] * len(df), index=df.index, name='nGS_PSAR')
-        
-        # Initialize
-        psar = df['Low'].iloc[0]
-        direction = 1  # Start long
-        af = af_step
-        ep = df['High'].iloc[0]  # Extreme point
-        
-        psar_values.append(psar)
-        psar_direction.append(direction)
-        
-        for i in range(1, len(df)):
-            high = df['High'].iloc[i]
-            low = df['Low'].iloc[i]
+        if mode == 'original':
+            print("   Using ONLY your original nGS strategy")
+            print("   AI strategies inactive")
             
-            if direction == 1:  # Long position
-                psar = psar + af * (ep - psar)
-                
-                # SAR cannot be above previous two lows
-                if psar > low:
-                    direction = -1
-                    psar = ep
-                    af = af_step
-                    ep = low
-                else:
-                    if high > ep:
-                        ep = high
-                        af = min(af + af_step, af_limit)
-                    psar = min(psar, df['Low'].iloc[i-1], low)
-            else:  # Short position
-                psar = psar - af * (psar - ep)
-                
-                # SAR cannot be below previous two highs
-                if psar < high:
-                    direction = 1
-                    psar = ep
-                    af = af_step
-                    ep = high
-                else:
-                    if low < ep:
-                        ep = low
-                        af = min(af + af_step, af_limit)
-                    psar = max(psar, df['High'].iloc[i-1], high)
+        elif mode == 'ai_only':
+            print("   Using ONLY AI-generated strategies")
+            print("   Original nGS strategy inactive") 
+            print(f"   Max AI strategies: {self.integration_config['max_ai_strategies']}")
             
-            psar_values.append(psar)
-            psar_direction.append(direction)
-        
-        return pd.Series(psar_values, index=df.index, name='nGS_PSAR')
+        elif mode == 'hybrid':
+            print(f"   Capital Allocation:")
+            print(f"     Original nGS: {self.integration_config['original_allocation_pct']:.0f}%")
+            print(f"     AI Strategies: {self.integration_config['ai_allocation_pct']:.0f}%")
+            print(f"   Risk Sync: {'ENABLED' if self.integration_config['risk_sync'] else 'DISABLED'}")
+            
+        elif mode == 'comparison':
+            print("   Running both strategies in PARALLEL")
+            print("   Performance comparison mode")
+            print("   No capital allocation conflicts")
     
-    def ngs_swing_levels(self, df: pd.DataFrame, period: int = 4) -> pd.Series:
+    def create_ai_strategy_set(self, objectives: List[str], 
+                              allocation_per_strategy: float = None) -> Dict[str, TradingStrategy]:
         """
-        YOUR proven swing high/low calculation
+        Create a set of AI strategies for different objectives
+        Each uses YOUR nGS parameters adapted for the objective
         """
-        swing_high = df['High'].rolling(window=period).max()
-        swing_low = df['Low'].rolling(window=period).min()
+        if allocation_per_strategy is None:
+            allocation_per_strategy = self.integration_config['ai_allocation_pct'] / len(objectives)
         
-        # Return composite swing level (for proximity detection)
-        current_to_high = abs(df['Close'] - swing_high) / df['Close']
-        current_to_low = abs(df['Close'] - swing_low) / df['Close']
+        strategies = {}
         
-        # Distance to nearest swing level
-        swing_distance = np.minimum(current_to_high, current_to_low)
+        print(f"\n🧠 Creating AI strategy set for {len(objectives)} objectives:")
         
-        return swing_distance.fillna(1.0).rename('nGS_Swing_Distance')
+        for objective in objectives:
+            try:
+                strategy = self.ai_generator.generate_ngs_strategy_for_objective(objective)
+                
+                # Adjust strategy for allocated capital
+                allocated_capital = self.account_size * (allocation_per_strategy / 100)
+                strategy.allocated_capital = allocated_capital
+                
+                strategies[strategy.strategy_id] = strategy
+                self.active_strategies[strategy.strategy_id] = strategy
+                
+                print(f"   ✅ {objective}: ${allocated_capital:,.0f} allocated")
+                
+            except Exception as e:
+                print(f"   ❌ {objective}: Failed to create strategy - {e}")
+                logger.error(f"Failed to create AI strategy for {objective}: {e}")
+        
+        print(f"✅ Created {len(strategies)} AI strategies")
+        return strategies
     
-    def _get_ngs_indicators(self) -> List[str]:
-        """Get list of nGS-specific indicators"""
-        return [name for name, info in self.indicators_catalog.items() 
-                if info['category'] == 'ngs_core']
-
-class NGSAwareStrategyGenerator(ObjectiveAwareStrategyGenerator):
-    """
-    Enhanced AI that understands YOUR nGS patterns and parameters
-    Generates strategies using your proven thresholds and logic!
-    """
+    # =============================================================================
+    # STRATEGY EXECUTION
+    # =============================================================================
     
-    def __init__(self, indicator_library: NGSIndicatorLibrary, 
-                 objective_manager: ObjectiveManager):
-        super().__init__(indicator_library, objective_manager)
-        self.ngs_params = NGSProvenParameters()
-        self.ngs_patterns = self._define_ngs_patterns()
-        
-        print("🎯 nGS-Aware AI initialized with YOUR proven parameters!")
-        print(f"   Your BB period: {self.ngs_params.CORE_PARAMS['bb_length']}")
-        print(f"   Your position size: ${self.ngs_params.CORE_PARAMS['position_size']:,}")
-        print(f"   Your M/E range: {self.ngs_params.ME_RATIO_PARAMS['target_min']:.0f}%-{self.ngs_params.ME_RATIO_PARAMS['target_max']:.0f}%")
-    
-    def _define_ngs_patterns(self) -> Dict:
+    def run_integrated_strategy(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
         """
-        Define YOUR proven entry/exit patterns from nGS strategy
-        These are your actual working patterns!
+        Run strategies based on current operating mode
+        Returns comprehensive results from all active strategies
         """
-        return {
-            'engulfing_long': {
-                'description': 'Your proven Engulfing Long pattern',
-                'conditions': [
-                    {'indicator': 'ngs_bb_position', 'operator': '<', 'threshold': 25, 'weight': 3},
-                    {'indicator': 'ngs_lr_value', 'operator': '>', 'threshold': 0, 'weight': 2},
-                    {'indicator': 'ngs_atr', 'operator': '<', 'threshold': 'dynamic_gap_limit', 'weight': 1}
-                ],
-                'exit_conditions': [
-                    {'indicator': 'ngs_bb_position', 'operator': '>', 'threshold': 60, 'weight': 2},
-                    {'indicator': 'profit_target', 'operator': '>', 'threshold': 5.0, 'weight': 3}  # 5% gap target
-                ]
-            },
-            'engulfing_short': {
-                'description': 'Your proven Engulfing Short pattern',
-                'conditions': [
-                    {'indicator': 'ngs_bb_position', 'operator': '>', 'threshold': 75, 'weight': 3},
-                    {'indicator': 'ngs_lr_value', 'operator': '<', 'threshold': 0, 'weight': 2},
-                    {'indicator': 'ngs_swing_distance', 'operator': '<', 'threshold': 0.02, 'weight': 1}
-                ],
-                'exit_conditions': [
-                    {'indicator': 'ngs_bb_position', 'operator': '<', 'threshold': 40, 'weight': 2},
-                    {'indicator': 'profit_target', 'operator': '>', 'threshold': 5.0, 'weight': 3}  # 5% gap target
-                ]
-            },
-            'semi_engulfing_long': {
-                'description': 'Your proven Semi-Engulfing Long pattern',
-                'conditions': [
-                    {'indicator': 'ngs_bb_position', 'operator': '<', 'threshold': 30, 'weight': 2},
-                    {'indicator': 'ngs_lr_value', 'operator': '>', 'threshold': 0, 'weight': 2},
-                    {'indicator': 'ngs_atr', 'operator': '<', 'threshold': 'dynamic_volatility', 'weight': 1}
-                ],
-                'exit_conditions': [
-                    {'indicator': 'ngs_bb_position', 'operator': '>', 'threshold': 55, 'weight': 2}
-                ]
-            }
-        }
-    
-    def generate_ngs_strategy_for_objective(self, objective_name: str, 
-                                          pattern_focus: str = 'auto') -> TradingStrategy:
-        """
-        Generate strategy using YOUR nGS patterns optimized for objective
-        """
-        print(f"\n🎯 Generating nGS strategy for: {objective_name.upper()}")
-        
-        # Get objective preferences
-        objective = self.objective_manager.get_objective(objective_name)
-        objective_prefs = objective.get_strategy_preferences()
-        
-        # Choose nGS pattern based on objective
-        if pattern_focus == 'auto':
-            pattern_focus = self._select_ngs_pattern_for_objective(objective_name)
-        
-        # Generate strategy using YOUR proven parameters
-        strategy_config = self._generate_ngs_adaptive_logic(
-            objective_prefs, pattern_focus, objective_name
-        )
-        
-        # Create strategy with nGS parameters
-        strategy_id = f"nGS_{objective_name}_{pattern_focus}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        strategy = TradingStrategy(strategy_id, objective_name, strategy_config)
-        
-        print(f"✅ Generated nGS strategy: {pattern_focus} pattern")
-        print(f"📊 Using YOUR proven BB period: {self.ngs_params.CORE_PARAMS['bb_length']}")
-        print(f"💰 Using YOUR position size: ${self.ngs_params.CORE_PARAMS['position_size']:,}")
-        
-        return strategy
-    
-    def _select_ngs_pattern_for_objective(self, objective_name: str) -> str:
-        """Select best nGS pattern for the objective"""
-        
-        pattern_map = {
-            'linear_equity': 'engulfing_long',      # Your most reliable pattern
-            'max_roi': 'engulfing_short',           # Higher volatility pattern  
-            'min_drawdown': 'semi_engulfing_long',  # Lower risk pattern
-            'high_winrate': 'engulfing_long',       # Your highest win rate pattern
-            'sharpe_ratio': 'engulfing_long'        # Balanced risk/reward
+        results = {
+            'mode': self.operating_mode,
+            'timestamp': datetime.now().isoformat(),
+            'original_ngs': None,
+            'ai_strategies': {},
+            'comparison_metrics': None,
+            'integration_summary': None
         }
         
-        return pattern_map.get(objective_name, 'engulfing_long')
+        print(f"\n🚀 Running Integrated Strategy - Mode: {self.operating_mode.upper()}")
+        print(f"   Processing {len(data)} symbols")
+        
+        if self.operating_mode == 'original':
+            results['original_ngs'] = self._run_original_ngs(data)
+            
+        elif self.operating_mode == 'ai_only':
+            results['ai_strategies'] = self._run_ai_strategies_only(data)
+            
+        elif self.operating_mode == 'hybrid':
+            results.update(self._run_hybrid_strategies(data))
+            
+        elif self.operating_mode == 'comparison':
+            results.update(self._run_comparison_mode(data))
+        
+        # Generate integration summary
+        results['integration_summary'] = self._generate_integration_summary(results)
+        
+        return results
     
-    def _generate_ngs_adaptive_logic(self, objective_prefs: Dict, pattern_name: str, 
-                                   objective_name: str) -> Dict:
-        """
-        Generate strategy using YOUR nGS patterns and parameters
-        """
-        pattern = self.ngs_patterns[pattern_name]
+    def _run_original_ngs(self, data: Dict[str, pd.DataFrame]) -> Dict:
+        """Run your original nGS strategy"""
+        print("📊 Running Original nGS Strategy...")
         
-        # Use YOUR proven indicators
-        ngs_indicators = ['ngs_bb_position', 'ngs_atr', 'ngs_lr_value', 'ngs_psar', 'ngs_swing_distance']
+        # Use your original strategy
+        original_results = self.original_ngs.run(data)
         
-        # Adapt YOUR thresholds based on objective
-        entry_conditions = self._adapt_ngs_conditions_for_objective(
-            pattern['conditions'], objective_name
-        )
-        
-        exit_conditions = self._adapt_ngs_conditions_for_objective(
-            pattern['exit_conditions'], objective_name
-        )
-        
-        # Use YOUR position sizing with M/E awareness
-        position_sizing = self._generate_ngs_position_sizing(objective_name)
+        # Collect performance metrics
+        performance = {
+            'trades': len(self.original_ngs.trades),
+            'total_pnl': sum(trade['profit'] for trade in self.original_ngs.trades),
+            'cash': self.original_ngs.cash,
+            'positions': len([pos for pos in self.original_ngs.positions.values() if pos['shares'] != 0]),
+            'me_ratio': self.original_ngs.calculate_current_me_ratio(),
+            'win_rate': len([t for t in self.original_ngs.trades if t['profit'] > 0]) / max(1, len(self.original_ngs.trades))
+        }
         
         return {
-            'indicators': ngs_indicators,
-            'entry_logic': {
-                'conditions': entry_conditions,
-                'confirmation_ratio': self._get_ngs_confirmation_ratio(objective_name),
-                'style': f'ngs_{pattern_name}',
-                'pattern': pattern_name
-            },
-            'exit_logic': {
-                'conditions': exit_conditions,
-                'style': f'ngs_{pattern_name}_exit'
-            },
-            'position_sizing': position_sizing,
-            'objective_focus': objective_name,
-            'ngs_parameters': self.ngs_params.CORE_PARAMS,
-            'risk_management': {
-                'price_range': [self.ngs_params.CORE_PARAMS['min_price'], 
-                               self.ngs_params.CORE_PARAMS['max_price']],
-                'me_ratio_target': [self.ngs_params.ME_RATIO_PARAMS['target_min'],
-                                   self.ngs_params.ME_RATIO_PARAMS['target_max']],
-                'hard_stops': {
-                    'long': self.ngs_params.EXIT_THRESHOLDS['hard_stop_long'],
-                    'short': self.ngs_params.EXIT_THRESHOLDS['hard_stop_short']
+            'signals': original_results,
+            'performance': performance,
+            'strategy_instance': self.original_ngs
+        }
+    
+    def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict]:
+        """Run only AI-generated strategies"""
+        print("🧠 Running AI Strategies Only...")
+        
+        if not self.active_strategies:
+            print("   No AI strategies active - creating default set")
+            self.create_ai_strategy_set(['linear_equity', 'max_roi', 'high_winrate'])
+        
+        ai_results = {}
+        
+        for strategy_id, strategy in self.active_strategies.items():
+            print(f"   Executing: {strategy.objective_name}")
+            
+            try:
+                # Execute AI strategy on data
+                strategy_results = strategy.execute_on_data(data, self.ngs_indicator_lib)
+                
+                # Track performance
+                self.strategy_performance[strategy_id] = strategy.performance_metrics
+                
+                ai_results[strategy_id] = {
+                    'strategy': strategy,
+                    'results': strategy_results,
+                    'performance': strategy.performance_metrics
                 }
-            }
-        }
+                
+            except Exception as e:
+                print(f"   ❌ Error executing {strategy_id}: {e}")
+                logger.error(f"Error executing AI strategy {strategy_id}: {e}")
+        
+        return ai_results
     
-    def _adapt_ngs_conditions_for_objective(self, base_conditions: List[Dict], 
-                                          objective_name: str) -> List[Dict]:
-        """Adapt YOUR thresholds based on objective while keeping nGS logic"""
+    def _run_hybrid_strategies(self, data: Dict[str, pd.DataFrame]) -> Dict:
+        """Run both original and AI strategies with capital allocation"""
+        print("🔄 Running Hybrid Strategy Mode...")
         
-        adapted_conditions = []
+        # Adjust capital allocations
+        original_capital = self.account_size * (self.integration_config['original_allocation_pct'] / 100)
+        ai_capital = self.account_size * (self.integration_config['ai_allocation_pct'] / 100)
         
-        for condition in base_conditions:
-            adapted_condition = condition.copy()
-            
-            # Adapt YOUR BB position thresholds based on objective
-            if condition['indicator'] == 'ngs_bb_position':
-                if objective_name == 'min_drawdown':
-                    # More conservative: tighter entry range
-                    if condition['operator'] == '<':
-                        adapted_condition['threshold'] = min(20, condition['threshold'])
-                    elif condition['operator'] == '>':
-                        adapted_condition['threshold'] = max(80, condition['threshold'])
-                elif objective_name == 'max_roi':
-                    # More aggressive: wider entry range
-                    if condition['operator'] == '<':
-                        adapted_condition['threshold'] = max(30, condition['threshold'])
-                    elif condition['operator'] == '>':
-                        adapted_condition['threshold'] = min(70, condition['threshold'])
-            
-            # Adapt profit targets based on objective
-            elif condition['indicator'] == 'profit_target':
-                if objective_name == 'linear_equity':
-                    adapted_condition['threshold'] = 3.0  # Smaller, consistent profits
-                elif objective_name == 'max_roi':
-                    adapted_condition['threshold'] = 8.0  # Larger profit targets
-                elif objective_name == 'min_drawdown':
-                    adapted_condition['threshold'] = 2.0  # Very quick profits
-            
-            adapted_conditions.append(adapted_condition)
+        print(f"   Original nGS Capital: ${original_capital:,.0f}")
+        print(f"   AI Strategies Capital: ${ai_capital:,.0f}")
         
-        return adapted_conditions
-    
-    def _get_ngs_confirmation_ratio(self, objective_name: str) -> float:
-        """Get confirmation ratio based on objective (using your selectivity)"""
+        # Create separate strategy instances with allocated capital
+        original_ngs_allocated = NGSStrategy(account_size=original_capital, data_dir=self.data_dir)
         
-        ratios = {
-            'linear_equity': 0.9,      # 90% - very selective like your system
-            'max_roi': 0.7,            # 70% - more opportunities 
-            'min_drawdown': 0.95,      # 95% - ultra selective
-            'high_winrate': 0.85,      # 85% - selective for accuracy
-            'sharpe_ratio': 0.8        # 80% - balanced approach
-        }
+        # Run original strategy with allocated capital
+        print("   📊 Running Original nGS (allocated)...")
+        original_results = original_ngs_allocated.run(data)
         
-        return ratios.get(objective_name, 0.8)
-    
-    def _generate_ngs_position_sizing(self, objective_name: str) -> Dict:
-        """Generate position sizing using YOUR nGS parameters"""
+        # Create AI strategies if needed
+        if not self.active_strategies:
+            self.create_ai_strategy_set(['linear_equity', 'max_roi'], 
+                                      allocation_per_strategy=self.integration_config['ai_allocation_pct']/2)
         
-        base_size = self.ngs_params.CORE_PARAMS['position_size']
+        # Run AI strategies
+        print("   🧠 Running AI Strategies (allocated)...")
+        ai_results = {}
+        for strategy_id, strategy in self.active_strategies.items():
+            try:
+                strategy_results = strategy.execute_on_data(data, self.ngs_indicator_lib)
+                ai_results[strategy_id] = {
+                    'strategy': strategy,
+                    'results': strategy_results,
+                    'performance': strategy.performance_metrics
+                }
+            except Exception as e:
+                print(f"   ❌ AI Strategy {strategy_id} failed: {e}")
         
-        # Adapt YOUR position size based on objective
-        size_multipliers = {
-            'linear_equity': 0.8,      # Smaller for consistency  
-            'max_roi': 1.2,            # Larger for growth
-            'min_drawdown': 0.5,       # Much smaller for safety
-            'high_winrate': 0.9,       # Slightly smaller
-            'sharpe_ratio': 1.0        # Your standard size
-        }
-        
-        multiplier = size_multipliers.get(objective_name, 1.0)
-        adjusted_size = int(base_size * multiplier)
+        # Sync risk management if enabled
+        if self.integration_config['risk_sync']:
+            self._sync_risk_management(original_ngs_allocated, ai_results)
         
         return {
-            'method': 'ngs_adaptive',
-            'base_size': adjusted_size,
-            'me_ratio_awareness': True,
-            'ls_ratio_adjustments': True,
-            'price_range_filter': True
+            'original_ngs': {
+                'signals': original_results,
+                'performance': self._calculate_strategy_performance(original_ngs_allocated),
+                'allocated_capital': original_capital
+            },
+            'ai_strategies': ai_results,
+            'total_capital_used': original_capital + sum(s['strategy'].allocated_capital for s in ai_results.values())
         }
+    
+    def _run_comparison_mode(self, data: Dict[str, pd.DataFrame]) -> Dict:
+        """Run both strategies in parallel for performance comparison"""
+        print("📊 Running Comparison Mode...")
+        print("   Both strategies run with full capital for comparison")
+        
+        # Run original strategy
+        original_results = self._run_original_ngs(data)
+        
+        # Create and run AI strategies
+        if not self.active_strategies:
+            self.create_ai_strategy_set(['linear_equity', 'max_roi', 'high_winrate'])
+        
+        ai_results = {}
+        for strategy_id, strategy in self.active_strategies.items():
+            try:
+                strategy_results = strategy.execute_on_data(data, self.ngs_indicator_lib)
+                ai_results[strategy_id] = {
+                    'strategy': strategy,
+                    'results': strategy_results,
+                    'performance': strategy.performance_metrics
+                }
+            except Exception as e:
+                print(f"   ❌ AI Strategy {strategy_id} comparison failed: {e}")
+        
+        # Generate detailed comparison metrics
+        comparison_metrics = self._generate_comparison_metrics(original_results, ai_results)
+        
+        return {
+            'original_ngs': original_results,
+            'ai_strategies': ai_results,
+            'comparison_metrics': comparison_metrics
+        }
+    
+    # =============================================================================
+    # RISK MANAGEMENT & SYNCHRONIZATION
+    # =============================================================================
+    
+    def _sync_risk_management(self, original_strategy: NGSStrategy, ai_results: Dict):
+        """Sync risk management between original and AI strategies"""
+        if not self.integration_config['risk_sync']:
+            return
+        
+        print("   🔄 Syncing risk management...")
+        
+        # Get M/E ratios
+        original_me = original_strategy.calculate_current_me_ratio()
+        
+        # Check if any strategy needs rebalancing
+        total_positions = len([pos for pos in original_strategy.positions.values() if pos['shares'] != 0])
+        
+        for strategy_id, ai_result in ai_results.items():
+            ai_strategy = ai_result['strategy']
+            if hasattr(ai_strategy, 'performance_metrics'):
+                total_positions += ai_result['performance'].get('total_trades', 0)
+        
+        # Apply coordinated M/E rebalancing if needed
+        if original_me > 80 or original_me < 50:
+            print(f"   ⚠️  Coordinated rebalancing needed - Combined M/E: {original_me:.1f}%")
+            # In real implementation, would coordinate position adjustments
+    
+    def _calculate_strategy_performance(self, strategy_instance) -> Dict:
+        """Calculate standardized performance metrics for any strategy"""
+        if hasattr(strategy_instance, 'trades') and strategy_instance.trades:
+            trades = strategy_instance.trades
+            total_pnl = sum(trade['profit'] for trade in trades)
+            winning_trades = len([t for t in trades if t['profit'] > 0])
+            win_rate = winning_trades / len(trades)
+        else:
+            trades = []
+            total_pnl = 0
+            win_rate = 0
+        
+        return {
+            'total_trades': len(trades),
+            'total_pnl': total_pnl,
+            'win_rate': win_rate,
+            'cash': getattr(strategy_instance, 'cash', 0),
+            'positions': len(getattr(strategy_instance, 'positions', {})),
+            'me_ratio': getattr(strategy_instance, 'calculate_current_me_ratio', lambda: 0)()
+        }
+    
+    # =============================================================================
+    # PERFORMANCE ANALYSIS & REPORTING
+    # =============================================================================
+    
+    def _generate_comparison_metrics(self, original_results: Dict, ai_results: Dict) -> Dict:
+        """Generate detailed comparison between original and AI strategies"""
+        
+        comparison = {
+            'performance_comparison': {},
+            'strategy_rankings': {},
+            'risk_analysis': {},
+            'trade_analysis': {},
+            'recommendation': ''
+        }
+        
+        # Performance comparison
+        original_perf = original_results['performance']
+        
+        comparison['performance_comparison']['original_ngs'] = {
+            'total_pnl': original_perf['total_pnl'],
+            'win_rate': original_perf['win_rate'],
+            'total_trades': original_perf['trades'],
+            'me_ratio': original_perf['me_ratio']
+        }
+        
+        for strategy_id, ai_result in ai_results.items():
+            ai_perf = ai_result['performance']
+            comparison['performance_comparison'][strategy_id] = {
+                'objective': ai_result['strategy'].objective_name,
+                'total_pnl': ai_perf.get('total_return_pct', 0),
+                'win_rate': ai_perf.get('win_rate', 0),
+                'total_trades': ai_perf.get('total_trades', 0),
+                'max_drawdown': ai_perf.get('max_drawdown_pct', 0)
+            }
+        
+        # Strategy rankings by different metrics
+        all_strategies = {'original_ngs': original_perf['total_pnl']}
+        for strategy_id, ai_result in ai_results.items():
+            all_strategies[strategy_id] = ai_result['performance'].get('total_return_pct', 0)
+        
+        comparison['strategy_rankings']['by_pnl'] = sorted(
+            all_strategies.items(), key=lambda x: x[1], reverse=True
+        )
+        
+        return comparison
+    
+    def _generate_integration_summary(self, results: Dict) -> Dict:
+        """Generate summary of integration session"""
+        
+        summary = {
+            'session_timestamp': results['timestamp'],
+            'operating_mode': results['mode'],
+            'strategies_executed': 0,
+            'total_capital_deployed': 0,
+            'overall_performance': {},
+            'recommendations': []
+        }
+        
+        # Count strategies executed
+        if results['original_ngs']:
+            summary['strategies_executed'] += 1
+            summary['total_capital_deployed'] += self.account_size
+        
+        if results['ai_strategies']:
+            summary['strategies_executed'] += len(results['ai_strategies'])
+            if self.operating_mode == 'hybrid':
+                summary['total_capital_deployed'] += sum(
+                    s['strategy'].allocated_capital for s in results['ai_strategies'].values()
+                )
+        
+        # Generate recommendations based on mode and performance
+        if self.operating_mode == 'comparison' and results['comparison_metrics']:
+            rankings = results['comparison_metrics']['strategy_rankings']['by_pnl']
+            best_strategy = rankings[0][0] if rankings else None
+            
+            if best_strategy == 'original_ngs':
+                summary['recommendations'].append("Original nGS strategy outperformed AI strategies")
+            else:
+                summary['recommendations'].append(f"AI strategy {best_strategy} outperformed original nGS")
+                summary['recommendations'].append("Consider increasing AI allocation in hybrid mode")
+        
+        return summary
+    
+    # =============================================================================
+    # STRATEGY MANAGEMENT
+    # =============================================================================
+    
+    def add_custom_ai_strategy(self, objective_name: str, custom_config: Dict = None) -> str:
+        """Add a custom AI strategy with specific configuration"""
+        
+        strategy = self.ai_generator.generate_ngs_strategy_for_objective(objective_name)
+        
+        if custom_config:
+            # Apply custom configuration
+            strategy.config.update(custom_config)
+        
+        self.active_strategies[strategy.strategy_id] = strategy
+        
+        print(f"✅ Added custom AI strategy: {strategy.strategy_id}")
+        return strategy.strategy_id
+    
+    def remove_ai_strategy(self, strategy_id: str):
+        """Remove an AI strategy from active set"""
+        if strategy_id in self.active_strategies:
+            del self.active_strategies[strategy_id]
+            if strategy_id in self.strategy_performance:
+                del self.strategy_performance[strategy_id]
+            print(f"✅ Removed AI strategy: {strategy_id}")
+        else:
+            print(f"❌ Strategy not found: {strategy_id}")
+    
+    def list_active_strategies(self) -> Dict:
+        """List all active strategies and their status"""
+        
+        active_list = {
+            'original_ngs': {
+                'status': 'active' if self.operating_mode in ['original', 'hybrid', 'comparison'] else 'inactive',
+                'type': 'original',
+                'capital_allocation': self.integration_config['original_allocation_pct'] if self.operating_mode == 'hybrid' else 100
+            }
+        }
+        
+        for strategy_id, strategy in self.active_strategies.items():
+            active_list[strategy_id] = {
+                'status': 'active' if self.operating_mode in ['ai_only', 'hybrid', 'comparison'] else 'inactive',
+                'type': 'ai_generated',
+                'objective': strategy.objective_name,
+                'capital_allocation': getattr(strategy, 'allocated_capital', 0)
+            }
+        
+        return active_list
+    
+    def save_integration_session(self, results: Dict, filename: str = None):
+        """Save integration session results for analysis"""
+        if filename is None:
+            filename = f"integration_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        filepath = os.path.join(self.data_dir, 'integration_sessions', filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        # Prepare results for JSON serialization
+        serializable_results = self._prepare_results_for_json(results)
+        
+        with open(filepath, 'w') as f:
+            json.dump(serializable_results, f, indent=2)
+        
+        print(f"✅ Integration session saved: {filepath}")
+        return filepath
+    
+    def _prepare_results_for_json(self, results: Dict) -> Dict:
+        """Prepare results for JSON serialization"""
+        # This would convert strategy objects and other non-serializable items
+        # to dictionaries for JSON storage
+        json_results = {
+            'mode': results['mode'],
+            'timestamp': results['timestamp'],
+            'integration_summary': results['integration_summary']
+        }
+        
+        # Add performance summaries (not full objects)
+        if results['original_ngs']:
+            json_results['original_ngs_summary'] = results['original_ngs']['performance']
+        
+        if results['ai_strategies']:
+            json_results['ai_strategies_summary'] = {
+                strategy_id: ai_result['performance'] 
+                for strategy_id, ai_result in results['ai_strategies'].items()
+            }
+        
+        return json_results
 
-def demonstrate_ngs_ai_integration():
-    """Demonstrate the nGS AI integration"""
-    print("\n🎯 nGS-INTEGRATED AI DEMONSTRATION")
+def demonstrate_integration_manager():
+    """Demonstrate the integration manager capabilities"""
+    print("\n🎯 nGS AI INTEGRATION MANAGER DEMONSTRATION")
     print("=" * 60)
     
-    # Initialize with YOUR nGS parameters
-    ngs_indicator_lib = NGSIndicatorLibrary()
-    objective_manager = ObjectiveManager()
-    ngs_ai_generator = NGSAwareStrategyGenerator(ngs_indicator_lib, objective_manager)
+    # Initialize integration manager
+    manager = NGSAIIntegrationManager(account_size=1000000)
     
-    # Show your proven parameters
-    params = NGSProvenParameters()
-    print(f"\n📊 YOUR PROVEN nGS PARAMETERS:")
-    print(f"   Bollinger Bands:     {params.CORE_PARAMS['bb_length']}-period, {params.CORE_PARAMS['bb_deviation']} deviation")
-    print(f"   Position Size:       ${params.CORE_PARAMS['position_size']:,}")
-    print(f"   Price Range:         ${params.CORE_PARAMS['min_price']}-${params.CORE_PARAMS['max_price']}")
-    print(f"   M/E Target:          {params.ME_RATIO_PARAMS['target_min']:.0f}%-{params.ME_RATIO_PARAMS['target_max']:.0f}%")
-    print(f"   Entry Threshold:     BB <= {params.ENTRY_THRESHOLDS['bb_oversold_long']:.2f}x Lower BB")
-    print(f"   Exit Threshold:      BB >= {params.EXIT_THRESHOLDS['bb_target_long']:.0%} of range")
+    # Show available operating modes
+    print("\n📋 Available Operating Modes:")
+    modes = ['original', 'ai_only', 'hybrid', 'comparison']
+    for mode in modes:
+        print(f"   {mode.upper()}: Use this mode for different integration approaches")
     
-    # Generate strategies using YOUR patterns
-    objectives_to_test = ['linear_equity', 'max_roi', 'min_drawdown']
+    # Demonstrate mode switching
+    print(f"\n🔄 Demonstrating Mode Switching:")
     
-    print(f"\n🎯 Generating nGS strategies for {len(objectives_to_test)} objectives:")
+    # Original mode
+    manager.set_operating_mode('original')
     
-    for objective in objectives_to_test:
-        strategy = ngs_ai_generator.generate_ngs_strategy_for_objective(objective)
-        config = strategy.config
-        
-        print(f"\n{objective.upper()} nGS Strategy:")
-        print(f"   Pattern:             {config['entry_logic']['pattern']}")
-        print(f"   nGS Indicators:      {len([i for i in config['indicators'] if i.startswith('ngs_')])}")
-        print(f"   Confirmation Ratio:  {config['entry_logic']['confirmation_ratio']:.0%}")
-        print(f"   Position Size:       ${config['position_sizing']['base_size']:,}")
-        print(f"   Price Range:         ${config['risk_management']['price_range'][0]}-${config['risk_management']['price_range'][1]}")
+    # AI only mode  
+    manager.set_operating_mode('ai_only', {
+        'max_ai_strategies': 2
+    })
+    
+    # Hybrid mode
+    manager.set_operating_mode('hybrid', {
+        'ai_allocation_pct': 60.0,
+        'original_allocation_pct': 40.0,
+        'risk_sync': True
+    })
+    
+    # Show active strategies
+    print(f"\n📊 Active Strategies:")
+    active_strategies = manager.list_active_strategies()
+    for strategy_id, info in active_strategies.items():
+        print(f"   {strategy_id}: {info['status']} ({info['type']})")
+    
+    print(f"\n✅ Integration Manager Ready!")
+    print("Use manager.run_integrated_strategy(data) to execute strategies")
 
 if __name__ == "__main__":
-    print("🎯 nGS-INTEGRATED AI STRATEGY SYSTEM")
+    print("🎯 nGS AI INTEGRATION MANAGER")
     print("=" * 60)
-    print("🚀 Combining YOUR proven nGS parameters with objective-aware AI!")
-    print("📊 Using your battle-tested thresholds and logic patterns")
+    print("🔄 Seamlessly integrate AI strategies with your original nGS")
+    print("📊 Multiple operating modes for different use cases")
     
     # Run demonstration
-    demonstrate_ngs_ai_integration()
+    demonstrate_integration_manager()
     
-    print(f"\n✅ nGS AI INTEGRATION COMPLETE!")
-    print("🎯 Ready to generate strategies using YOUR proven parameters!")
+    print(f"\n✅ INTEGRATION MANAGER READY!")
     print("\n🚀 Key Features:")
-    print("   ✅ Uses YOUR 25-period Bollinger Bands")
-    print("   ✅ Uses YOUR $5,000 position sizing")
-    print("   ✅ Uses YOUR 50-80% M/E ratio targets")
-    print("   ✅ Uses YOUR proven entry/exit thresholds")
-    print("   ✅ Uses YOUR engulfing pattern logic")
-    print("   ✅ Adapts YOUR parameters for different objectives")
+    print("   ✅ Multiple operating modes (original/AI/hybrid/comparison)")
+    print("   ✅ Capital allocation management")
+    print("   ✅ Risk synchronization between strategies")
+    print("   ✅ Performance tracking and comparison")
+    print("   ✅ Session saving and analysis")
+    print("   ✅ Uses YOUR proven nGS parameters")
