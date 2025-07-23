@@ -19,7 +19,6 @@ from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
 from performance_objectives import ObjectiveManager
 from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
-# from ngs_integrated_ai_system import NGSAwareStrategyGenerator, NGSIndicatorLibrary, NGSProvenParameters
 
 # Import data management
 from data_manager import save_trades, save_positions, load_price_data
