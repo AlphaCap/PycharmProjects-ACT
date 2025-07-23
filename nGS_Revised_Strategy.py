@@ -555,7 +555,7 @@ class NGSStrategy:
     
     def perform_me_rebalancing(self, action: str) -> bool:
         """
-        Perform M/E ratio rebalancing by scaling positions - ENHANCED WITH DEBUGGING
+        Perform M/E ratio rebalancing by scaling positions - FIXED OVERSHOOT ISSUE
         Args:
             action: 'scale_up' or 'scale_down'
         Returns:
@@ -574,15 +574,21 @@ class NGSStrategy:
                 logger.warning("No positions to rebalance")
                 return False
             
-            # Calculate target scaling factor
+            # CRITICAL FIX: More precise scaling calculation to stay within bounds
             if action == 'scale_up':
-                # Scale up to reach minimum M/E target
-                target_scaling = self.me_target_min / current_me if current_me > 0 else 1.5
-                target_scaling = min(target_scaling, 2.0)  # Cap at 2x for safety
+                # Scale up to reach the MIDDLE of target range, not minimum
+                target_me = (self.me_target_min + self.me_target_max) / 2  # 65% instead of 50%
+                target_scaling = target_me / current_me if current_me > 0 else 1.3
+                # Cap scaling more conservatively
+                target_scaling = min(target_scaling, 1.8)  # Max 1.8x instead of 2x
+                
             elif action == 'scale_down':
-                # Scale down to reach maximum M/E target
-                target_scaling = self.me_target_max / current_me if current_me > 0 else 0.8
-                target_scaling = max(target_scaling, 0.5)  # Minimum 50% scaling for safety
+                # Scale down to reach the MIDDLE of target range, not maximum  
+                target_me = (self.me_target_min + self.me_target_max) / 2  # 65% instead of 80%
+                target_scaling = target_me / current_me if current_me > 0 else 0.75
+                # Ensure minimum scaling
+                target_scaling = max(target_scaling, 0.6)  # Minimum 60% scaling
+                
             else:
                 logger.error(f"Invalid rebalancing action: {action}")
                 return False
@@ -590,11 +596,12 @@ class NGSStrategy:
             # ENHANCED REBALANCING OUTPUT
             print(f"\n🎯 PERFORMING M/E REBALANCING:")
             print(f"   Action:             {action.upper()}")
+            print(f"   Target M/E:         {target_me:.1f}% (middle of range)")
             print(f"   Scaling Factor:     {target_scaling:.3f}x")
             print(f"   Before M/E:         {current_me:.1f}%")
             print(f"   Positions:          {len(positions_to_rebalance)}")
             
-            logger.info(f"M/E Rebalancing: {action} with {target_scaling:.2f}x scaling factor")
+            logger.info(f"M/E Rebalancing: {action} targeting {target_me:.1f}% with {target_scaling:.2f}x scaling factor")
             logger.info(f"Before: M/E {current_me:.1f}%, {len(positions_to_rebalance)} positions")
             
             # Apply proportional scaling to all positions
@@ -644,7 +651,17 @@ class NGSStrategy:
             
             print(f"   After M/E:          {new_me:.1f}%")
             print(f"   Cash Change:        ${total_value_change:+,.0f}")
-            print(f"✅ M/E REBALANCING COMPLETED: {len(rebalanced_positions)} positions scaled")
+            
+            # CRITICAL: Check if we're still within bounds
+            if self.me_target_min <= new_me <= self.me_target_max:
+                print(f"✅ M/E REBALANCING COMPLETED: {len(rebalanced_positions)} positions scaled")
+                print(f"✅ TARGET ACHIEVED: {new_me:.1f}% is within {self.me_target_min:.1f}%-{self.me_target_max:.1f}% range")
+            else:
+                print(f"⚠️  M/E REBALANCING WARNING: {new_me:.1f}% outside target range")
+                if new_me > self.me_target_max:
+                    print(f"   Still above {self.me_target_max:.1f}% limit - may need further adjustment")
+                elif new_me < self.me_target_min:
+                    print(f"   Still below {self.me_target_min:.1f}% limit - may need further adjustment")
             
             logger.info(f"After: M/E {new_me:.1f}%, cash change: ${total_value_change:+,.2f}")
             logger.info(f"M/E Rebalancing completed: {len(rebalanced_positions)} positions scaled")
