@@ -79,8 +79,7 @@ class NGSAIBacktestingSystem:
         self.ngs_indicator_lib = ComprehensiveIndicatorLibrary()
         self.objective_manager = ObjectiveManager()
         self.ai_generator = ObjectiveAwareStrategyGenerator(self.ngs_indicator_lib, self.objective_manager)
-        # Commented out for now: self.ngs_params = NGSProvenParameters()
-        
+                
         # Backtesting configuration
         self.backtest_config = {
             'commission_per_trade': 1.0,      # $1 per trade
