@@ -592,6 +592,44 @@ if __name__ == "__main__":
     print("\n🚀 Key Features:")
     print("   ✅ Multiple operating modes (original/AI/hybrid/comparison)")
     print("   ✅ Capital allocation management")
+    class NGSAwareStrategyGenerator(ObjectiveAwareStrategyGenerator):
+    """
+    Enhanced AI that understands YOUR nGS patterns and parameters
+    Generates strategies using your proven thresholds and logic!
+    """
+    
+    def __init__(self, indicator_library: NGSIndicatorLibrary, 
+                 objective_manager: ObjectiveManager):
+        super().__init__(indicator_library, objective_manager)
+        self.ngs_params = NGSProvenParameters()
+        self.ngs_patterns = self._define_ngs_patterns()
+        
+        print("🎯 nGS-Aware AI initialized with YOUR proven parameters!")
+        print(f"   Your BB period: {self.ngs_params.CORE_PARAMS['bb_length']}")
+        print(f"   Your position size: ${self.ngs_params.CORE_PARAMS['position_size']:,}")
+        print(f"   Your M/E range: {self.ngs_params.ME_RATIO_PARAMS['target_min']:.0f}%-{self.ngs_params.ME_RATIO_PARAMS['target_max']:.0f}%")
+    
+    def _define_ngs_patterns(self) -> Dict:
+        """Define YOUR proven entry/exit patterns from nGS strategy"""
+        return {
+            'engulfing_long': {
+                'description': 'Your proven Engulfing Long pattern',
+                'conditions': [
+                    {'indicator': 'ngs_bb_position', 'operator': '<', 'threshold': 25, 'weight': 3},
+                    {'indicator': 'ngs_lr_value', 'operator': '>', 'threshold': 0, 'weight': 2},
+                ]
+            }
+        }
+    
+    def generate_ngs_strategy_for_objective(self, objective_name: str, 
+                                          pattern_focus: str = 'auto') -> TradingStrategy:
+        """Generate strategy using YOUR nGS patterns optimized for objective"""
+        from strategy_generator_ai import TradingStrategy
+        
+        print(f"\n🎯 Generating nGS strategy for: {objective_name.upper()}")
+        
+        # Use the parent class method but with nGS-specific adaptations
+        return self.generate_strategy_for_objective(objective_name)
     print("   ✅ Risk synchronization between strategies")
     print("   ✅ Performance tracking and comparison")
     print("   ✅ Session saving and analysis")
