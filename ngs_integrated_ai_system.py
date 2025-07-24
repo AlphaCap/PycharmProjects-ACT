@@ -850,3 +850,126 @@ if __name__ == "__main__":
     print("   backtester.backtest_multiple_objectives(['linear_equity', 'max_roi'], data)")
     print("   backtester.backtest_comprehensive_comparison(objectives, data)")
     print("   backtester.walk_forward_analysis(strategy, data)")
+# Add this class to your ngs_integrated_ai_system.py file
+
+class NGSProvenParameters:
+    """
+    Container for proven nGS parameters based on your original strategy
+    Used by AI system to generate strategy variants using your proven base parameters
+    """
+    
+    def __init__(self):
+        # Your proven parameters from the original nGS strategy
+        self.base_parameters = {
+            'Length': 25,
+            'NumDevs': 2,
+            'MinPrice': 10,
+            'MaxPrice': 500,
+            'AfStep': 0.05,
+            'AfLimit': 0.21,
+            'PositionSize': 5000,
+            'me_target_min': 50.0,
+            'me_target_max': 80.0,
+            'min_positions_for_scaling_up': 5,
+            'profit_target_pct': 1.05,
+            'stop_loss_pct': 0.90
+        }
+        
+        # Pattern-specific parameters that work well
+        self.pattern_parameters = {
+            'engulfing_threshold': 0.05,
+            'atr_multiplier': 2.0,
+            'bb_tolerance': 0.02,
+            'reversal_bars': 5,
+            'gap_out_threshold': 1.05,
+            'hard_stop_threshold': 0.90
+        }
+        
+        # Risk management parameters
+        self.risk_parameters = {
+            'max_position_pct': 0.05,
+            'max_sector_weight': 0.20,
+            'ls_ratio_adjustment': True,
+            'me_rebalancing': True,
+            'sector_allocation_enabled': False
+        }
+        
+        # Market conditions parameters
+        self.market_parameters = {
+            'min_volume': 100000,
+            'min_market_cap': 1000000000,  # $1B
+            'excluded_sectors': [],
+            'trading_hours_only': True
+        }
+    
+    def get_base_parameters(self):
+        """Get base trading parameters"""
+        return self.base_parameters.copy()
+    
+    def get_pattern_parameters(self):
+        """Get pattern recognition parameters"""
+        return self.pattern_parameters.copy()
+    
+    def get_risk_parameters(self):
+        """Get risk management parameters"""
+        return self.risk_parameters.copy()
+    
+    def get_market_parameters(self):
+        """Get market condition parameters"""
+        return self.market_parameters.copy()
+    
+    def get_all_parameters(self):
+        """Get all parameters combined"""
+        all_params = {}
+        all_params.update(self.base_parameters)
+        all_params.update(self.pattern_parameters)
+        all_params.update(self.risk_parameters)
+        all_params.update(self.market_parameters)
+        return all_params
+    
+    def get_parameter_ranges_for_optimization(self):
+        """Get parameter ranges for optimization testing"""
+        return {
+            'PositionSize': [3000, 4000, 5000, 6000, 7000],
+            'me_target_min': [40, 45, 50, 55, 60],
+            'me_target_max': [70, 75, 80, 85, 90],
+            'Length': [15, 20, 25, 30, 35],
+            'NumDevs': [1.5, 2.0, 2.5, 3.0],
+            'profit_target_pct': [1.03, 1.04, 1.05, 1.06, 1.08, 1.10],
+            'stop_loss_pct': [0.88, 0.90, 0.92, 0.95, 0.97]
+        }
+    
+    def create_variant_parameters(self, variant_name: str):
+        """Create parameter variants for different strategies"""
+        base = self.get_base_parameters()
+        
+        if variant_name == 'aggressive':
+            base.update({
+                'PositionSize': 7000,
+                'me_target_min': 60.0,
+                'me_target_max': 90.0,
+                'NumDevs': 2.5
+            })
+        elif variant_name == 'conservative':
+            base.update({
+                'PositionSize': 3000,
+                'me_target_min': 40.0,
+                'me_target_max': 70.0,
+                'NumDevs': 1.5
+            })
+        elif variant_name == 'high_frequency':
+            base.update({
+                'PositionSize': 4000,
+                'Length': 15,
+                'profit_target_pct': 1.03,
+                'stop_loss_pct': 0.97
+            })
+        elif variant_name == 'trend_following':
+            base.update({
+                'PositionSize': 6000,
+                'Length': 35,
+                'profit_target_pct': 1.08,
+                'NumDevs': 3.0
+            })
+        
+        return base
