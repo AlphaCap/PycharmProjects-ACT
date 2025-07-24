@@ -71,13 +71,14 @@ class DailyMERatioCalculator:
             
             total_unrealized_pnl += pos['unrealized_pnl']
         
-        # Calculate portfolio equity
-        portfolio_equity = self.initial_portfolio_value + self.realized_pnl + total_unrealized_pnl
-        
-        # Calculate total position value (for M/E ratio)
+        # FIXED: Calculate total account value correctly
         total_position_value = long_value + short_value
         
-        # Calculate M/E ratio
+        # CRITICAL FIX: Use initial portfolio value + realized PnL as base
+        # Don't use current cash because cash decreases as we open positions
+        portfolio_equity = self.initial_portfolio_value + self.realized_pnl + total_unrealized_pnl
+        
+        # FIXED: M/E ratio = positions / total portfolio equity (not cash!)
         me_ratio = (total_position_value / portfolio_equity * 100) if portfolio_equity > 0 else 0.0
         
         # Create daily metrics
@@ -1550,7 +1551,7 @@ class NGSStrategy:
         #     sector_report = self.generate_sector_report()
         #     self._display_sector_summary(sector_report)
         
-        # FINAL M/E STATUS VERIFICATION
+        # FINAL M/E STATUS VERIFICATION - FIXED CALCULATION
         final_me = self.calculate_current_me_ratio()
         print(f"\n{'='*70}")
         print("🎯 FINAL M/E STATUS")
@@ -1560,7 +1561,7 @@ class NGSStrategy:
         print(f"Final Positions:      {len(all_positions)}")
         print(f"Rebalancing System:   {'ACTIVE' if self.me_rebalancing_enabled else 'INACTIVE'}")
         
-        # Debug: Show M/E calculation details
+        # FIXED: Show M/E calculation details with correct formula
         total_equity = 0
         for symbol, position in self.positions.items():
             if position['shares'] != 0:
@@ -1569,10 +1570,18 @@ class NGSStrategy:
         
         print(f"\nM/E Calculation Details:")
         print(f"Total Open Trade Equity: ${total_equity:,.2f}")
-        print(f"Account Value (Cash):    ${self.cash:,.2f}")
-        if self.cash > 0:
-            calculated_me = (total_equity/self.cash*100)
+        print(f"Current Cash:           ${self.cash:,.2f}")
+        print(f"Total Account Value:    ${self.cash + total_equity:,.2f}")
+        print(f"Starting Account:       ${self.account_size:,.2f}")
+        
+        # FIXED: Use total account value, not cash
+        if (self.cash + total_equity) > 0:
+            calculated_me = (total_equity / (self.cash + total_equity) * 100)
             print(f"Calculated M/E:         {calculated_me:.2f}% (should match Final M/E)")
+        else:
+            print(f"Calculated M/E:         0.00% (no account value)")
+        
+        print(f"M/E vs Starting:        {(total_equity / self.account_size * 100):.2f}%")
         
         # Final M/E status
         risk = self.me_calculator.get_risk_assessment()
