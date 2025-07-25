@@ -216,15 +216,15 @@ class DailyMERatioCalculator:
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 
 # Set encoding for Windows console to handle Unicode
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+#if sys.platform == 'win32':
+    #import io
+    #sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    #sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 class NGSStrategy:
     """
