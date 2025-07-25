@@ -1775,145 +1775,147 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
 # --- MAIN EXECUTION (ENHANCED WITH M/E VERIFICATION) ---
 
 if __name__ == "__main__":
-    print("nGS Trading Strategy - Neural Grid System with ACTIVE M/E Rebalancing")
+    print("🚀 nGS Trading Strategy with AI SELECTION ENABLED")
     print("=" * 70)
     print(f"Data Retention: {RETENTION_DAYS} days (6 months)")
     print("=" * 70)
     
     try:
-        strategy = NGSStrategy(account_size=1000000)
+        # STEP 1: Import AI modules
+        print("\n🧠 Initializing AI Strategy Selection System...")
         
-        # ENHANCED M/E VERIFICATION OUTPUT
-        print(f"\nM/E REBALANCING SYSTEM VERIFICATION:")
-        print(f"   Status:              {'ACTIVE' if strategy.me_rebalancing_enabled else 'INACTIVE'}")
-        print(f"   Target Range:        {strategy.me_target_min:.1f}% - {strategy.me_target_max:.1f}%")
-        print(f"   Min Positions:       {strategy.min_positions_for_scaling_up}")
-        print(f"   Sector Management:   {'ENABLED' if strategy.sector_allocation_enabled else 'DISABLED'}")
+        try:
+            from ngs_ai_integration_manager import NGSAIIntegrationManager
+            from ngs_ai_performance_comparator import NGSAIPerformanceComparator
+            AI_AVAILABLE = True
+            print("✅ AI modules imported successfully")
+        except ImportError as e:
+            print(f"⚠️  AI modules not available: {e}")
+            print("Falling back to original nGS strategy...")
+            AI_AVAILABLE = False
         
-        # Note: Sector management disabled - using M/E ratio control instead
-        # strategy.enable_sector_rebalancing()  # Disabled
-        print(f"Using M/E Ratio Control (50-80% band) instead of sector limits")
-        
-        # Load ALL S&P 500 symbols from your data files
+        # STEP 2: Load market data (same as before)
         sp500_file = os.path.join('data', 'sp500_symbols.txt')
         try:
             with open(sp500_file, 'r') as f:
                 symbols = [line.strip() for line in f if line.strip()]
-            
-            print(f"\nTrading Universe: ALL S&P 500 symbols")
-            print(f"Total symbols loaded: {len(symbols)}")
-            print(f"First 10 symbols: {', '.join(symbols[:10])}...")
-            print(f"Last 10 symbols: {', '.join(symbols[-10:])}...")
-            
+            print(f"📊 Loaded {len(symbols)} S&P 500 symbols")
         except FileNotFoundError:
-            print(f"\nWARNING: {sp500_file} not found. Using sample symbols instead.")
-            # Fallback to sample symbols if file not found
+            print(f"⚠️  {sp500_file} not found. Using sample symbols.")
             symbols = [
                 'AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN', 'META', 'NVDA',
                 'JPM', 'JNJ', 'PG', 'UNH', 'HD', 'BAC', 'XOM', 'CVX', 'PFE'
             ]
-            print(f"Using {len(symbols)} sample symbols")
         
-        print(f"\nLoading historical data for {len(symbols)} symbols...")
-        print("This may take several minutes for 500+ symbols...")
-        
-        # Load data using your existing data_manager functions
+        print(f"🔄 Loading market data for {len(symbols)} symbols...")
         data = load_polygon_data(symbols)
         
         if not data:
-            print("No data loaded - check your data files")
+            print("❌ No data loaded - check your data files")
             exit(1)
         
-        print(f"\nSuccessfully loaded data for {len(data)} symbols")
+        print(f"✅ Successfully loaded data for {len(data)} symbols")
         
-        # Run the strategy
-        print(f"\nRunning nGS strategy with ACTIVE M/E rebalancing on {len(data)} symbols...")
-        print("Processing signals and managing positions...")
-        
-        results = strategy.run(data)
-        
-        # Results summary
-        print(f"\n{'='*70}")
-        print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
-        print(f"{'='*70}")
-        
-        total_profit = sum(trade['profit'] for trade in strategy.trades)
-        winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
-        
-        print(f"Starting capital:     ${strategy.account_size:,.2f}")
-        print(f"Ending cash:          ${strategy.cash:,.2f}")
-        print(f"Total P&L:            ${total_profit:,.2f}")
-        print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
-        print(f"Total trades:         {len(strategy.trades)}")
-        print(f"Symbols processed:    {len(data)}")
-        print(f"Data period:          {strategy.cutoff_date.strftime('%Y-%m-%d')} to {datetime.now().strftime('%Y-%m-%d')}")
-        print(f"M/E rebalancing:      {'ENABLED' if strategy.me_rebalancing_enabled else 'DISABLED'}")
-        print(f"Sector management:    {'ENABLED' if strategy.sector_allocation_enabled else 'DISABLED'}")
-        
-        if strategy.trades:
-            print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
+        # STEP 3: AI Strategy Selection or Fallback
+        if AI_AVAILABLE:
+            # AI-POWERED EXECUTION
+            print(f"\n🔍 AI ANALYZING STRATEGY OPTIONS...")
             
-            # Trade statistics
-            profits = [trade['profit'] for trade in strategy.trades]
-            avg_profit = np.mean(profits)
-            max_win = max(profits)
-            max_loss = min(profits)
+            # Initialize AI systems
+            ai_integration_manager = NGSAIIntegrationManager(
+                account_size=1000000,
+                data_dir='data'
+            )
             
-            print(f"Average trade:        ${avg_profit:.2f}")
-            print(f"Best trade:           ${max_win:.2f}")
-            print(f"Worst trade:          ${max_loss:.2f}")
+            performance_comparator = NGSAIPerformanceComparator(
+                account_size=1000000,
+                data_dir='data'
+            )
             
-            # Symbol performance
-            symbol_profits = {}
-            for trade in strategy.trades:
-                symbol = trade['symbol']
-                if symbol not in symbol_profits:
-                    symbol_profits[symbol] = 0
-                symbol_profits[symbol] += trade['profit']
+            # Define AI objectives to test
+            ai_objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate']
             
-            # Top performers
-            sorted_symbols = sorted(symbol_profits.items(), key=lambda x: x[1], reverse=True)
-            print(f"\nTop 5 performing symbols:")
-            for symbol, profit in sorted_symbols[:5]:
-                sector = get_symbol_sector(symbol)
-                print(f"  {symbol:6s} ({sector:20s}): ${profit:+8.2f}")
+            print(f"🧪 Testing {len(ai_objectives)} AI strategy objectives...")
             
-            print(f"\nBottom 5 performing symbols:")
-            for symbol, profit in sorted_symbols[-5:]:
-                sector = get_symbol_sector(symbol)
-                print(f"  {symbol:6s} ({sector:20s}): ${profit:+8.2f}")
+            # Run comprehensive comparison
+            try:
+                comparison_results = performance_comparator.comprehensive_comparison(
+                    data=data,
+                    objectives=ai_objectives
+                )
+                
+                # AI makes recommendation
+                ai_score = comparison_results.ai_recommendation_score
+                best_strategy = comparison_results.best_overall_strategy
+                
+                print(f"\n🎯 AI RECOMMENDATION:")
+                print(f"   Score: {ai_score:.0f}/100")
+                print(f"   Best Strategy: {best_strategy}")
+                
+                # Set operating mode based on AI recommendation
+                if ai_score >= 70:
+                    print("✅ AI recommends: AI-Focused Strategy")
+                    ai_integration_manager.set_operating_mode('ai_only')
+                elif ai_score >= 40:
+                    print("✅ AI recommends: Hybrid Strategy")
+                    ai_integration_manager.set_operating_mode('hybrid', {
+                        'ai_allocation_pct': 60.0,
+                        'original_allocation_pct': 40.0
+                    })
+                else:
+                    print("✅ AI recommends: Original nGS Strategy")
+                    ai_integration_manager.set_operating_mode('original')
+                
+                # Execute AI-selected strategy
+                print(f"\n🚀 Executing AI-selected strategy...")
+                results = ai_integration_manager.run_integrated_strategy(data)
+                
+                # Show AI results
+                mode = results['mode']
+                print(f"\n📊 AI EXECUTION RESULTS:")
+                print(f"   Mode: {mode.upper()}")
+                
+                if results['integration_summary']:
+                    summary = results['integration_summary']
+                    print(f"   Strategies: {summary.get('strategies_executed', 0)}")
+                    if summary.get('recommendations'):
+                        print(f"   Recommendations:")
+                        for rec in summary['recommendations']:
+                            print(f"     • {rec}")
+                
+                print(f"✅ AI-powered strategy execution completed!")
+                
+            except Exception as e:
+                print(f"❌ AI analysis failed: {e}")
+                print("Falling back to original nGS strategy...")
+                AI_AVAILABLE = False
         
-        # Show recent trades
-        if strategy.trades:
-            print(f"\nRecent trades (last 10):")
-            for trade in strategy.trades[-10:]:
-                sector = get_symbol_sector(trade['symbol'])
-                print(f"  {trade['symbol']} ({sector:15s}) {trade['type']:5s} | "
-                      f"{trade['entry_date']} -> {trade['exit_date']} | "
-                      f"${trade['entry_price']:7.2f} -> ${trade['exit_price']:7.2f} | "
-                      f"P&L: ${trade['profit']:+8.2f} | {trade['exit_reason']}")
-        
-        # Current positions
-        long_pos, short_pos = strategy.get_current_positions()
-        total_positions = len(long_pos) + len(short_pos)
-        print(f"\nCurrent positions: {total_positions} total ({len(long_pos)} long, {len(short_pos)} short)")
-        
-        if total_positions > 0:
-            print(f"\nSample positions (first 10):")
-            all_pos = long_pos[:5] + short_pos[:5]
-            for pos in all_pos[:10]:
-                side = "Long " if pos in long_pos else "Short"
-                shares = pos['shares'] if pos in long_pos else pos['shares']
-                sector = get_symbol_sector(pos['symbol'])
-                print(f"  {side} {pos['symbol']:6s} ({sector:15s}): {shares:4d} shares @ ${pos['entry_price']:7.2f}")
-        
-        print(f"\nStrategy backtest completed successfully!")
-        print(f"Processed all {len(data)} symbols")
-        print(f"Data retention enforced: {RETENTION_DAYS} days")
-        print(f"M/E rebalancing: {'ACTIVE' if strategy.me_rebalancing_enabled else 'INACTIVE'}")
-        print(f"Sector management: {'ENABLED' if strategy.sector_allocation_enabled else 'DISABLED'}")
+        if not AI_AVAILABLE:
+            # FALLBACK: Original nGS execution
+            print(f"\n📊 Running Original nGS Strategy...")
+            strategy = NGSStrategy(account_size=1000000)
+            results = strategy.run(data)
+            
+            # Show original results (your existing code)
+            print(f"\n{'='*70}")
+            print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
+            print(f"{'='*70}")
+            
+            total_profit = sum(trade['profit'] for trade in strategy.trades)
+            winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
+            
+            print(f"Starting capital:     ${strategy.account_size:,.2f}")
+            print(f"Ending cash:          ${strategy.cash:,.2f}")
+            print(f"Total P&L:            ${total_profit:,.2f}")
+            print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
+            print(f"Total trades:         {len(strategy.trades)}")
+            
+            if strategy.trades:
+                print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
+                
+            print(f"\n✅ Original nGS strategy execution completed!")
         
     except Exception as e:
-        logger.error(f"Strategy backtest failed: {e}")
+        print(f"❌ Execution failed: {e}")
         import traceback
         traceback.print_exc()
