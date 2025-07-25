@@ -24,7 +24,7 @@ warnings.filterwarnings('ignore')
 
 # Import required components
 from nGS_Revised_Strategy import NGSStrategy
-from ngs_ai_backtesting_system import NGSAIBacktestingSystem, BacktestResult, BacktestComparison
+from ngs_integrated_ai_system import NGSAIBacktestingSystem, BacktestResult, BacktestComparison
 from ngs_ai_integration_manager import NGSAIIntegrationManager
 from ngs_integrated_ai_system import NGSProvenParameters
 from performance_objectives import ObjectiveManager
