@@ -132,7 +132,8 @@ def calculate_daily_me_ratios(initial_value=100000):
         
         # Calculate M/E ratio
         total_position_value = total_long_value + total_short_value
-        me_ratio = (total_position_value / portfolio_equity * 100) if portfolio_equity > 0 else 0
+        total_account_value = self.initial_portfolio_value + self.realized_pnl + total_unrealized_pnl
+        me_ratio = (total_position_value / total_account_value * 100) if total_account_value > 0 else 0.0
         
         # Store daily data
         daily_me_data.append({
