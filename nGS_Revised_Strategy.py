@@ -1781,7 +1781,7 @@ if __name__ == "__main__":
     print("=" * 70)
     
     try:
-        # STEP 1: Import AI modules
+        # STEP 1: Initialize AI systems
         print("\n🧠 Initializing AI Strategy Selection System...")
         
         try:
@@ -1789,12 +1789,25 @@ if __name__ == "__main__":
             from ngs_ai_performance_comparator import NGSAIPerformanceComparator
             AI_AVAILABLE = True
             print("✅ AI modules imported successfully")
-        except ImportError as e:
-            print(f"⚠️  AI modules not available: {e}")
+            
+            # Initialize AI systems
+            ai_integration_manager = NGSAIIntegrationManager(
+                account_size=1000000,
+                data_dir='data'
+            )
+            
+            performance_comparator = NGSAIPerformanceComparator(
+                account_size=1000000,
+                data_dir='data'
+            )
+            print("✅ AI systems initialized")
+            
+        except Exception as e:
+            print(f"⚠️  AI initialization failed: {e}")
             print("Falling back to original nGS strategy...")
             AI_AVAILABLE = False
         
-        # STEP 2: Load market data (same as before)
+        # STEP 2: Load data (same as before)
         sp500_file = os.path.join('data', 'sp500_symbols.txt')
         try:
             with open(sp500_file, 'r') as f:
@@ -1820,25 +1833,18 @@ if __name__ == "__main__":
         if AI_AVAILABLE:
             # AI-POWERED EXECUTION
             print(f"\n🔍 AI ANALYZING STRATEGY OPTIONS...")
-            
-            # Initialize AI systems
-            ai_integration_manager = NGSAIIntegrationManager(
-                account_size=1000000,
-                data_dir='data'
-            )
-            
-            performance_comparator = NGSAIPerformanceComparator(
-                account_size=1000000,
-                data_dir='data'
-            )
+            print("This will compare your original nGS vs AI-optimized variants")
             
             # Define AI objectives to test
             ai_objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate']
             
-            print(f"🧪 Testing {len(ai_objectives)} AI strategy objectives...")
+            print(f"🧪 Testing {len(ai_objectives)} AI strategy objectives:")
+            for obj in ai_objectives:
+                print(f"   • {obj}")
             
-            # Run comprehensive comparison
             try:
+                # Run comprehensive comparison
+                print(f"\n📊 Running comprehensive performance analysis...")
                 comparison_results = performance_comparator.comprehensive_comparison(
                     data=data,
                     objectives=ai_objectives
@@ -1847,41 +1853,58 @@ if __name__ == "__main__":
                 # AI makes recommendation
                 ai_score = comparison_results.ai_recommendation_score
                 best_strategy = comparison_results.best_overall_strategy
+                recommended_allocation = comparison_results.recommended_allocation
                 
-                print(f"\n🎯 AI RECOMMENDATION:")
-                print(f"   Score: {ai_score:.0f}/100")
-                print(f"   Best Strategy: {best_strategy}")
+                print(f"\n🎯 AI STRATEGY SELECTION RESULTS")
+                print("=" * 50)
+                print(f"AI Recommendation Score: {ai_score:.0f}/100")
+                print(f"Best Overall Strategy:   {best_strategy}")
+                print(f"Statistical Significance: {'YES' if comparison_results.return_difference_significant else 'NO'}")
+                
+                # Show performance comparison
+                original_performance = comparison_results.original_metrics
+                best_ai_performance = max(comparison_results.ai_metrics, key=lambda x: x.total_return_pct)
+                
+                print(f"\n📈 PERFORMANCE COMPARISON:")
+                print(f"Original nGS:     {original_performance.total_return_pct:+7.2f}% return, {original_performance.max_drawdown_pct:7.2f}% drawdown")
+                print(f"Best AI Strategy: {best_ai_performance.total_return_pct:+7.2f}% return, {best_ai_performance.max_drawdown_pct:7.2f}% drawdown")
                 
                 # Set operating mode based on AI recommendation
+                print(f"\n🤖 AI DECISION:")
+                
                 if ai_score >= 70:
-                    print("✅ AI recommends: AI-Focused Strategy")
+                    print("✅ AI RECOMMENDS: AI-Focused Strategy")
+                    print(f"   Reason: AI shows significant improvements (score: {ai_score:.0f}/100)")
                     ai_integration_manager.set_operating_mode('ai_only')
                 elif ai_score >= 40:
-                    print("✅ AI recommends: Hybrid Strategy")
+                    print("✅ AI RECOMMENDS: Hybrid Strategy")
+                    print(f"   Reason: Balanced approach optimal (score: {ai_score:.0f}/100)")
                     ai_integration_manager.set_operating_mode('hybrid', {
                         'ai_allocation_pct': 60.0,
                         'original_allocation_pct': 40.0
                     })
                 else:
-                    print("✅ AI recommends: Original nGS Strategy")
+                    print("✅ AI RECOMMENDS: Original nGS Strategy")
+                    print(f"   Reason: Original strategy remains superior (score: {ai_score:.0f}/100)")
                     ai_integration_manager.set_operating_mode('original')
+                
+                print(f"\n💰 RECOMMENDED ALLOCATION:")
+                for strategy_name, allocation_pct in recommended_allocation.items():
+                    print(f"   {strategy_name}: {allocation_pct:.1f}%")
                 
                 # Execute AI-selected strategy
                 print(f"\n🚀 Executing AI-selected strategy...")
                 results = ai_integration_manager.run_integrated_strategy(data)
                 
                 # Show AI results
-                mode = results['mode']
-                print(f"\n📊 AI EXECUTION RESULTS:")
-                print(f"   Mode: {mode.upper()}")
+                print(f"\n📊 AI EXECUTION COMPLETED!")
+                print(f"Mode: {results['mode'].upper()}")
+                print(f"AI Recommendation Score: {ai_score:.0f}/100")
                 
-                if results['integration_summary']:
-                    summary = results['integration_summary']
-                    print(f"   Strategies: {summary.get('strategies_executed', 0)}")
-                    if summary.get('recommendations'):
-                        print(f"   Recommendations:")
-                        for rec in summary['recommendations']:
-                            print(f"     • {rec}")
+                if results.get('integration_summary', {}).get('recommendations'):
+                    print(f"AI Recommendations:")
+                    for rec in results['integration_summary']['recommendations']:
+                        print(f"   • {rec}")
                 
                 print(f"✅ AI-powered strategy execution completed!")
                 
@@ -1896,7 +1919,7 @@ if __name__ == "__main__":
             strategy = NGSStrategy(account_size=1000000)
             results = strategy.run(data)
             
-            # Show original results (your existing code)
+            # Show original results
             print(f"\n{'='*70}")
             print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
             print(f"{'='*70}")
@@ -1913,7 +1936,7 @@ if __name__ == "__main__":
             if strategy.trades:
                 print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
                 
-            print(f"\n✅ Original nGS strategy execution completed!")
+            print(f"✅ Original nGS strategy execution completed!")
         
     except Exception as e:
         print(f"❌ Execution failed: {e}")
