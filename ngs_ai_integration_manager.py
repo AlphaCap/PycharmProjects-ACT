@@ -2,6 +2,7 @@
 nGS AI Integration Manager
 Manages integration between your existing nGS strategy and AI-generated strategies
 Allows seamless switching, hybrid approaches, and performance tracking
+Enhanced with automatic mode selection based on performance hierarchy.
 """
 
 import pandas as pd
@@ -24,12 +25,16 @@ from ngs_integrated_ai_system import NGSAwareStrategyGenerator, NGSIndicatorLibr
 # Import data management
 from data_manager import save_trades, save_positions, load_price_data
 
+# For linear regression (equity curve smoothness)
+from sklearn.linear_model import LinearRegression
+
 logger = logging.getLogger(__name__)
 
 class NGSAIIntegrationManager:
     """
     Manages integration between your original nGS strategy and AI-generated strategies
     Provides multiple operating modes and seamless strategy switching
+    Enhanced: automatic mode selection based on performance hierarchy.
     """
     
     def __init__(self, account_size: float = 1000000, data_dir: str = 'data'):
@@ -65,6 +70,83 @@ class NGSAIIntegrationManager:
         print(f"   Operating Mode:      {self.operating_mode}")
         print(f"   Integration Config:  {self.integration_config['ai_allocation_pct']:.0f}% AI / {self.integration_config['original_allocation_pct']:.0f}% Original")
     
+    # =============================================================================
+    # AUTOMATED PERFORMANCE HIERARCHY/SELECTION (ADDED)
+    # =============================================================================
+    def evaluate_linear_equity(self, equity_curve: pd.Series) -> float:
+        """Return R² of linear regression for equity curve (closer to 1 = more linear)."""
+        if len(equity_curve) < 2:
+            return 0.0
+        x = np.arange(len(equity_curve)).reshape(-1, 1)
+        y = equity_curve.values.reshape(-1, 1)
+        model = LinearRegression().fit(x, y)
+        r2 = model.score(x, y)
+        return r2
+
+    def auto_select_mode(self, original_metrics: Dict, ai_metrics: Dict, verbose: bool = True) -> str:
+        """
+        Chooses strategy mode based on hierarchy:
+        1. Linear equity curve (R²)
+        2. Minimum drawdown
+        3. ROI
+        4. Sharpe ratio
+        """
+        orig_r2 = self.evaluate_linear_equity(original_metrics.get('equity_curve', pd.Series(dtype=float)))
+        ai_r2   = self.evaluate_linear_equity(ai_metrics.get('equity_curve', pd.Series(dtype=float)))
+        if verbose:
+            print(f"[HIERARCHY] R² (original): {orig_r2:.4f}, R² (AI): {ai_r2:.4f}")
+        if ai_r2 > orig_r2 + 0.02:
+            if verbose: print("[HIERARCHY] AI wins by linear equity curve.")
+            return 'ai_only'
+        elif orig_r2 > ai_r2 + 0.02:
+            if verbose: print("[HIERARCHY] Original wins by linear equity curve.")
+            return 'original'
+
+        orig_dd = original_metrics.get('max_drawdown_pct', 0)
+        ai_dd   = ai_metrics.get('max_drawdown_pct', 0)
+        if verbose:
+            print(f"[HIERARCHY] Drawdown (original): {orig_dd:.2f}%, (AI): {ai_dd:.2f}%")
+        if ai_dd < orig_dd - 2:
+            if verbose: print("[HIERARCHY] AI wins by min drawdown.")
+            return 'ai_only'
+        elif orig_dd < ai_dd - 2:
+            if verbose: print("[HIERARCHY] Original wins by min drawdown.")
+            return 'original'
+
+        orig_roi = original_metrics.get('total_return_pct', 0)
+        ai_roi   = ai_metrics.get('total_return_pct', 0)
+        if verbose:
+            print(f"[HIERARCHY] ROI (original): {orig_roi:.2f}%, (AI): {ai_roi:.2f}%")
+        if ai_roi > orig_roi + 2:
+            if verbose: print("[HIERARCHY] AI wins by ROI.")
+            return 'ai_only'
+        elif orig_roi > ai_roi + 2:
+            if verbose: print("[HIERARCHY] Original wins by ROI.")
+            return 'original'
+
+        orig_sharpe = original_metrics.get('sharpe_ratio', 0)
+        ai_sharpe   = ai_metrics.get('sharpe_ratio', 0)
+        if verbose:
+            print(f"[HIERARCHY] Sharpe (original): {orig_sharpe:.3f}, (AI): {ai_sharpe:.3f}")
+        if ai_sharpe > orig_sharpe + 0.1:
+            if verbose: print("[HIERARCHY] AI wins by Sharpe ratio.")
+            return 'ai_only'
+        elif orig_sharpe > ai_sharpe + 0.1:
+            if verbose: print("[HIERARCHY] Original wins by Sharpe ratio.")
+            return 'original'
+
+        if verbose: print("[HIERARCHY] Close results, using hybrid mode.")
+        return 'hybrid'
+
+    def auto_update_mode(self, original_metrics: Dict, ai_metrics: Dict, verbose: bool=True):
+        """
+        Performs auto-selection and sets the operating mode based on most recent performance.
+        """
+        new_mode = self.auto_select_mode(original_metrics, ai_metrics, verbose=verbose)
+        if new_mode != self.operating_mode:
+            self.set_operating_mode(new_mode)
+            print(f"[AUTO] Switched to mode: {new_mode}")
+
     # =============================================================================
     # OPERATING MODES
     # =============================================================================
