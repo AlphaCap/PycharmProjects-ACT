@@ -1802,8 +1802,21 @@ def run_ngs_automated_reporting():
     all_trades = comparison.original_ngs_result.trades
     for ai in comparison.ai_results:
         all_trades.extend(ai.trades)
-    trades_df = pd.DataFrame(all_trades)
-    trades_df.to_csv('data/trade_history.csv', index=False)
+    1850: import os
+    import pandas as pd
+    trade_history_path = 'data/trade_history.csv'
+    # Load existing trades if any
+    if os.path.exists(trade_history_path):
+    prior_trades = pd.read_csv(trade_history_path)
+    else:
+    prior_trades = pd.DataFrame() 
+    # new_trades should be a DataFrame or list of trades from this run
+    new_trades_df = pd.DataFrame(new_trades)
+    # Append and deduplicate by symbol/entry/exit date
+    all_trades = pd.concat([prior_trades, new_trades_df], ignore_index=True)
+    all_trades = all_trades.drop_duplicates(subset=['symbol', 'entry_date', 'exit_date'])
+    # Save back
+    all_trades.to_csv(trade_history_path, index=False)
 
     # 6. Save summary stats for dashboard
     with open('data/summary_stats.json', 'w') as f:
