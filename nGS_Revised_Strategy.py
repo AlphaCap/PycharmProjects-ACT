@@ -1806,9 +1806,9 @@ def run_ngs_automated_reporting():
 import pandas as pd
 trade_history_path = 'data/trade_history.csv'
 if os.path.exists(trade_history_path):
-    prior_trades = pd.read_csv(trade_history_path)
+prior_trades = pd.read_csv(trade_history_path)
 else:
-    prior_trades = pd.DataFrame()
+prior_trades = pd.DataFrame()
 new_trades_df = pd.DataFrame(all_trades)
 all_trades_df = pd.concat([prior_trades, new_trades_df], ignore_index=True)
 all_trades_df = all_trades_df.drop_duplicates(subset=['symbol', 'entry_date', 'exit_date'])
