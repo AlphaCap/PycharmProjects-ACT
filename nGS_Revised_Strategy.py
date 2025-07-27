@@ -1772,7 +1772,44 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
     logger.info(f"\nCompleted loading data. Successfully loaded {len(data)} out of {len(symbols)} symbols")
     return data
 
-# --- MAIN EXECUTION (ENHANCED WITH M/E VERIFICATION) ---
+def run_ngs_automated_reporting():
+    from ngs_ai_backtesting_system import NGSAIBacktestingSystem
+    import pandas as pd
+    import os
+    import json
+
+    # 1. Load your universe
+    symbols = []
+    sp500_file = os.path.join('data', 'sp500_symbols.txt')
+    if os.path.exists(sp500_file):
+        with open(sp500_file, 'r') as f:
+            symbols = [line.strip() for line in f if line.strip()]
+    else:
+        symbols = ["AAPL", "MSFT", "GOOGL"]
+
+    # 2. Load all price data
+    from nGS_Revised_Strategy import load_polygon_data
+    data = load_polygon_data(symbols)
+
+    # 3. Initialize backtesting system
+    backtester = NGSAIBacktestingSystem(account_size=1_000_000, data_dir='data')
+
+    # 4. Run comprehensive backtest (original vs AI, auto-selection)
+    objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate', 'sharpe_ratio']
+    comparison = backtester.backtest_comprehensive_comparison(objectives, data)
+
+    # 5. Save trades to CSV for dashboard
+    all_trades = comparison.original_ngs_result.trades
+    for ai in comparison.ai_results:
+        all_trades.extend(ai.trades)
+    trades_df = pd.DataFrame(all_trades)
+    trades_df.to_csv('data/trade_history.csv', index=False)
+
+    # 6. Save summary stats for dashboard
+    with open('data/summary_stats.json', 'w') as f:
+        json.dump(comparison.summary_stats, f, indent=2)
+
+    print("✅ Trades and summary stats exported for Streamlit dashboard.")
 
 if __name__ == "__main__":
     print("🚀 nGS Trading Strategy with AI SELECTION ENABLED")
