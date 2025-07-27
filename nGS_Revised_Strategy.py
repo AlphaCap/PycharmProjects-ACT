@@ -1815,7 +1815,7 @@ all_trades_df = all_trades_df.drop_duplicates(subset=['symbol', 'entry_date', 'e
 all_trades_df.to_csv(trade_history_path, index=False)
 
     # 6. Save summary stats for dashboard
-with open('data/summary_stats.json', 'w') as f:
+    with open('data/summary_stats.json', 'w') as f:
         json.dump(comparison.summary_stats, f, indent=2)
 
     print("✅ Trades and summary stats exported for Streamlit dashboard.")
