@@ -20,8 +20,9 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 
 # Import your existing components
-from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
-from comprehensive_indicator_library import ComprehensiveIndicatorLibrary  
+from nGS_Revised_Strategy import NGSStrategy  # Keep NGSStrategy import
+from data_utils import load_polygon_data  # Updated to use data_utils
+from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
 from performance_objectives import ObjectiveManager
 from strategy_generator_ai import TradingStrategy
 from ngs_integrated_ai_system import NGSAwareStrategyGenerator, NGSIndicatorLibrary, NGSProvenParameters
@@ -215,13 +216,18 @@ class NGSAIBacktestingSystem:
         print(f"\n📊 Multi-objective backtesting completed: {len(results)} strategies tested")
         return results
     
-    def backtest_comprehensive_comparison(self, objectives: List[str], data: Dict[str, pd.DataFrame],
+    def backtest_comprehensive_comparison(self, objectives: List[str], data: Dict[str, pd.DataFrame] = None,
                                         start_date: str = None, end_date: str = None) -> BacktestComparison:
         """
         Comprehensive comparison between original nGS and multiple AI strategies
         """
         print(f"\n🔬 COMPREHENSIVE STRATEGY COMPARISON")
         print(f"   Original nGS vs {len(objectives)} AI objectives")
+        
+        # Load data if not provided
+        if data is None:
+            symbols = self.load_symbols()  # Assuming this method exists
+            data = load_polygon_data(symbols)
         
         # Backtest original nGS
         original_result = self.backtest_original_ngs(data, start_date, end_date)
