@@ -1819,8 +1819,6 @@ if os.path.exists(trade_history_path):
     prior_trades = pd.read_csv(trade_history_path)
 else:
     prior_trades = pd.DataFrame()
-else:
-    prior_trades = pd.DataFrame()
     new_trades_df = pd.DataFrame([{'symbol': trade.symbol, 'entry_date': trade.entry_date, 
     'exit_date': trade.exit_date, 'entry_price': trade.entry_price, 'exit_price': trade.exit_price, 
     'profit_loss': trade.profit_loss} for trade in strategy_instance.trades])
