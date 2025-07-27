@@ -1,17 +1,31 @@
+# Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Strategy-specific files
 gst_.py
 gst_.csv
 performance_.json
 trades_.csv
+trade_history.csv
+summary_stats.json
+
+# Logs
 *.log
-pycache/
-*.pyc
-*.pyo
-*.pyd
-.Python
+
+# Virtual environments
 .env
 .venv
 venv/
 env/
-"__pycache__/" 
-"*.pyc" 
-"*.log" 
+
+# Python environment
+.Python
+
+# Sensitive configuration
+polygon_config.py
+
+# Backtest results
+data/backtest_results/
