@@ -1799,18 +1799,26 @@ objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate', 'sharp
 comparison = backtester.backtest_comprehensive_comparison(objectives, data)
 
 # 5. Save trades to CSV for dashboard
-# First collect all trades
 all_trades = comparison.original_ngs_result.trades
 for ai in comparison.ai_results:
     all_trades.extend(ai.trades)
 
-# Then create the DataFrame
+import os
+import pandas as pd
+trade_history_path = 'data/trade_history.csv'
+# Load existing trades if any
+if os.path.exists(trade_history_path):
+    prior_trades = pd.read_csv(trade_history_path)
+else:
+    prior_trades = pd.DataFrame() 
+
+# Create DataFrame from all_trades instead of new_trades
 new_trades_df = pd.DataFrame([{
-    'symbol': trade.symbol, 
-    'entry_date': trade.entry_date, 
-    'exit_date': trade.exit_date, 
-    'entry_price': trade.entry_price, 
-    'exit_price': trade.exit_price, 
+    'symbol': trade.symbol,
+    'entry_date': trade.entry_date,
+    'exit_date': trade.exit_date,
+    'entry_price': trade.entry_price,
+    'exit_price': trade.exit_price,
     'profit_loss': trade.profit_loss
 } for trade in all_trades])
 
