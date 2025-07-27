@@ -1794,26 +1794,31 @@ def run_ngs_automated_reporting():
     # 3. Initialize backtesting system
     backtester = NGSAIBacktestingSystem(account_size=1_000_000, data_dir='data')
 
-    # 4. Run comprehensive backtest (original vs AI, auto-selection)
-    objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate', 'sharpe_ratio']
-    comparison = backtester.backtest_comprehensive_comparison(objectives, data)
+# 4. Run comprehensive backtest (original vs AI, auto-selection)
+objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate', 'sharpe_ratio']
+comparison = backtester.backtest_comprehensive_comparison(objectives, data)
 
-    # 5. Save trades to CSV for dashboard
-    new_trades_df = pd.DataFrame([{
+# 5. Save trades to CSV for dashboard
+# First collect all trades
+all_trades = comparison.original_ngs_result.trades
+for ai in comparison.ai_results:
+    all_trades.extend(ai.trades)
+
+# Then create the DataFrame
+new_trades_df = pd.DataFrame([{
     'symbol': trade.symbol, 
     'entry_date': trade.entry_date, 
     'exit_date': trade.exit_date, 
     'entry_price': trade.entry_price, 
     'exit_price': trade.exit_price, 
     'profit_loss': trade.profit_loss
-} for trade in all_trades])  # Changed from strategy_instance.trades to all_trades
-    for ai in comparison.ai_results:
-        all_trades.extend(ai.trades)
-    import os
-import pandas as pd
+} for trade in all_trades])
+
 trade_history_path = 'data/trade_history.csv'
 if os.path.exists(trade_history_path):
     prior_trades = pd.read_csv(trade_history_path)
+else:
+    prior_trades = pd.DataFrame()
 else:
     prior_trades = pd.DataFrame()
     new_trades_df = pd.DataFrame([{'symbol': trade.symbol, 'entry_date': trade.entry_date, 
