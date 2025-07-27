@@ -1795,6 +1795,13 @@ def run_ngs_automated_reporting():
     backtester = NGSAIBacktestingSystem(account_size=1_000_000, data_dir='data')
 
 # 4. Run comprehensive backtest (original vs AI, auto-selection)
+# First, import NGSAIBacktestingSystem at the top with your other imports
+from ngs_ai_backtesting_system import NGSAIBacktestingSystem
+
+# Then initialize the backtester before using it
+backtester = NGSAIBacktestingSystem(account_size=1_000_000, data_dir='data')
+
+# Now run the backtest
 objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate', 'sharpe_ratio']
 comparison = backtester.backtest_comprehensive_comparison(objectives, data)
 
@@ -1806,11 +1813,10 @@ for ai in comparison.ai_results:
 import os
 import pandas as pd
 trade_history_path = 'data/trade_history.csv'
-# Load existing trades if any
 if os.path.exists(trade_history_path):
     prior_trades = pd.read_csv(trade_history_path)
 else:
-    prior_trades = pd.DataFrame() 
+    prior_trades = pd.DataFrame()
 
 # Create DataFrame from all_trades instead of new_trades
 new_trades_df = pd.DataFrame([{
