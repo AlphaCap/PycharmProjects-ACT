@@ -1799,7 +1799,14 @@ def run_ngs_automated_reporting():
     comparison = backtester.backtest_comprehensive_comparison(objectives, data)
 
     # 5. Save trades to CSV for dashboard
-    all_trades = comparison.original_ngs_result.trades
+    new_trades_df = pd.DataFrame([{
+    'symbol': trade.symbol, 
+    'entry_date': trade.entry_date, 
+    'exit_date': trade.exit_date, 
+    'entry_price': trade.entry_price, 
+    'exit_price': trade.exit_price, 
+    'profit_loss': trade.profit_loss
+} for trade in all_trades])  # Changed from strategy_instance.trades to all_trades
     for ai in comparison.ai_results:
         all_trades.extend(ai.trades)
     import os
