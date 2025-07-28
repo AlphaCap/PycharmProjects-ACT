@@ -1792,7 +1792,7 @@ else:
 data = load_polygon_data(symbols)
 
 # Now run the strategy
-results = strategy.run(data)
+results = NGSStrategy.run(data)
 # Save trades to CSV for dashboard
 trade_history_path = 'data/trade_history.csv'
 if os.path.exists(trade_history_path):
