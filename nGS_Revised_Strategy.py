@@ -1779,60 +1779,45 @@ def run_ngs_automated_reporting():
     import json
 
     # 1. Load your universe
-    # Load your universe
-symbols = []
-sp500_file = os.path.join('data', 'sp500_symbols.txt')
-if os.path.exists(sp500_file):
-    with open(sp500_file, 'r') as f:
-        symbols = [line.strip() for line in f if line.strip()]
-else:
-    symbols = ["AAPL", "MSFT", "GOOGL"]
+    symbols = []
+    sp500_file = os.path.join('data', 'sp500_symbols.txt')
+    if os.path.exists(sp500_file):
+        with open(sp500_file, 'r') as f:
+            symbols = [line.strip() for line in f if line.strip()]
+    else:
+        symbols = ["AAPL", "MSFT", "GOOGL"]
 
-# Load the price data
-data = load_polygon_data(symbols)
+    # Load the price data
+    data = load_polygon_data(symbols)
 
-# Now run the strategy
-# Create an instance of NGSStrategy first
-strategy = NGSStrategy(account_size=1_000_000)
-# Then run the strategy on the data
-results = strategy.run(data)
-# Save trades to CSV for dashboard
-trade_history_path = 'data/trade_history.csv'
-if os.path.exists(trade_history_path):
-    prior_trades = pd.read_csv(trade_history_path)
-else:
-    prior_trades = pd.DataFrame()
-
-# Create DataFrame from strategy trades
-new_trades_df = pd.DataFrame([{
-    'symbol': trade['symbol'],
-    'entry_date': trade['entry_date'],
-    'exit_date': trade['exit_date'],
-    'entry_price': trade['entry_price'],
-    'exit_price': trade['exit_price'],
-    'profit_loss': trade['profit']
-} for trade in strategy.trades])
-
-trade_history_path = 'data/trade_history.csv'
-if os.path.exists(trade_history_path):
-    prior_trades = pd.read_csv(trade_history_path) 
-else:
-   prior_trades = pd.DataFrame()
-new_trades_df = pd.DataFrame([{
-    'symbol': trade['symbol'],
-    'entry_date': trade['entry_date'],
-    'exit_date': trade['exit_date'],
-    'entry_price': trade['entry_price'],
-    'exit_price': trade['exit_price'],
-    'profit_loss': trade['profit']
-} for trade in strategy.trades])
-all_trades_df = pd.concat([prior_trades, new_trades_df], ignore_index=True)
-all_trades_df = all_trades_df.drop_duplicates(subset=['symbol', 'entry_date', 'exit_date'])
-all_trades_df.to_csv(trade_history_path, index=False)
+    # Now run the strategy
+    # Create an instance of NGSStrategy first
+    strategy = NGSStrategy(account_size=1_000_000)
+    # Then run the strategy on the data
+    results = strategy.run(data)
+    # Save trades to CSV for dashboard
+    trade_history_path = 'data/trade_history.csv'
+    if os.path.exists(trade_history_path):
+        prior_trades = pd.read_csv(trade_history_path)
+    else:
+        prior_trades = pd.DataFrame()
+    new_trades_df = pd.DataFrame([{
+        'symbol': trade['symbol'],
+        'entry_date': trade['entry_date'],
+        'exit_date': trade['exit_date'],
+        'entry_price': trade['entry_price'],
+        'exit_price': trade['exit_price'],
+        'profit_loss': trade['profit']
+    } for trade in strategy.trades])
+    all_trades_df = pd.concat([prior_trades, new_trades_df], ignore_index=True)
+    all_trades_df = all_trades_df.drop_duplicates(subset=['symbol', 'entry_date', 'exit_date'])
+    all_trades_df.to_csv(trade_history_path, index=False)
 
     # 6. Save summary stats for dashboard
-with open('data/summary_stats.json', 'w') as f:
-    json.dump(comparison.summary_stats, f, indent=2)
+    with open('data/summary_stats.json', 'w') as f:
+        json.dump(comparison.summary_stats, f, indent=2)
+
+    print("✅ Trades and summary stats exported for Streamlit dashboard.")
 
     print("✅ Trades and summary stats exported for Streamlit dashboard.")
 
