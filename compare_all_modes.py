@@ -1,7 +1,8 @@
 from ngs_ai_integration_manager import NGSAIIntegrationManager
-from nGS_Revised_Strategy import load_polygon_data
-from ngs_integrated_ai_system import NGSAIBacktestingSystem
+from nGS_Revised_Strategy import load_polygon_data, run_ngs_automated_reporting
+from ngs_ai_backtesting_system import NGSAIBacktestingSystem
 import os
+import pandas as pd
 
 # Load symbols
 symbols = []
@@ -13,7 +14,15 @@ else:
     symbols = ["AAPL", "MSFT", "GOOGL"]
 
 # Load historical data
-data = load_polygon_data(symbols)
+try:
+    data = load_polygon_data(symbols)
+    print(f"Data type: {type(data)}, Data keys: {list(data.keys()) if isinstance(data, dict) else data}")
+    if data is ... or data is None or (isinstance(data, dict) and not data):
+        raise ValueError("load_polygon_data returned invalid data (Ellipsis, None, or empty)")
+except Exception as e:
+    print(f"Error loading data: {e}")
+    data = {symbol: pd.DataFrame() for symbol in symbols}  # Fallback empty data
+    print(f"Fallback to empty DataFrames for symbols: {symbols}")
 
 # Initialize manager and backtesting system
 manager = NGSAIIntegrationManager(account_size=1_000_000)
@@ -32,7 +41,6 @@ manager.set_operating_mode('hybrid')
 results_hybrid = manager.run_integrated_strategy(data)
 
 # Run automated reporting
-from nGS_Revised_Strategy import run_ngs_automated_reporting
 run_ngs_automated_reporting(comparison=comparison)
 
 # Print summary table
