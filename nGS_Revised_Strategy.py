@@ -1791,42 +1791,28 @@ def run_ngs_automated_reporting():
     from nGS_Revised_Strategy import load_polygon_data
     data = load_polygon_data(symbols)
 
-    # 3. Initialize backtesting system
-    backtester = NGSAIBacktestingSystem(account_size=1_000_000, data_dir='data')
+  # Initialize the base strategy
+strategy = NGSStrategy(account_size=1_000_000)
 
-# 4. Run comprehensive backtest (original vs AI, auto-selection)
-# First, import NGSAIBacktestingSystem at the top with your other imports
-from ngs_ai_backtesting_system import NGSAIBacktestingSystem
+# Run the strategy
+results = strategy.run(data)
 
-# Then initialize the backtester before using it
-backtester = NGSAIBacktestingSystem(account_size=1_000_000, data_dir='data')
-
-# Now run the backtest
-objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate', 'sharpe_ratio']
-comparison = backtester.backtest_comprehensive_comparison(objectives, data)
-
-# 5. Save trades to CSV for dashboard
-all_trades = comparison.original_ngs_result.trades
-for ai in comparison.ai_results:
-    all_trades.extend(ai.trades)
-
-import os
-import pandas as pd
+# Save trades to CSV for dashboard
 trade_history_path = 'data/trade_history.csv'
 if os.path.exists(trade_history_path):
     prior_trades = pd.read_csv(trade_history_path)
 else:
     prior_trades = pd.DataFrame()
 
-# Create DataFrame from all_trades instead of new_trades
+# Create DataFrame from strategy trades
 new_trades_df = pd.DataFrame([{
-    'symbol': trade.symbol,
-    'entry_date': trade.entry_date,
-    'exit_date': trade.exit_date,
-    'entry_price': trade.entry_price,
-    'exit_price': trade.exit_price,
-    'profit_loss': trade.profit_loss
-} for trade in all_trades])
+    'symbol': trade['symbol'],
+    'entry_date': trade['entry_date'],
+    'exit_date': trade['exit_date'],
+    'entry_price': trade['entry_price'],
+    'exit_price': trade['exit_price'],
+    'profit_loss': trade['profit']
+} for trade in strategy.trades])
 
 trade_history_path = 'data/trade_history.csv'
 if os.path.exists(trade_history_path):
