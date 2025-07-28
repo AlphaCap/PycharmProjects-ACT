@@ -32,7 +32,6 @@ print("Sample symbols:", list(data.keys())[:10])
 
 # Initialize manager and backtesting system
 manager = NGSAIIntegrationManager(account_size=1_000_000)
-comparison = NGSAIBacktestingSystem(account_size=1_000_000)
 
 # Run backtest for comparison (if needed)
 try:
