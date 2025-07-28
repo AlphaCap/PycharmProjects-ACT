@@ -1,5 +1,6 @@
 from ngs_ai_integration_manager import NGSAIIntegrationManager
-from nGS_Revised_Strategy import load_polygon_data, run_ngs_automated_reporting
+from data_utils import load_polygon_data
+from nGS_Revised_Strategy import run_ngs_automated_reporting
 from ngs_ai_backtesting_system import NGSAIBacktestingSystem
 import os
 import pandas as pd
