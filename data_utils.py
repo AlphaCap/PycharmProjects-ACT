@@ -4,6 +4,7 @@ from polygon_config import POLYGON_API_KEY
 from datetime import datetime, timedelta
 import os
 import json
+import time
 
 def load_polygon_data(symbols):
     data = {}
@@ -22,6 +23,7 @@ def load_polygon_data(symbols):
     today = datetime.now().strftime('%Y-%m-%d')
     last_update = last_fetch.get('daily', {}).get('last_update')
     fetch_start_date = (datetime.now() - timedelta(days=180)).strftime('%Y-%m-%d')
+    use_cache = last_update == today  # Use cache if updated today
 
     try:
         client = RESTClient(api_key=POLYGON_API_KEY)
@@ -29,17 +31,21 @@ def load_polygon_data(symbols):
             cache_file = os.path.join(cache_dir, f'{symbol}_daily.csv')
             df = pd.DataFrame()
 
-            # Check if cached data is valid
-            if last_update == today and os.path.exists(cache_file):
+            # Try loading cached data
+            if use_cache and os.path.exists(cache_file):
                 try:
                     df = pd.read_csv(cache_file)
                     df['date'] = pd.to_datetime(df['date'])
-                    print(f"Loaded cached data for {symbol} from {cache_file}")
+                    if not df.empty:
+                        print(f"Loaded cached data for {symbol} from {cache_file}")
+                        data[symbol] = df
+                        continue
                 except Exception as e:
                     print(f"Error loading cached data for {symbol}: {e}")
 
-            # Fetch new data if cache is invalid or outdated
-            if df.empty or last_update != today:
+            # Fetch new data with rate limit handling
+            retries = 3
+            for attempt in range(retries):
                 try:
                     aggs = client.get_aggs(
                         ticker=symbol,
@@ -51,8 +57,7 @@ def load_polygon_data(symbols):
                     )
                     if not aggs:
                         print(f"No data returned for {symbol}")
-                        data[symbol] = pd.DataFrame()
-                        continue
+                        break
 
                     df = pd.DataFrame([{
                         'date': pd.to_datetime(agg.timestamp, unit='ms'),
@@ -68,23 +73,29 @@ def load_polygon_data(symbols):
                     os.makedirs(cache_dir, exist_ok=True)
                     df.to_csv(cache_file, index=False)
                     print(f"Saved data for {symbol} to {cache_file}")
+                    break
                 except Exception as e:
+                    if '429' in str(e):
+                        print(f"Rate limit hit for {symbol}, attempt {attempt + 1}/{retries}")
+                        if attempt < retries - 1:
+                            time.sleep(12)  # Wait 12 seconds (5 req/min = 12s per req)
+                        continue
                     print(f"Failed to fetch data for {symbol}: {e}")
-                    df = pd.DataFrame()
+                    break
 
             data[symbol] = df
 
-        # Update last_fetch_dates.json
-        last_fetch['daily']['full_history_date'] = fetch_start_date
-        last_fetch['daily']['last_update'] = today
-        try:
-            with open(last_fetch_file, 'w') as f:
-                json.dump(last_fetch, f, indent=2)
-            print(f"Updated {last_fetch_file}")
-        except Exception as e:
-            print(f"Error updating {last_fetch_file}: {e}")
-
-        if not any(df.shape[0] > 0 for df in data.values()):
+        # Update last_fetch_dates.json only if data was fetched
+        if any(df.shape[0] > 0 for df in data.values()):
+            last_fetch['daily']['full_history_date'] = fetch_start_date
+            last_fetch['daily']['last_update'] = today
+            try:
+                with open(last_fetch_file, 'w') as f:
+                    json.dump(last_fetch, f, indent=2)
+                print(f"Updated {last_fetch_file}")
+            except Exception as e:
+                print(f"Error updating {last_fetch_file}: {e}")
+        else:
             print("Warning: No valid data loaded for any symbols")
     except Exception as e:
         print(f"Error initializing Polygon client: {e}")
