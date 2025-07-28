@@ -1,11 +1,23 @@
 from ngs_ai_integration_manager import NGSAIIntegrationManager
+from nGS_Revised_Strategy import load_polygon_data
+from ngs_integrated_ai_system import NGSAIBacktestingSystem
+import os
 
-# Load your data as needed
-# Example: data = load_polygon_data(...)
+# Load symbols
+symbols = []
+sp500_file = os.path.join('data', 'sp500_symbols.txt')
+if os.path.exists(sp500_file):
+    with open(sp500_file, 'r') as f:
+        symbols = [line.strip() for line in f if line.strip()]
+else:
+    symbols = ["AAPL", "MSFT", "GOOGL"]
 
-data = ...  # Load your historical data here
+# Load historical data
+data = load_polygon_data(symbols)
 
+# Initialize manager and backtesting system
 manager = NGSAIIntegrationManager(account_size=1_000_000)
+comparison = NGSAIBacktestingSystem(account_size=1_000_000)
 
 # Run Original
 manager.set_operating_mode('original')
@@ -19,12 +31,16 @@ results_ai = manager.run_integrated_strategy(data)
 manager.set_operating_mode('hybrid')
 results_hybrid = manager.run_integrated_strategy(data)
 
+# Run automated reporting
+from nGS_Revised_Strategy import run_ngs_automated_reporting
+run_ngs_automated_reporting(comparison=comparison)
+
 # Print summary table
 def print_mode_performance(results_original, results_ai, results_hybrid):
     def summary(res, mode_name):
-        if res['original_ngs']:
+        if res.get('original_ngs'):
             perf = res['original_ngs']['performance']
-        elif res['ai_strategies']:
+        elif res.get('ai_strategies'):
             # Take best/first AI strategy
             perf = next(iter(res['ai_strategies'].values()))['performance']
         else:
