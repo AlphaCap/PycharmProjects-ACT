@@ -1,30 +1,34 @@
 from ngs_ai_integration_manager import NGSAIIntegrationManager
-from data_utils import load_polygon_data
 from nGS_Revised_Strategy import run_ngs_automated_reporting
 from ngs_ai_backtesting_system import NGSAIBacktestingSystem
 import os
 import pandas as pd
 
-# Load symbols
-symbols = []
-sp500_file = os.path.join('data', 'sp500_symbols.txt')
-if os.path.exists(sp500_file):
-    with open(sp500_file, 'r') as f:
-        symbols = [line.strip() for line in f if line.strip()]
-else:
-    symbols = ["AAPL", "MSFT", "GOOGL"]
-print(f"Loaded symbols: {symbols}")
+# --------- Load ALL stocks from data/daily/ ----------
+stock_data_dir = "data/daily"
+data = {}
+for fname in os.listdir(stock_data_dir):
+    if fname.endswith(".csv"):
+        symbol = fname.replace(".csv", "")
+        try:
+            df = pd.read_csv(os.path.join(stock_data_dir, fname))
+            data[symbol] = df
+        except Exception as e:
+            print(f"Error loading {fname}: {e}")
 
-# Load historical data
-try:
-    data = load_polygon_data(symbols)
-    print(f"Data type: {type(data)}, Data keys: {list(data.keys()) if isinstance(data, dict) else data}")
-    if data is ... or data is None or (isinstance(data, dict) and not data):
-        raise ValueError("load_polygon_data returned invalid data (Ellipsis, None, or empty)")
-except Exception as e:
-    print(f"Error loading data: {e}")
-    data = {symbol: pd.DataFrame() for symbol in symbols}
-    print(f"Fallback to empty DataFrames for symbols: {symbols}")
+# --------- Load ALL sector ETFs from data/etf_historical/ ----------
+etf_data_dir = "data/etf_historical"
+for fname in os.listdir(etf_data_dir):
+    if fname.endswith("_historical.csv"):
+        symbol = fname.replace("_historical.csv", "")
+        try:
+            df = pd.read_csv(os.path.join(etf_data_dir, fname))
+            data[symbol] = df
+        except Exception as e:
+            print(f"Error loading {fname}: {e}")
+
+print(f"Loaded {len(data)} symbols (stocks + ETFs) from local files")
+print("Sample symbols:", list(data.keys())[:10])
 
 # Initialize manager and backtesting system
 manager = NGSAIIntegrationManager(account_size=1_000_000)
