@@ -1779,24 +1779,20 @@ def run_ngs_automated_reporting():
     import json
 
     # 1. Load your universe
-    symbols = []
-    sp500_file = os.path.join('data', 'sp500_symbols.txt')
-    if os.path.exists(sp500_file):
-        with open(sp500_file, 'r') as f:
-            symbols = [line.strip() for line in f if line.strip()]
-    else:
-        symbols = ["AAPL", "MSFT", "GOOGL"]
+    # Load your universe
+symbols = []
+sp500_file = os.path.join('data', 'sp500_symbols.txt')
+if os.path.exists(sp500_file):
+    with open(sp500_file, 'r') as f:
+        symbols = [line.strip() for line in f if line.strip()]
+else:
+    symbols = ["AAPL", "MSFT", "GOOGL"]
 
-    # 2. Load all price data
-    from nGS_Revised_Strategy import load_polygon_data
-    data = load_polygon_data(symbols)
+# Load the price data
+data = load_polygon_data(symbols)
 
-  # Initialize the base strategy
-strategy = NGSStrategy(account_size=1_000_000)
-
-# Run the strategy
+# Now run the strategy
 results = strategy.run(data)
-
 # Save trades to CSV for dashboard
 trade_history_path = 'data/trade_history.csv'
 if os.path.exists(trade_history_path):
