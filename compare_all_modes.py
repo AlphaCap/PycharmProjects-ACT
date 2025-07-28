@@ -12,6 +12,7 @@ if os.path.exists(sp500_file):
         symbols = [line.strip() for line in f if line.strip()]
 else:
     symbols = ["AAPL", "MSFT", "GOOGL"]
+print(f"Loaded symbols: {symbols}")
 
 # Load historical data
 try:
@@ -21,35 +22,57 @@ try:
         raise ValueError("load_polygon_data returned invalid data (Ellipsis, None, or empty)")
 except Exception as e:
     print(f"Error loading data: {e}")
-    data = {symbol: pd.DataFrame() for symbol in symbols}  # Fallback empty data
+    data = {symbol: pd.DataFrame() for symbol in symbols}
     print(f"Fallback to empty DataFrames for symbols: {symbols}")
 
 # Initialize manager and backtesting system
 manager = NGSAIIntegrationManager(account_size=1_000_000)
 comparison = NGSAIBacktestingSystem(account_size=1_000_000)
 
+# Run backtest for comparison (if needed)
+try:
+    comparison.run(data)
+except Exception as e:
+    print(f"Warning: Failed to run comparison backtest: {e}")
+
 # Run Original
-manager.set_operating_mode('original')
-results_original = manager.run_integrated_strategy(data)
+try:
+    manager.set_operating_mode('original')
+    results_original = manager.run_integrated_strategy(data)
+except Exception as e:
+    print(f"Error running Original mode: {e}")
+    results_original = {}
 
 # Run AI-Only
-manager.set_operating_mode('ai_only')
-results_ai = manager.run_integrated_strategy(data)
+try:
+    manager.set_operating_mode('ai_only')
+    results_ai = manager.run_integrated_strategy(data)
+except Exception as e:
+    print(f"Error running AI-Only mode: {e}")
+    results_ai = {}
 
 # Run Hybrid
-manager.set_operating_mode('hybrid')
-results_hybrid = manager.run_integrated_strategy(data)
+try:
+    manager.set_operating_mode('hybrid')
+    results_hybrid = manager.run_integrated_strategy(data)
+except Exception as e:
+    print(f"Error running Hybrid mode: {e}")
+    results_hybrid = {}
 
 # Run automated reporting
-run_ngs_automated_reporting(comparison=comparison)
+try:
+    run_ngs_automated_reporting(comparison=comparison)
+except Exception as e:
+    print(f"Error running automated reporting: {e}")
 
 # Print summary table
 def print_mode_performance(results_original, results_ai, results_hybrid):
     def summary(res, mode_name):
+        if not res:
+            return [mode_name, '-', '-', '-', '-']
         if res.get('original_ngs'):
             perf = res['original_ngs']['performance']
         elif res.get('ai_strategies'):
-            # Take best/first AI strategy
             perf = next(iter(res['ai_strategies'].values()))['performance']
         else:
             return [mode_name, '-', '-', '-', '-']
