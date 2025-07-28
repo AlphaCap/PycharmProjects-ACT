@@ -1772,7 +1772,7 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
     logger.info(f"\nCompleted loading data. Successfully loaded {len(data)} out of {len(symbols)} symbols")
     return data
 
-def run_ngs_automated_reporting():
+def run_ngs_automated_reporting(comparison=None):
     from ngs_ai_backtesting_system import NGSAIBacktestingSystem
     import pandas as pd
     import os
@@ -1813,13 +1813,13 @@ def run_ngs_automated_reporting():
     all_trades_df = all_trades_df.drop_duplicates(subset=['symbol', 'entry_date', 'exit_date'])
     all_trades_df.to_csv(trade_history_path, index=False)
 
-    # 6. Save summary stats for dashboard
-    with open('data/summary_stats.json', 'w') as f:
-        json.dump(comparison.summary_stats, f, indent=2)
-
-    print("✅ Trades and summary stats exported for Streamlit dashboard.")
-
-    print("✅ Trades and summary stats exported for Streamlit dashboard.")
+    # 6. Save summary stats for dashboard if comparison is provided
+    if comparison is not None:
+        with open('data/summary_stats.json', 'w') as f:
+            json.dump(comparison.summary_stats, f, indent=2)
+        print("✅ Trades and summary stats exported for Streamlit dashboard.")
+    else:
+        print("✅ Trades exported for Streamlit dashboard (no summary stats).")
 
 if __name__ == "__main__":
     print("🚀 nGS Trading Strategy with AI SELECTION ENABLED")
