@@ -716,33 +716,41 @@ def get_trades_history_formatted() -> pd.DataFrame:
 
 def get_me_ratio_history() -> pd.DataFrame:
     """
-    Get M/E ratio history from dedicated portfolio ME file.
-    
+    Get M/E ratio history from portfolio_ME file (preferred) or legacy file.
     Returns:
         DataFrame with Date and ME_Ratio columns
     """
     try:
-        filename = "data/me_ratio_history.csv"
-        
-        if not os.path.exists(filename):
-            logger.warning(f"Portfolio M/E history file not found: {filename}")
+        # Prefer new file location
+        filename = os.path.join("data", "daily", "portfolio_ME.csv")
+        legacy_filename = os.path.join("data", "me_ratio_history.csv")
+        df = None
+
+        if os.path.exists(filename):
+            df = pd.read_csv(filename, parse_dates=['Date'])
+        elif os.path.exists(legacy_filename):
+            logger.warning(f"Using legacy ME ratio file: {legacy_filename}")
+            df = pd.read_csv(legacy_filename, parse_dates=['Date'])
+        else:
+            logger.warning("Portfolio M/E history file not found in either location.")
             return pd.DataFrame(columns=['Date', 'ME_Ratio'])
-        
-        df = pd.read_csv(filename, parse_dates=['Date'])
-        
+
         # Filter to last 6 months
         df = filter_by_retention_period(df, 'Date')
-        
+
         if df.empty:
             logger.warning("No M/E ratio data after filtering")
             return pd.DataFrame(columns=['Date', 'ME_Ratio'])
-        
-        # Select only needed columns and sort
-        history_df = df[['Date', 'ME_Ratio']].sort_values('Date').reset_index(drop=True)
-        
+
+        # Select only needed columns and sort (if columns exist)
+        if 'ME_Ratio' in df.columns:
+            history_df = df[['Date', 'ME_Ratio']].sort_values('Date').reset_index(drop=True)
+        else:
+            logger.warning("ME_Ratio column missing in ME ratio file")
+            history_df = df[['Date']].copy()
         logger.info(f"Loaded M/E ratio history: {len(history_df)} days")
         return history_df
-        
+
     except Exception as e:
         logger.error(f"Error loading M/E ratio history: {e}")
         return pd.DataFrame(columns=['Date', 'ME_Ratio'])
