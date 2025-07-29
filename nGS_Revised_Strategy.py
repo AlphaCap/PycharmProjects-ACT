@@ -1083,23 +1083,7 @@ class NGSStrategy:
             base_shares = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
             adjusted_position_size = self.get_short_position_size(self.inputs['PositionSize'])
             df.loc[df.index[i], 'Shares'] = int(round(adjusted_position_size / df['Close'].iloc[i]))
-        # Engulfing Short with New High pattern
-        elif (df['Open'].iloc[i] > df['Close'].iloc[i-1] and
-              df['Close'].iloc[i] < df['Open'].iloc[i-1] and
-              df['Close'].iloc[i] < df['Open'].iloc[i] and
-              df['Close'].iloc[i-1] > df['Open'].iloc[i-1] and
-              df['Close'].iloc[i-1] - df['Low'].iloc[i-1] <= df['ATR'].iloc[i] * 2 and
-              df['Close'].iloc[i-1] - df['Open'].iloc[i-1] > 0.05 and
-              df['Close'].iloc[i-1] >= df['SwingHigh'].iloc[i] and
-              abs(df['Close'].iloc[i-1] - df['Low'].iloc[i-1]) / df['Close'].iloc[i-1] < 0.05 and
-              df['High'].iloc[i] >= df['UpperBB'].iloc[i] * 0.98 and
-              df['Close'].iloc[i] >= df['LowerBB'].iloc[i] * 1.05):
-            df.loc[df.index[i], 'Signal'] = -1
-            df.loc[df.index[i], 'SignalType'] = 'Engf S NuHu3'
-            # Apply L/S ratio adjustment for short position sizing
-            base_shares = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
-            adjusted_position_size = self.get_short_position_size(self.inputs['PositionSize'])
-            df.loc[df.index[i], 'Shares'] = int(round(adjusted_position_size / df['Close'].iloc[i]))
+        
         # Semi-Engulfing Short pattern
         elif (df['Open'].iloc[i] >= df['Close'].iloc[i-1] * 0.999 and
               df['Open'].iloc[i] < df['Close'].iloc[i-1] and
