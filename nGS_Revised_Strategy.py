@@ -7,8 +7,6 @@ import os
 from typing import Dict, List, Optional, Tuple, Union
 import sys
 
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-from ngs_ai_performance_comparator import NGSAIPerformanceComparator
 from data_manager import (
     save_trades, save_positions, load_price_data,
     save_signals, get_positions, initialize as init_data_manager,
@@ -1807,7 +1805,11 @@ def run_ngs_automated_reporting(comparison=None):
     else:
         print("✅ Trades exported for Streamlit dashboard (no summary stats).")
 
+# nGS_Revised_Strategy.py (around lines 1810–1830)
 if __name__ == "__main__":
+    from ngs_ai_integration_manager import NGSAIIntegrationManager
+    from ngs_ai_performance_comparator import NGSAIPerformanceComparator
+    
     print("🚀 nGS Trading Strategy with AI SELECTION ENABLED")
     print("=" * 70)
     print(f"Data Retention: {RETENTION_DAYS} days (6 months)")
@@ -1819,6 +1821,18 @@ if __name__ == "__main__":
         
         AI_AVAILABLE = True
         print("✅ AI modules imported successfully")
+        
+        # Initialize AI systems
+        ai_integration_manager = NGSAIIntegrationManager(
+            account_size=1000000,
+            data_dir='data'
+        )
+
+    except Exception as e:
+        print(f"❌ Error initializing AI modules: {e}")
+        print(f"⚠️  AI initialization failed: {e}")
+        print("Falling back to original nGS strategy...")
+        AI_AVAILABLE = False
         
         # Initialize AI systems
         ai_integration_manager = NGSAIIntegrationManager(
