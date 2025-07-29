@@ -169,7 +169,7 @@ def get_sp500_symbols() -> list:
     if os.path.exists(SP500_SYMBOLS_FILE):
         with open(SP500_SYMBOLS_FILE, 'r') as f:
             symbols = [line.strip().upper() for line in f 
-           if line.strip() and (line.strip().isalpha() or '.' in line.strip() or '-' in line.strip())]
+            if line.strip() and (line.strip().isalpha() or '.' in line.strip() or '-' in line.strip())]
             logger.info(f"Loaded {len(symbols)} S&P 500 symbols from {SP500_SYMBOLS_FILE}")
             # Log first few symbols for verification
             if symbols:
