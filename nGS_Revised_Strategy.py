@@ -7,6 +7,8 @@ import os
 from typing import Dict, List, Optional, Tuple, Union
 import sys
 
+from ngs_ai_integration_manager import NGSAIIntegrationManager
+from ngs_ai_performance_comparator import NGSAIPerformanceComparator
 from data_manager import (
     save_trades, save_positions, load_price_data,
     save_signals, get_positions, initialize as init_data_manager,
@@ -1815,9 +1817,6 @@ if __name__ == "__main__":
         # STEP 1: Initialize AI systems
         print("\n🧠 Initializing AI Strategy Selection System...")
         
-        try:
-            from ngs_ai_integration_manager import NGSAIIntegrationManager
-            from ngs_ai_performance_comparator import NGSAIPerformanceComparator
             AI_AVAILABLE = True
             print("✅ AI modules imported successfully")
             
