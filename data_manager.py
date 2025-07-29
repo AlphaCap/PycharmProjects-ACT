@@ -967,7 +967,7 @@ def calculate_current_me_ratio(positions_df: pd.DataFrame, portfolio_value: floa
         logger.error(f"Error calculating current M/E ratio: {e}")
         return 0.0
 
-def calculate_historical_me_ratio(trades_df: pd.DataFrame, initial_value: float = 100000) -> float:
+def calculate_historical_me_ratio(trades_df: pd.DataFrame, initial_value: float = 1000000) -> float:
     """
     Get historical M/E ratio from stored daily indicator data across all S&P 500 symbols.
     """
@@ -1069,7 +1069,7 @@ def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
     return format_dollars(mtd_profit), f"{mtd_pct:.2f}%"
 
 # --- DASHBOARD FUNCTIONS FOR LONG/SHORT SYSTEM ---
-def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical: bool = False) -> Dict:
+def get_portfolio_metrics(initial_portfolio_value: float = 1000000, is_historical: bool = False) -> Dict:
     """
     Calculate portfolio metrics with proper current vs historical M/E ratios (6-month filtered).
     
@@ -1162,7 +1162,7 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical
             'net_exposure': "$0"
         }
 
-def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.DataFrame:
+def get_strategy_performance(initial_portfolio_value: float = 1000000) -> pd.DataFrame:
     """
     Get strategy performance summary (6-month filtered).
     
