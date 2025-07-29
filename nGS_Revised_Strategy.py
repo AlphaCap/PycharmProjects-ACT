@@ -1818,7 +1818,7 @@ if __name__ == "__main__":
         print("\n🧠 Initializing AI Strategy Selection System...")
         
         AI_AVAILABLE = True
-            print("✅ AI modules imported successfully")
+        print("✅ AI modules imported successfully")
             
             # Initialize AI systems
             ai_integration_manager = NGSAIIntegrationManager(
