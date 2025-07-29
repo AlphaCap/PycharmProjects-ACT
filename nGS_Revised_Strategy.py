@@ -1828,7 +1828,7 @@ if __name__ == "__main__":
             data_dir='data'
         )
 
-        except Exception as e:
+    except Exception as e:
         print(f"❌ Error initializing AI modules: {e}")
         print(f"⚠️  AI initialization failed: {e}")
         print("Falling back to original nGS strategy...")
@@ -1840,7 +1840,7 @@ if __name__ == "__main__":
             data_dir='data'
         )
 
-        except Exception as e:
+    except Exception as e:
         print(f"❌ Error initializing AI modules: {e}")
         print(f"⚠️  AI initialization failed: {e}")
         print("Falling back to original nGS strategy...")
