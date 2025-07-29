@@ -32,12 +32,14 @@ print("Sample symbols:", list(data.keys())[:10])
 
 # Initialize manager and backtesting system
 manager = NGSAIIntegrationManager(account_size=1_000_000)
+comparison = NGSAIBacktestingSystem(account_size=1_000_000)
 
-# Run backtest for comparison (if needed)
-try:
-    comparison.run(data)
-except Exception as e:
-    print(f"Warning: Failed to run comparison backtest: {e}")
+# --- Removed the following lines per your request ---
+# # Run backtest for comparison (if needed)
+# try:
+#     comparison.run(data)
+# except Exception as e:
+#     print(f"Warning: Failed to run comparison backtest: {e}")
 
 # Run Original
 try:
