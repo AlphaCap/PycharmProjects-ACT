@@ -1828,9 +1828,9 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"❌ Error initializing AI modules: {e}")
-            print(f"⚠️  AI initialization failed: {e}")
-            print("Falling back to original nGS strategy...")
-            AI_AVAILABLE = False
+        print(f"⚠️  AI initialization failed: {e}")
+        print("Falling back to original nGS strategy...")
+        AI_AVAILABLE = False
         
         # STEP 2: Load data (same as before)
         sp500_file = os.path.join('data', 'sp500_symbols.txt')
