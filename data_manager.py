@@ -164,11 +164,15 @@ def format_dollars(value):
 def get_sp500_symbols() -> list:
     """
     Load S&P 500 symbols from the saved txt file.
-    Returns a list of symbol strings.
+    Returns a list of uppercase symbol strings.
     """
     if os.path.exists(SP500_SYMBOLS_FILE):
         with open(SP500_SYMBOLS_FILE, 'r') as f:
-            symbols = [line.strip() for line in f if line.strip()]
+            symbols = [
+                line.strip().upper()
+                for line in f
+                if line.strip() and line.strip().isalpha() or '.' in line.strip() or '-' in line.strip()
+            ]
             logger.info(f"Loaded {len(symbols)} S&P 500 symbols from {SP500_SYMBOLS_FILE}")
             # Log first few symbols for verification
             if symbols:
@@ -177,6 +181,13 @@ def get_sp500_symbols() -> list:
     else:
         logger.warning(f"S&P 500 symbols file not found: {SP500_SYMBOLS_FILE}")
         return []
+
+def filter_to_sp500(symbols: list) -> list:
+    """
+    Filter a list of symbols to only those present in the S&P 500 universe.
+    """
+    sp500_set = set(get_sp500_symbols())
+    return [s for s in symbols if s.upper() in sp500_set]
 
 def verify_sp500_coverage():
     """Simplified S&P 500 validation"""
