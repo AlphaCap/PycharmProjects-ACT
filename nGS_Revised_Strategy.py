@@ -1819,20 +1819,15 @@ if __name__ == "__main__":
         
         AI_AVAILABLE = True
         print("✅ AI modules imported successfully")
-            
-            # Initialize AI systems
-            ai_integration_manager = NGSAIIntegrationManager(
-                account_size=1000000,
-                data_dir='data'
-            )
-            
-            performance_comparator = NGSAIPerformanceComparator(
-                account_size=1000000,
-                data_dir='data'
-            )
-            print("✅ AI systems initialized")
-            
-        except Exception as e:
+        
+        # Initialize AI systems
+        ai_integration_manager = NGSAIIntegrationManager(
+            account_size=1000000,
+            data_dir='data'
+        )
+
+    except Exception as e:
+        print(f"❌ Error initializing AI modules: {e}")
             print(f"⚠️  AI initialization failed: {e}")
             print("Falling back to original nGS strategy...")
             AI_AVAILABLE = False
