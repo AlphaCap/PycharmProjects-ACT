@@ -1817,7 +1817,7 @@ if __name__ == "__main__":
         # STEP 1: Initialize AI systems
         print("\n🧠 Initializing AI Strategy Selection System...")
         
-            AI_AVAILABLE = True
+        AI_AVAILABLE = True
             print("✅ AI modules imported successfully")
             
             # Initialize AI systems
