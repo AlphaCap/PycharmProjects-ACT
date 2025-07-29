@@ -578,6 +578,15 @@ def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_D
         df = df[ALL_COLUMNS]
         df = df.sort_values("Date").drop_duplicates(subset=["Date"], keep="last").tail(history_days)
         df.to_csv(filename, index=False)
+        
+        # Legacy dashboard compatibility: copy to data/me_ratio_history.csv
+        if 'ME_Ratio' in df.columns:
+            legacy_me_path = os.path.join("data", "me_ratio_history.csv")
+            try:
+                df[['Date', 'ME_Ratio']].to_csv(legacy_me_path, index=False)
+                logger.info(f"Copied ME ratio history to legacy path: {legacy_me_path}")
+            except Exception as e:
+                logger.warning(f"Could not copy ME ratio file for legacy dashboard: {e}")
     else:
         logger.warning(f"No data to save for {symbol}")
 
@@ -594,7 +603,7 @@ def load_price_data(symbol: str) -> pd.DataFrame:
 
 TRADE_COLUMNS = [
     "symbol", "type", "entry_date", "exit_date", 
-    "entry_price", "exit_price", "shares", "profit", "exit_reason"
+    "entry_price", "exit_price", "shares", "profit", "exit_reason", "side", "strategy"
 ]
 POSITION_COLUMNS = [
     "symbol", "shares", "entry_price", "entry_date", "current_price", 
@@ -716,41 +725,33 @@ def get_trades_history_formatted() -> pd.DataFrame:
 
 def get_me_ratio_history() -> pd.DataFrame:
     """
-    Get M/E ratio history from portfolio_ME file (preferred) or legacy file.
+    Get M/E ratio history from dedicated portfolio ME file.
+    
     Returns:
         DataFrame with Date and ME_Ratio columns
     """
     try:
-        # Prefer new file location
-        filename = os.path.join("data", "daily", "portfolio_ME.csv")
-        legacy_filename = os.path.join("data", "me_ratio_history.csv")
-        df = None
-
-        if os.path.exists(filename):
-            df = pd.read_csv(filename, parse_dates=['Date'])
-        elif os.path.exists(legacy_filename):
-            logger.warning(f"Using legacy ME ratio file: {legacy_filename}")
-            df = pd.read_csv(legacy_filename, parse_dates=['Date'])
-        else:
-            logger.warning("Portfolio M/E history file not found in either location.")
+        filename = "data/me_ratio_history.csv"
+        
+        if not os.path.exists(filename):
+            logger.warning(f"Portfolio M/E history file not found: {filename}")
             return pd.DataFrame(columns=['Date', 'ME_Ratio'])
-
+        
+        df = pd.read_csv(filename, parse_dates=['Date'])
+        
         # Filter to last 6 months
         df = filter_by_retention_period(df, 'Date')
-
+        
         if df.empty:
             logger.warning("No M/E ratio data after filtering")
             return pd.DataFrame(columns=['Date', 'ME_Ratio'])
-
-        # Select only needed columns and sort (if columns exist)
-        if 'ME_Ratio' in df.columns:
-            history_df = df[['Date', 'ME_Ratio']].sort_values('Date').reset_index(drop=True)
-        else:
-            logger.warning("ME_Ratio column missing in ME ratio file")
-            history_df = df[['Date']].copy()
+        
+        # Select only needed columns and sort
+        history_df = df[['Date', 'ME_Ratio']].sort_values('Date').reset_index(drop=True)
+        
         logger.info(f"Loaded M/E ratio history: {len(history_df)} days")
         return history_df
-
+        
     except Exception as e:
         logger.error(f"Error loading M/E ratio history: {e}")
         return pd.DataFrame(columns=['Date', 'ME_Ratio'])
@@ -772,6 +773,11 @@ def save_trades(trades_list: List[Dict]):
                 trade_copy = trade.copy()
                 trade_copy['exit_date'] = exit_date.strftime('%Y-%m-%d')
                 trade_copy['entry_date'] = parse_date_flexibly(trade['entry_date']).strftime('%Y-%m-%d')
+                # Ensure 'side' and 'strategy' fields exist for dashboard/strategy compatibility
+                if 'side' not in trade_copy:
+                    trade_copy['side'] = 'long' if trade_copy.get('shares', 0) > 0 else 'short'
+                if 'strategy' not in trade_copy:
+                    trade_copy['strategy'] = 'nGS'
                 filtered_trades.append(trade_copy)
         except (KeyError, ValueError) as e:
             logger.warning(f"Invalid trade date in trade: {trade} - {e}")
@@ -828,6 +834,11 @@ def save_positions(positions_list: List[Dict]):
                 # Ensure date is in consistent format
                 pos_copy = pos.copy()
                 pos_copy['entry_date'] = entry_date.strftime('%Y-%m-%d')
+                # Ensure 'side' and 'strategy' fields exist for dashboard/strategy compatibility
+                if 'side' not in pos_copy:
+                    pos_copy['side'] = 'long' if pos_copy.get('shares', 0) > 0 else 'short'
+                if 'strategy' not in pos_copy:
+                    pos_copy['strategy'] = 'nGS'
                 filtered_positions.append(pos_copy)
         except (KeyError, ValueError) as e:
             logger.warning(f"Invalid entry date in position: {pos} - {e}")
@@ -873,19 +884,6 @@ def save_signals(signals: List[Dict]):
     logger.info(f"Saved {len(filtered_signals)} signals within retention period")
 
 # --- SYSTEM STATUS ---
-def get_system_status():
-    if os.path.exists(SYSTEM_STATUS_FILE):
-        df = pd.read_csv(SYSTEM_STATUS_FILE)
-        # Filter system status to retention period
-        if not df.empty and 'timestamp' in df.columns:
-            # Convert timestamp to datetime for filtering
-            df['timestamp'] = df['timestamp'].apply(parse_date_flexibly)
-            df = filter_by_retention_period(df, 'timestamp')
-            # Convert back to string for display
-            df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
-        return df
-    return pd.DataFrame(columns=SYSTEM_STATUS_COLUMNS)
-
 def save_system_status(message: str, system: str = "nGS"):
     ensure_dir(SYSTEM_STATUS_FILE)
     now = datetime.now()
@@ -1071,7 +1069,7 @@ def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
     mtd_trades = trades_df[trades_df['exit_date'] >= current_month_start]
     mtd_profit = mtd_trades['profit'].sum() if not mtd_trades.empty else 0
     
-    # Calculate percentage - FIXED: Use consistent variable name
+    # Calculate percentage
     mtd_pct = (mtd_profit / initial_value * 100) if initial_value > 0 else 0
     
     return format_dollars(mtd_profit), f"{mtd_pct:.2f}%"
@@ -1128,7 +1126,6 @@ def get_portfolio_metrics(initial_portfolio_value: float = 1000000, is_historica
         
         # Returns based on closed trades
         total_return = total_trade_profit
-        # FIXED: Use consistent variable name
         total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_portfolio_value > 0 else "0.00%"
         
         # Calculate proper MTD and YTD
