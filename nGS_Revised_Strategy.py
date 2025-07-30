@@ -1798,12 +1798,12 @@ def run_ngs_automated_reporting(comparison=None):
     all_trades_df.to_csv(trade_history_path, index=False)
 
     # 6. Save summary stats for dashboard if comparison is provided
-    if comparison is not None:
-        with open('data/summary_stats.json', 'w') as f:
-            json.dump(comparison.summary_stats, f, indent=2)
-        print("✅ Trades and summary stats exported for Streamlit dashboard.")
-    else:
-        print("✅ Trades exported for Streamlit dashboard (no summary stats).")
+if comparison is not None:
+    with open('data/summary_stats.json', 'w') as f:
+        json.dump(comparison.summary_stats, f, indent=2)
+    print("✅ Trades and summary stats exported for Streamlit dashboard.")
+else:
+    print("✅ Trades exported for Streamlit dashboard (no summary stats).")
 
 # nGS_Revised_Strategy.py (around lines 1810–1830)
 if __name__ == "__main__":
