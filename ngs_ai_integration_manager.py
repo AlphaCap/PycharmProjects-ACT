@@ -92,7 +92,6 @@ class NGSAIIntegrationManager:
         4. Sharpe ratio
         """
         # Validate AI metrics before comparison
-        # Validate AI metrics before comparison
         if not ai_metrics or ai_metrics.get('total_return_pct', 0) == 0:
             print("[ERROR] AI strategy metrics missing or invalid. Defaulting to original strategy.")
             return 'original'
