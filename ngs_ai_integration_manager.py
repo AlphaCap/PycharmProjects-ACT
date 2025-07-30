@@ -134,15 +134,18 @@ class NGSAIIntegrationManager:
             print(f"[HIERARCHY] Sharpe (original): {orig_sharpe:.3f}, (AI): {ai_sharpe:.3f}")
         if ai_sharpe > orig_sharpe + 0.1:
             if verbose: print("[HIERARCHY] AI wins by Sharpe ratio.")
-            return 'ai_only'
+        return 'ai_only'
         elif orig_sharpe > ai_sharpe + 0.1:
             if verbose: print("[HIERARCHY] Original wins by Sharpe ratio.")
-            return 'original'
+        return 'original'
         # Handle edge cases where metrics are close
         if abs(orig_r2 - ai_r2) < 0.02 and abs(orig_roi - ai_roi) < 2:
-            print("[HIERARCHY] Metrics are close, defaulting to hybrid mode.")
+            if verbose:
+                print("[HIERARCHY] Metrics are close, defaulting to hybrid mode.")
             return 'hybrid'
-        if verbose: print("[HIERARCHY] Close results, using hybrid mode.")
+
+        if verbose:
+            print("[HIERARCHY] Close results, using hybrid mode.")
         return 'hybrid'
 
     def auto_update_mode(self, original_metrics: Dict, ai_metrics: Dict, verbose: bool=True):
