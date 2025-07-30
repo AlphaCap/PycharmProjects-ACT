@@ -42,7 +42,7 @@ class NGSAIIntegrationManager:
         self.data_dir = data_dir
         
         # Initialize your original nGS strategy
-        self.original_ngs = NGSStrategy(account_size=account_size, data_dir=data_dir)
+        self.original_ngs = strategy_factory(account_size=account_size, data_dir=data_dir)
         
         # Initialize AI components with your parameters
         self.ngs_indicator_lib = NGSIndicatorLibrary()
