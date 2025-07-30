@@ -91,6 +91,11 @@ class NGSAIIntegrationManager:
         3. ROI
         4. Sharpe ratio
         """
+        # Validate AI metrics before comparison
+        # Validate AI metrics before comparison
+        if not ai_metrics or ai_metrics.get('total_return_pct', 0) == 0:
+            print("[ERROR] AI strategy metrics missing or invalid. Defaulting to original strategy.")
+            return 'original'
         orig_r2 = self.evaluate_linear_equity(original_metrics.get('equity_curve', pd.Series(dtype=float)))
         ai_r2   = self.evaluate_linear_equity(ai_metrics.get('equity_curve', pd.Series(dtype=float)))
         if verbose:
@@ -134,7 +139,10 @@ class NGSAIIntegrationManager:
         elif orig_sharpe > ai_sharpe + 0.1:
             if verbose: print("[HIERARCHY] Original wins by Sharpe ratio.")
             return 'original'
-
+        # Handle edge cases where metrics are close
+        if abs(orig_r2 - ai_r2) < 0.02 and abs(orig_roi - ai_roi) < 2:
+            print("[HIERARCHY] Metrics are close, defaulting to hybrid mode.")
+            return 'hybrid'
         if verbose: print("[HIERARCHY] Close results, using hybrid mode.")
         return 'hybrid'
 
