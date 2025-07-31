@@ -1911,21 +1911,14 @@ if __name__ == "__main__":
                 # Set operating mode based on AI recommendation
                 print(f"\n🤖 AI DECISION:")
                 
-                if ai_score >= 70:
-                    print("✅ AI RECOMMENDS: AI-Focused Strategy")
-                    print(f"   Reason: AI shows significant improvements (score: {ai_score:.0f}/100)")
-                    ai_integration_manager.set_operating_mode('ai_only')
-                elif ai_score >= 40:
-                    print("✅ AI RECOMMENDS: Hybrid Strategy")
-                    print(f"   Reason: Balanced approach optimal (score: {ai_score:.0f}/100)")
-                    ai_integration_manager.set_operating_mode('hybrid', {
-                        'ai_allocation_pct': 60.0,
-                        'original_allocation_pct': 40.0
-                    })
-                else:
-                    print("✅ AI RECOMMENDS: Original nGS Strategy")
-                    print(f"   Reason: Original strategy remains superior (score: {ai_score:.0f}/100)")
-                    ai_integration_manager.set_operating_mode('original')
+            if ai_score >= 70:
+                print("✅ AI RECOMMENDS: AI-Focused Strategy")
+                print(f"   Reason: AI shows significant improvements (score: {ai_score:.0f}/100)")
+                ai_integration_manager.set_operating_mode('ai_only')
+            else:
+                print("❌ AI score insufficient for AI-Focused Strategy")
+                print(f"   Reason: AI score below threshold (score: {ai_score:.0f}/100)")
+                exit(1)
                 
                 print(f"\n💰 RECOMMENDED ALLOCATION:")
                 for strategy_name, allocation_pct in recommended_allocation.items():
