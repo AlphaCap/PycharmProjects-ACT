@@ -1846,15 +1846,13 @@ if __name__ == "__main__":
                 print(f"\n🚀 Executing AI-selected strategy...")
                 results = ai_integration_manager.run_integrated_strategy(data)
             try:
-                # Show AI results
                 print(f"✅ AI-powered strategy execution completed!")
                 print(f"Mode: AI-ONLY")
-                print(f"AI Recommendation Score: {ai_score:.0f}/100")
-                
             except Exception as e:
                 print(f"❌ AI analysis failed: {e}")
                 exit(1)  # Terminate the program if AI analysis fails
-
+            finally:
+                print("Execution attempt completed.") 
                 print(f"\n{'='*70}")
                 print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
                 print(f"{'='*70}")
