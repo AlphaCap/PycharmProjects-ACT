@@ -1850,22 +1850,14 @@ if __name__ == "__main__":
                 print(f"✅ AI-powered strategy execution completed!")
                 print(f"Mode: AI-ONLY")
                 print(f"AI Recommendation Score: {ai_score:.0f}/100")
-    
-                print(f"✅ AI-powered strategy execution completed!")
-
+                
             except Exception as e:
                 print(f"❌ AI analysis failed: {e}")
-                print("Falling back to original nGS strategy...")
-                AI_AVAILABLE = False
+                exit(1)  # Terminate the program if AI analysis fails
 
-            if not AI_AVAILABLE:
-                print("❌ AI unavailable or initialization failed")
-                exit(1)
-            
-            # Show original results
-            print(f"\n{'='*70}")
-            print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
-            print(f"{'='*70}")
+                print(f"\n{'='*70}")
+                print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
+                print(f"{'='*70}")
             
             total_profit = sum(trade['profit'] for trade in strategy.trades)
             winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
