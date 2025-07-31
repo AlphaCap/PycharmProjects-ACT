@@ -1924,14 +1924,9 @@ if __name__ == "__main__":
                 results = ai_integration_manager.run_integrated_strategy(data)
                 
                 # Show AI results
-                print(f"\n📊 AI EXECUTION COMPLETED!")
-                print(f"Mode: {results['mode'].upper()}")
+                print(f"✅ AI-powered strategy execution completed!")
+                print(f"Mode: AI-ONLY")
                 print(f"AI Recommendation Score: {ai_score:.0f}/100")
-                
-                if results.get('integration_summary', {}).get('recommendations'):
-                    print(f"AI Recommendations:")
-                    for rec in results['integration_summary']['recommendations']:
-                        print(f"   • {rec}")
                 
                 print(f"✅ AI-powered strategy execution completed!")
                 
