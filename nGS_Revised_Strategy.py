@@ -1922,7 +1922,7 @@ if __name__ == "__main__":
                 # Execute AI-selected strategy
                 print(f"\n🚀 Executing AI-selected strategy...")
                 results = ai_integration_manager.run_integrated_strategy(data)
-                
+            try:    
                 # Show AI results
                 print(f"✅ AI-powered strategy execution completed!")
                 print(f"Mode: AI-ONLY")
