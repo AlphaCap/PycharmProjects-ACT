@@ -20,8 +20,6 @@ from data_manager import (
     get_sector_weights,
     get_positions_df
 )
-
-# FIXED: Corrected M/E Ratio Calculator with proper price updates
 class DailyMERatioCalculator:
     def __init__(self, initial_portfolio_value: float = 1000000):
         self.initial_portfolio_value = initial_portfolio_value
@@ -1205,11 +1203,9 @@ class NGSStrategy:
             df['ATR'].iloc[i] > df['ATRma'].iloc[i]):
             possible_exits.append(('reversal', 'L 2 S', 1, 1))
 
-        # Hard Stop
         if df['Close'].iloc[i] > position['entry_price'] * 1.1:
             possible_exits.append(('hard_stop', 'Hard Stop L', 1, None))
 
-        # Prioritize: hard_stop > reversal > atr_x > be > gap_target
         priority_order = ['hard_stop', 'reversal', 'atr_x', 'be', 'gap_target']
         for prio in priority_order:
             for exit_type, exit_label, exit_sig, entry_sig in possible_exits:
@@ -1221,8 +1217,6 @@ class NGSStrategy:
                         df.loc[df.index[i], 'SignalType'] = exit_label
                         df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] * 2 / df['Close'].iloc[i]))
                     return  # Apply first in priority
-
-    # --- POSITION MANAGEMENT (ENHANCED WITH SECTOR CHECKS) ---
     
     def _process_exit(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
         exit_price = round(float(df['Close'].iloc[i]), 2)
@@ -1253,14 +1247,11 @@ class NGSStrategy:
             else:
                 logger.warning(f"Invalid trade skipped: {trade}")
         
-        # Compute trade_type explicitly (fix for KeyError 'type')
         trade_type = 'long' if position['shares'] > 0 else 'short'
         self.me_calculator.update_position(symbol, 0, 0, 0, trade_type)  # Close position
         self.me_calculator.add_realized_pnl(profit)  # Add realized profit
         
         self.cash = round(float(self.cash + position['shares'] * exit_price), 2)
-        
-        # Record historical M/E after exit
         self.record_historical_me_ratio(exit_date, trade_occurred=True)
         
         logger.info(f"Exit {symbol}: {df['ExitType'].iloc[i]} at {exit_price}, profit: {profit}")
@@ -1269,15 +1260,11 @@ class NGSStrategy:
         shares = int(round(df['Shares'].iloc[i])) if df['Signal'].iloc[i] > 0 else -int(round(df['Shares'].iloc[i]))
         cost = round(float(shares * df['Close'].iloc[i]), 2)
         
-        # Ensure entry date is within retention period
         entry_date = str(df['Date'].iloc[i])[:10]
         entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
         
         if entry_datetime >= self.cutoff_date and abs(cost) <= self.cash:
-            
-            # Note: Sector limits disabled - using M/E ratio control instead
-            # Position entry controlled by M/E rebalancing, not sector limits
-            
+                          
             self.cash = round(float(self.cash - cost), 2)
             position = {
                 'shares': shares,
@@ -1291,11 +1278,8 @@ class NGSStrategy:
             current_price = round(float(df['Close'].iloc[i]), 2)
             trade_type = 'long' if shares > 0 else 'short'
             self.me_calculator.update_position(symbol, shares, position['entry_price'], current_price, trade_type)
-            
-            # Record historical M/E after entry
             self.record_historical_me_ratio(entry_date, trade_occurred=True)
             
-            # Log sector information
             sector = get_symbol_sector(symbol)
             logger.info(f"Entry {symbol} ({sector}): {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
             
@@ -1366,9 +1350,7 @@ class NGSStrategy:
             self._check_long_signals(df, i)
             self._check_short_signals(df, i)
         return df
-
-    # --- POSITION LOADING AND MANAGEMENT (PRESERVED) ---
-    
+  
     def _load_positions(self) -> None:
         positions_list = get_positions()
         logger.info(f"Attempting to load {len(positions_list)} positions from data manager")
@@ -1379,12 +1361,10 @@ class NGSStrategy:
             
             logger.debug(f"Processing position: {symbol}, entry_date: {entry_date} (type: {type(entry_date)})")
             
-            # Only load positions within retention period
             if symbol and entry_date:
                 try:
-                    # Handle multiple date formats
                     if isinstance(entry_date, str):
-                        # Try multiple date formats
+                        
                         for fmt in ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S']:
                             try:
                                 entry_datetime = datetime.strptime(entry_date.split()[0], '%Y-%m-%d')  # Just take date part
@@ -1393,11 +1373,9 @@ class NGSStrategy:
                             except ValueError:
                                 continue
                         else:
-                            # If no format worked, skip this position
                             logger.warning(f"Could not parse date for position {symbol}: {entry_date}")
                             continue
                     else:
-                        # Assume it's a pandas Timestamp
                         entry_datetime = entry_date.to_pydatetime() if hasattr(entry_date, 'to_pydatetime') else entry_date
                         entry_date_str = entry_datetime.strftime('%Y-%m-%d')
                     
@@ -1409,7 +1387,7 @@ class NGSStrategy:
                             'bars_since_entry': int(pos.get('days_held', 0)),
                             'profit': float(pos.get('profit', 0))
                         }
-                        # Update M/E calculator with loaded position
+                        
                         current_price = pos.get('current_price', pos.get('entry_price', 0))
                         trade_type = pos.get('side', 'long')
                         self.me_calculator.update_position(symbol, self.positions[symbol]['shares'], 
@@ -1478,7 +1456,6 @@ class NGSStrategy:
             df_with_signals = self.generate_signals(df_with_indicators)
             result_df = self.manage_positions(df_with_signals, symbol)
             
-            # CRITICAL FIX: Update M/E calculator with current price after processing
             if not result_df.empty and symbol in self.positions:
                 current_price = result_df['Close'].iloc[-1]
                 if self.positions[symbol]['shares'] != 0:
@@ -1496,17 +1473,11 @@ class NGSStrategy:
             logger.error(f"Error processing {symbol}: {e}")
             return None
 
-    # --- MAIN RUN METHOD (ENHANCED WITH M/E VERIFICATION) ---
-    
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
-        # Initialize for this run
+        
         self.trades = []
         self.me_calculator = DailyMERatioCalculator(self.account_size)  # Reset M/E tracking
-        
-        # Filter trades by retention period
         self._filter_trades_by_retention()
-        
-        # ENHANCED M/E STATUS VERIFICATION
         print(f"\n{'='*70}")
         print("STARTING STRATEGY RUN - M/E VERIFICATION")
         print(f"{'='*70}")
@@ -1515,7 +1486,6 @@ class NGSStrategy:
         print(f"Min Positions Scale:  {self.min_positions_for_scaling_up}")
         print(f"Initial Positions:    {len(self.positions)}")
         
-        # Calculate initial M/E ratio for any existing positions
         if self.positions:
             initial_me_ratio = self.calculate_current_me_ratio()
             print(f"Initial M/E:          {initial_me_ratio:.2f}%")
@@ -1535,16 +1505,12 @@ class NGSStrategy:
                     print(f"Progress: {i+1}/{len(data)} symbols | Current M/E: {current_me:.1f}%")
                 logger.info(f"Processed {symbol}: {len(result)} rows ({i+1}/{len(data)})")
         
-        # CRITICAL FIX: Update all positions with final prices at end of run
         final_prices = {}
         for symbol, df in results.items():
             if not df.empty:
                 final_prices[symbol] = df['Close'].iloc[-1]
         
-        # Update M/E calculator with final prices
         self.update_me_calculator_with_current_prices(final_prices)
-        
-        # Save M/E history after run
         self.me_calculator.save_daily_me_data()
         
         long_positions, short_positions = self.get_current_positions()
@@ -1556,7 +1522,6 @@ class NGSStrategy:
             else:
                 current_price = pos['entry_price']
             
-            # Calculate days held using proper datetime import
             entry_dt = datetime.strptime(pos['entry_date'], '%Y-%m-%d')
             days_held = (datetime.now() - entry_dt).days
             
@@ -1580,7 +1545,6 @@ class NGSStrategy:
             else:
                 current_price = pos['entry_price']
             
-            # Calculate days held and profit using proper datetime import
             shares_abs = abs(pos['shares'])
             profit = round(float((pos['entry_price'] - current_price) * shares_abs), 2)
             entry_dt = datetime.strptime(pos['entry_date'], '%Y-%m-%d')
@@ -1602,19 +1566,12 @@ class NGSStrategy:
         
         save_positions(all_positions)
         
-        # CRITICAL: Perform end-of-day M/E rebalancing
         print(f"\nCALLING END-OF-DAY M/E REBALANCING...")
         self.end_of_day_rebalancing()
         
-        # Note: Sector reporting disabled - using M/E ratio control instead
-        # if self.sector_allocation_enabled:
-        #     sector_report = self.generate_sector_report()
-        #     self._display_sector_summary(sector_report)
-        
-        # FINAL M/E STATUS VERIFICATION - FIXED CALCULATION
         final_me_metrics = self.me_calculator.calculate_daily_me_ratio(
-            date=datetime.now().strftime('%Y-%m-%d'),
-            current_prices=final_prices
+        date=datetime.now().strftime('%Y-%m-%d'),
+        current_prices=final_prices
         )
         final_me = final_me_metrics['ME_Ratio']
         
@@ -1626,7 +1583,6 @@ class NGSStrategy:
         print(f"Final Positions:      {len(all_positions)}")
         print(f"Rebalancing System:   {'ACTIVE' if self.me_rebalancing_enabled else 'INACTIVE'}")
         
-        # FIXED: Show M/E calculation details with correct formula
         print(f"\nM/E Calculation Details:")
         print(f"Portfolio Equity:       ${final_me_metrics['Portfolio_Equity']:,.2f}")
         print(f"Total Position Value:   ${final_me_metrics['Total_Position_Value']:,.2f}")
@@ -1700,8 +1656,6 @@ class NGSStrategy:
         else:
             logger.warning(f"No data to backfill for {symbol}")
 
-# --- DATA LOADING FUNCTION (PRESERVED) ---
-
 def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
     """
     Load EOD data using your existing data_manager functions.
@@ -1718,7 +1672,6 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
     logger.info(f"Loading data for {len(symbols)} symbols")
     logger.info(f"Note: data_manager automatically filters to 6-month retention period")
     
-    # Progress tracking for large symbol lists
     batch_size = 50
     total_batches = (len(symbols) + batch_size - 1) // batch_size
     
@@ -1731,8 +1684,6 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
         
         for i, symbol in enumerate(batch_symbols):
             try:
-                # Use your existing load_price_data function from data_manager
-                # It only takes symbol as argument and returns 6-month filtered data
                 df = load_price_data(symbol)  # FIXED: Only pass symbol
                 
                 if df is not None and not df.empty:
@@ -1762,7 +1713,6 @@ def run_ngs_automated_reporting(comparison=None):
     import os
     import json
 
-    # 1. Load your universe
     symbols = []
     sp500_file = os.path.join('data', 'sp500_symbols.txt')
     if os.path.exists(sp500_file):
@@ -1771,15 +1721,9 @@ def run_ngs_automated_reporting(comparison=None):
     else:
         symbols = ["AAPL", "MSFT", "GOOGL"]
 
-    # Load the price data
     data = load_polygon_data(symbols)
-
-    # Now run the strategy
-    # Create an instance of NGSStrategy first
     strategy = NGSStrategy(account_size=1_000_000)
-    # Then run the strategy on the data
     results = strategy.run(data)
-    # Save trades to CSV for dashboard
     trade_history_path = 'data/trade_history.csv'
     if os.path.exists(trade_history_path):
         prior_trades = pd.read_csv(trade_history_path)
@@ -1797,7 +1741,6 @@ def run_ngs_automated_reporting(comparison=None):
     all_trades_df = all_trades_df.drop_duplicates(subset=['symbol', 'entry_date', 'exit_date'])
     all_trades_df.to_csv(trade_history_path, index=False)
 
-    # 6. Save summary stats for dashboard if comparison is provided
 if comparison is not None:
     with open('data/summary_stats.json', 'w') as f:
         json.dump(comparison.summary_stats, f, indent=2)
@@ -1805,7 +1748,6 @@ if comparison is not None:
 else:
     print("✅ Trades exported for Streamlit dashboard (no summary stats).")
 
-# nGS_Revised_Strategy.py (around lines 1810–1830)
 if __name__ == "__main__":
     from ngs_ai_integration_manager import NGSAIIntegrationManager
     from ngs_ai_performance_comparator import NGSAIPerformanceComparator
@@ -1816,13 +1758,11 @@ if __name__ == "__main__":
     print("=" * 70)
     
     try:
-        # STEP 1: Initialize AI systems
         print("\n🧠 Initializing AI Strategy Selection System...")
         
         AI_AVAILABLE = True
         print("✅ AI modules imported successfully")
         
-        # Initialize AI systems
         ai_integration_manager = NGSAIIntegrationManager(
             account_size=1000000,
             data_dir='data'
@@ -1830,16 +1770,7 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"❌ Error initializing AI modules: {e}")
-        print(f"⚠️  AI initialization failed: {e}")
-        print("Falling back to original nGS strategy...")
-        AI_AVAILABLE = False
-        
-        # No changes needed here since the hybrid option is removed entirely.
-    except Exception as e:
-        print(f"❌ Error initializing AI modules: {e}")
-        print(f"⚠️  AI initialization failed: {e}")
-        print("Falling back to original nGS strategy...")
-        AI_AVAILABLE = False
+        exit(1)
         
         # STEP 2: Load data (same as before)
         sp500_file = os.path.join('data', 'sp500_symbols.txt')
@@ -1865,11 +1796,8 @@ if __name__ == "__main__":
         
         # STEP 3: AI Strategy Selection or Fallback
         if AI_AVAILABLE:
-            # AI-POWERED EXECUTION
             print(f"\n🔍 AI ANALYZING STRATEGY OPTIONS...")
-            print("This will compare your original nGS vs AI-optimized variants")
-            
-            # Define AI objectives to test
+                    
             ai_objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate']
             
             print(f"🧪 Testing {len(ai_objectives)} AI strategy objectives:")
@@ -1906,15 +1834,10 @@ if __name__ == "__main__":
                 # Set operating mode based on AI recommendation
                 print(f"\n🤖 AI DECISION:")
                 
-            if ai_score >= 70:
                 print("✅ AI RECOMMENDS: AI-Focused Strategy")
-                print(f"   Reason: AI shows significant improvements (score: {ai_score:.0f}/100)")
+                print(f"   Reason: Default AI analysis engaged")
                 ai_integration_manager.set_operating_mode('ai_only')
-            else:
-                print("❌ AI score insufficient for AI-Focused Strategy")
-                print(f"   Reason: AI score below threshold (score: {ai_score:.0f}/100)")
-                exit(1)
-                
+                            
                 print(f"\n💰 RECOMMENDED ALLOCATION:")
                 for strategy_name, allocation_pct in recommended_allocation.items():
                     print(f"   {strategy_name}: {allocation_pct:.1f}%")
