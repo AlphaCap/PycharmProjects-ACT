@@ -1935,9 +1935,9 @@ if __name__ == "__main__":
                 print("Falling back to original nGS strategy...")
                 AI_AVAILABLE = False
 
-if not AI_AVAILABLE:
-    print("❌ AI unavailable or initialization failed")
-    exit(1)
+            if not AI_AVAILABLE:
+                print("❌ AI unavailable or initialization failed")
+                exit(1)
             
             # Show original results
             print(f"\n{'='*70}")
