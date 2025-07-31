@@ -1834,12 +1834,7 @@ if __name__ == "__main__":
         print("Falling back to original nGS strategy...")
         AI_AVAILABLE = False
         
-        # Initialize AI systems
-        ai_integration_manager = NGSAIIntegrationManager(
-            account_size=1000000,
-            data_dir='data'
-        )
-
+        # No changes needed here since the hybrid option is removed entirely.
     except Exception as e:
         print(f"❌ Error initializing AI modules: {e}")
         print(f"⚠️  AI initialization failed: {e}")
@@ -1945,11 +1940,9 @@ if __name__ == "__main__":
                 print("Falling back to original nGS strategy...")
                 AI_AVAILABLE = False
         
-        if not AI_AVAILABLE:
-            # FALLBACK: Original nGS execution
-            print(f"\n📊 Running Original nGS Strategy...")
-            strategy = NGSStrategy(account_size=1000000)
-            results = strategy.run(data)
+            if not AI_AVAILABLE:
+                print("❌ AI unavailable or initialization failed")
+                exit(1)
             
             # Show original results
             print(f"\n{'='*70}")
