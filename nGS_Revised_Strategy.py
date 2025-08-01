@@ -1741,11 +1741,6 @@ def run_ngs_automated_reporting(comparison=None):
     all_trades_df = all_trades_df.drop_duplicates(subset=['symbol', 'entry_date', 'exit_date'])
     all_trades_df.to_csv(trade_history_path, index=False)
 
-if comparison is not None:
-    with open('data/summary_stats.json', 'w') as f:
-        json.dump(comparison.summary_stats, f, indent=2)
-    print("✅ Trades and summary stats exported for Streamlit dashboard.")
-else:
     print("✅ Trades exported for Streamlit dashboard (no summary stats).")
 
 if __name__ == "__main__":
