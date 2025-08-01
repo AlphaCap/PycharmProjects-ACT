@@ -1768,11 +1768,7 @@ if __name__ == "__main__":
             data_dir='data'
         )
 
-    except Exception as e:
-        print(f"❌ Error initializing AI modules: {e}")
-        exit(1)
-        
-        # STEP 2: Load data (same as before)
+        # STEP 2: Load data
         sp500_file = os.path.join('data', 'sp500_symbols.txt')
         try:
             with open(sp500_file, 'r') as f:
@@ -1794,10 +1790,9 @@ if __name__ == "__main__":
         
         print(f"✅ Successfully loaded data for {len(data)} symbols")
         
-        # STEP 3: AI Strategy Selection or Fallback
+        # STEP 3: AI Strategy Selection
         if AI_AVAILABLE:
             print(f"\n🔍 AI ANALYZING STRATEGY OPTIONS...")
-                    
             ai_objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate']
             
             print(f"🧪 Testing {len(ai_objectives)} AI strategy objectives:")
@@ -1833,11 +1828,10 @@ if __name__ == "__main__":
                 
                 # Set operating mode based on AI recommendation
                 print(f"\n🤖 AI DECISION:")
-                
                 print("✅ AI RECOMMENDS: AI-Focused Strategy")
                 print(f"   Reason: Default AI analysis engaged")
                 ai_integration_manager.set_operating_mode('ai_only')
-                            
+                
                 print(f"\n💰 RECOMMENDED ALLOCATION:")
                 for strategy_name, allocation_pct in recommended_allocation.items():
                     print(f"   {strategy_name}: {allocation_pct:.1f}%")
@@ -1845,32 +1839,34 @@ if __name__ == "__main__":
                 # Execute AI-selected strategy
                 print(f"\n🚀 Executing AI-selected strategy...")
                 results = ai_integration_manager.run_integrated_strategy(data)
-            try:
+                
                 print(f"✅ AI-powered strategy execution completed!")
                 print(f"Mode: AI-ONLY")
+                
             except Exception as e:
                 print(f"❌ AI analysis failed: {e}")
                 exit(1)  # Terminate the program if AI analysis fails
+            
             finally:
                 print("Execution attempt completed.") 
                 print(f"\n{'='*70}")
                 print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
                 print(f"{'='*70}")
-            
-            total_profit = sum(trade['profit'] for trade in strategy.trades)
-            winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
-            
-            print(f"Starting capital:     ${strategy.account_size:,.2f}")
-            print(f"Ending cash:          ${strategy.cash:,.2f}")
-            print(f"Total P&L:            ${total_profit:,.2f}")
-            print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
-            print(f"Total trades:         {len(strategy.trades)}")
-            
-            if strategy.trades:
-                print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
                 
-            print(f"✅ Original nGS strategy execution completed!")
-        
+                total_profit = sum(trade['profit'] for trade in strategy.trades)
+                winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
+                
+                print(f"Starting capital:     ${strategy.account_size:,.2f}")
+                print(f"Ending cash:          ${strategy.cash:,.2f}")
+                print(f"Total P&L:            ${total_profit:,.2f}")
+                print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
+                print(f"Total trades:         {len(strategy.trades)}")
+                
+                if strategy.trades:
+                    print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
+                
+                print(f"✅ Original nGS strategy execution completed!")
+    
     except Exception as e:
         print(f"❌ Execution failed: {e}")
         import traceback
