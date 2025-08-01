@@ -211,12 +211,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Set encoding for Windows console to handle Unicode
-#if sys.platform == 'win32':
-    #import io
-    #sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    #sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
 class NGSStrategy:
     """
     Neural Grid Strategy (nGS) implementation with Active M/E Rebalancing.
