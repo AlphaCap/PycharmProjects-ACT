@@ -103,14 +103,9 @@ class DailyMERatioCalculator:
             elif pos['type'].lower() == 'short' and pos['shares'] < 0:
                 short_value += position_market_value
             
-            # Unrealized P&L (can be positive or negative)
             total_unrealized_pnl += pos['unrealized_pnl']
-        
-        # FIXED: Portfolio equity calculation
-        # Total equity = Starting capital + All P&L (realized + unrealized)
+              
         portfolio_equity = self.initial_portfolio_value + self.realized_pnl + total_unrealized_pnl
-        
-        # FIXED: M/E ratio = Total position market value / Portfolio equity
         me_ratio = (total_position_value / portfolio_equity * 100) if portfolio_equity > 0 else 0.0
         
         # Create daily metrics
@@ -126,10 +121,8 @@ class DailyMERatioCalculator:
             'Long_Positions': len([p for p in self.current_positions.values() if p['type'].lower() == 'long' and p['shares'] > 0]),
             'Short_Positions': len([p for p in self.current_positions.values() if p['type'].lower() == 'short' and p['shares'] < 0]),
         }
-        
-        # Store in history
+          
         self.daily_me_history.append(daily_metrics)
-        
         return daily_metrics
     
     def get_me_history_df(self) -> pd.DataFrame:
