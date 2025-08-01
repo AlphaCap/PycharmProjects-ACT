@@ -15,7 +15,6 @@ from dataclasses import dataclass
 warnings.filterwarnings('ignore')
 
 # Import necessary components
-from nGS_Revised_Strategy import NGSStrategy
 from data_utils import load_polygon_data
 from strategy_generator_ai import TradingStrategy
 
