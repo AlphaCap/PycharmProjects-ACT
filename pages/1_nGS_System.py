@@ -28,7 +28,6 @@ from data_manager import (
     get_strategy_performance,
     get_portfolio_performance_stats,
     get_signals,
-    get_system_status,
     get_trades_history,
     get_me_ratio_history  # Added for M/E charts
 )
