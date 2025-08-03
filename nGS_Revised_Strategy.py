@@ -1732,19 +1732,15 @@ def run_ngs_automated_reporting(comparison=None):
 
 if __name__ == "__main__":
     from ngs_ai_integration_manager import NGSAIIntegrationManager
-    from ngs_ai_performance_comparator import NGSAIPerformanceComparator
-    
+
     print("🚀 nGS Trading Strategy with AI SELECTION ENABLED")
     print("=" * 70)
     print(f"Data Retention: {RETENTION_DAYS} days (6 months)")
     print("=" * 70)
-    
+
     try:
-        print("\n🧠 Initializing AI Strategy Selection System...")
-        
-        AI_AVAILABLE = True
-        print("✅ AI modules imported successfully")
-        
+        print("\n🧠 Initializing AI Integration System...")
+
         ai_integration_manager = NGSAIIntegrationManager(
             account_size=1000000,
             data_dir='data'
@@ -1762,47 +1758,33 @@ if __name__ == "__main__":
                 'AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN', 'META', 'NVDA',
                 'JPM', 'JNJ', 'PG', 'UNH', 'HD', 'BAC', 'XOM', 'CVX', 'PFE'
             ]
-        
+
         print(f"🔄 Loading market data for {len(symbols)} symbols...")
         data = load_polygon_data(symbols)
-        
+
         if not data:
             print("❌ No data loaded - check your data files")
             exit(1)
-        
+
         print(f"✅ Successfully loaded data for {len(data)} symbols")
-        
-        print("\n🚀 RUNNING AI-ONLY STRATEGY")
-strategy = NGSStrategy(account_size=1_000_000)
-results = strategy.run(data)
 
-print(f"\n{'='*70}")
-print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
-print(f"{'='*70}")
+        # AI-only execution
+        print(f"\n🚀 Running AI-ONLY strategy integration...")
+        ai_integration_manager.set_operating_mode('ai_only')
+        results = ai_integration_manager.run_integrated_strategy(data)
+        print(f"\n✅ AI-powered strategies executed in AI-ONLY mode.")
 
-total_profit = sum(trade['profit'] for trade in strategy.trades)
-winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
+        # Optional: Print summary results (customize as needed)
+        summary = results.get('integration_summary', {})
+        print(f"\n{'='*70}")
+        print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
+        print(f"{'='*70}")
+        print(f"Operating Mode:        {summary.get('operating_mode', 'ai_only').upper()}")
+        print(f"Strategies Executed:   {summary.get('strategies_executed', 0)}")
+        print(f"Total Capital Deployed:${summary.get('total_capital_deployed', 0):,.2f}")
 
-print(f"Starting capital:     ${strategy.account_size:,.2f}")
-print(f"Ending cash:          ${strategy.cash:,.2f}")
-print(f"Total P&L:            ${total_profit:,.2f}")
-print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
-print(f"Total trades:         {len(strategy.trades)}")
-if strategy.trades:
-    print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
-print(f"✅ AI-powered strategy execution completed!")
-                
-                print(f"Starting capital:     ${strategy.account_size:,.2f}")
-                print(f"Ending cash:          ${strategy.cash:,.2f}")
-                print(f"Total P&L:            ${total_profit:,.2f}")
-                print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
-                print(f"Total trades:         {len(strategy.trades)}")
-                
-                if strategy.trades:
-                    print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
-                
-                print(f"✅ Original nGS strategy execution completed!")
-    
+        print("✅ AI-only strategy execution completed!")
+
     except Exception as e:
         print(f"❌ Execution failed: {e}")
         import traceback
