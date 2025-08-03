@@ -11,7 +11,6 @@ from data_manager import (
     get_portfolio_metrics,
     get_signals,
     get_positions,
-    get_system_status
 )
 
 try:
@@ -456,3 +455,4 @@ st.markdown(
     """, 
     unsafe_allow_html=True
 )
+
