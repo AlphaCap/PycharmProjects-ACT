@@ -243,7 +243,7 @@ class NGSAIBacktestingSystem:
     # =============================================================================
     
     def walk_forward_analysis(self, strategy: TradingStrategy, data: Dict[str, pd.DataFrame],
-                            training_months: int = 12, testing_months: int = 3) -> Dict:
+                            training_months: int = 8, testing_months: int = 4) -> Dict:
         """
         Perform walk-forward analysis to test strategy robustness over time
         """
