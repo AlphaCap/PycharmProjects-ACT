@@ -1,20 +1,16 @@
 """
 nGS AI Integration Manager
 Manages integration between your existing nGS strategy and AI-generated strategies
-Allows seamless switching and performance tracking
-Revised: Uses only AI-generated strategies or comparison mode, with original and hybrid modes removed.
+Now runs exclusively in AI-only mode: all comparison/original logic removed for simplicity.
 """
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any, Union
-from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
+from datetime import datetime
 import logging
 import json
 import os
-
-# Import your existing strategy (retained for compatibility, but not used in AI-only mode)
-from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
 
 # Import AI components
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
@@ -33,15 +29,12 @@ logger = logging.getLogger(__name__)
 class NGSAIIntegrationManager:
     """
     Manages integration with AI-generated strategies
-    Provides AI-only and comparison operating modes
+    Exclusively provides AI-only operating mode
     """
     
     def __init__(self, account_size: float = 1000000, data_dir: str = 'data'):
         self.account_size = account_size
         self.data_dir = data_dir
-        
-        # Initialize your original nGS strategy (retained for comparison mode)
-        self.original_ngs = NGSStrategy(account_size=account_size, data_dir=data_dir)
         
         # Initialize AI components with your parameters
         self.ngs_indicator_lib = NGSIndicatorLibrary()
@@ -51,9 +44,9 @@ class NGSAIIntegrationManager:
         # Strategy management
         self.active_strategies = {}  # strategy_id -> TradingStrategy
         self.strategy_performance = {}  # strategy_id -> performance_metrics
-        self.operating_mode = 'ai_only'  # 'ai_only', 'comparison'
+        self.operating_mode = 'ai_only'  # Only AI mode
         
-        # Integration settings (updated to remove original/hybrid allocations)
+        # Integration settings
         self.integration_config = {
             'ai_allocation_pct': 100.0,     # % of capital for AI strategies
             'max_ai_strategies': 3,         # Max concurrent AI strategies
@@ -80,9 +73,9 @@ class NGSAIIntegrationManager:
         r2 = model.score(x, y)
         return r2
 
-    def auto_select_mode(self, original_metrics: Dict, ai_metrics: Dict, verbose: bool = True) -> str:
+    def auto_select_mode(self, ai_metrics: Dict, verbose: bool = True) -> str:
         """
-        Validates AI strategy performance based on hierarchy and selects AI-only mode.
+        Validates AI strategy performance based on hierarchy and always selects AI-only mode.
         Hierarchy:
         1. Linear equity curve (R²)
         2. Minimum drawdown
@@ -103,48 +96,42 @@ class NGSAIIntegrationManager:
         if verbose:
             print(f"[HIERARCHY] AI Metrics - R²: {ai_r2:.4f}, Drawdown: {ai_dd:.2f}%, ROI: {ai_roi:.2f}%, Sharpe: {ai_sharpe:.3f}")
         
-        # Performance hierarchy checks (retained without original comparisons)
-        if ai_r2 < 0.02:  # Low R² indicates poor linearity
-            if verbose:
-                print("[HIERARCHY] AI strategy warning: Low R² score.")
-        if ai_dd > 2:  # High drawdown indicates higher risk
-            if verbose:
-                print("[HIERARCHY] AI strategy warning: High drawdown.")
-        if ai_roi < 2:  # Low ROI indicates poor returns
-            if verbose:
-                print("[HIERARCHY] AI strategy warning: Low ROI.")
-        if ai_sharpe < 0.1:  # Low Sharpe ratio indicates poor risk-adjusted return
-            if verbose:
-                print("[HIERARCHY] AI strategy warning: Low Sharpe ratio.")
+        # Performance hierarchy checks (informational only)
+        if ai_r2 < 0.02 and verbose:
+            print("[HIERARCHY] AI strategy warning: Low R² score.")
+        if ai_dd > 2 and verbose:
+            print("[HIERARCHY] AI strategy warning: High drawdown.")
+        if ai_roi < 2 and verbose:
+            print("[HIERARCHY] AI strategy warning: Low ROI.")
+        if ai_sharpe < 0.1 and verbose:
+            print("[HIERARCHY] AI strategy warning: Low Sharpe ratio.")
         
         if verbose:
             print("[HIERARCHY] Selecting AI-only mode.")
         return 'ai_only'
 
-    def auto_update_mode(self, original_metrics: Dict, ai_metrics: Dict, verbose: bool=True):
+    def auto_update_mode(self, ai_metrics: Dict, verbose: bool=True):
         """
         Performs auto-selection and sets the operating mode to AI-only.
         """
-        new_mode = self.auto_select_mode(original_metrics, ai_metrics, verbose=verbose)
+        new_mode = self.auto_select_mode(ai_metrics, verbose=verbose)
         if new_mode != self.operating_mode:
             self.set_operating_mode(new_mode)
             print(f"[AUTO] Switched to mode: {new_mode}")
 
     # =============================================================================
-    # OPERATING MODES
+    # OPERATING MODE
     # =============================================================================
-    
     def set_operating_mode(self, mode: str, config: Dict = None):
         """
         Set operating mode for strategy execution
         
-        Modes:
+        Mode:
         - 'ai_only': Use only AI-generated strategies
-        - 'comparison': Run both original and AI strategies for comparison (no real trades)
         """
-        valid_modes = ['ai_only', 'comparison']
+        valid_modes = ['ai_only']
         if mode not in valid_modes:
-            raise ValueError(f"Invalid mode. Must be one of: {valid_modes}")
+            raise ValueError(f"Invalid mode. Only 'ai_only' is supported.")
         
         self.operating_mode = mode
         
@@ -152,15 +139,9 @@ class NGSAIIntegrationManager:
             self.integration_config.update(config)
         
         print(f"\n🎯 Operating Mode Set: {mode.upper()}")
-        
-        if mode == 'ai_only':
-            print("   Using ONLY AI-generated strategies")
-            print(f"   Max AI strategies: {self.integration_config['max_ai_strategies']}")
-            
-        elif mode == 'comparison':
-            print("   Running both strategies in PARALLEL")
-            print("   Performance comparison mode")
-    
+        print("   Using ONLY AI-generated strategies")
+        print(f"   Max AI strategies: {self.integration_config['max_ai_strategies']}")
+
     def create_ai_strategy_set(self, objectives: List[str], 
                               allocation_per_strategy: float = None) -> Dict[str, TradingStrategy]:
         """
@@ -193,62 +174,29 @@ class NGSAIIntegrationManager:
         
         print(f"✅ Created {len(strategies)} AI strategies")
         return strategies
-    
+
     # =============================================================================
     # STRATEGY EXECUTION
     # =============================================================================
-    
     def run_integrated_strategy(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
         """
-        Run strategies based on current operating mode
-        Returns comprehensive results from all active strategies
+        Run strategies in AI-only mode.
+        Returns comprehensive results from all active strategies.
         """
         results = {
             'mode': self.operating_mode,
             'timestamp': datetime.now().isoformat(),
-            'original_ngs': None,
             'ai_strategies': {},
-            'comparison_metrics': None,
             'integration_summary': None
         }
         
         print(f"\n🚀 Running Integrated Strategy - Mode: {self.operating_mode.upper()}")
         print(f"   Processing {len(data)} symbols")
         
-        if self.operating_mode == 'ai_only':
-            results['ai_strategies'] = self._run_ai_strategies_only(data)
-            
-        elif self.operating_mode == 'comparison':
-            results.update(self._run_comparison_mode(data))
-        
-        # Generate integration summary
+        results['ai_strategies'] = self._run_ai_strategies_only(data)
         results['integration_summary'] = self._generate_integration_summary(results)
-        
         return results
-    
-    def _run_original_ngs(self, data: Dict[str, pd.DataFrame]) -> Dict:
-        """Run your original nGS strategy (used only in comparison mode)"""
-        print("📊 Running Original nGS Strategy for comparison...")
-        
-        # Use your original strategy
-        original_results = self.original_ngs.run(data)
-        
-        # Collect performance metrics
-        performance = {
-            'trades': len(self.original_ngs.trades),
-            'total_pnl': sum(trade['profit'] for trade in self.original_ngs.trades),
-            'cash': self.original_ngs.cash,
-            'positions': len([pos for pos in self.original_ngs.positions.values() if pos['shares'] != 0]),
-            'me_ratio': self.original_ngs.calculate_current_me_ratio(),
-            'win_rate': len([t for t in self.original_ngs.trades if t['profit'] > 0]) / max(1, len(self.original_ngs.trades))
-        }
-        
-        return {
-            'signals': original_results,
-            'performance': performance,
-            'strategy_instance': self.original_ngs
-        }
-    
+
     def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict]:
         """Run only AI-generated strategies"""
         print("🧠 Running AI Strategies Only...")
@@ -280,117 +228,12 @@ class NGSAIIntegrationManager:
                 logger.error(f"Error executing AI strategy {strategy_id}: {e}")
         
         return ai_results
-    
-    def _run_comparison_mode(self, data: Dict[str, pd.DataFrame]) -> Dict:
-        """Run both strategies in parallel for performance comparison"""
-        print("📊 Running Comparison Mode...")
-        print("   Both strategies run with full capital for comparison")
-        
-        # Run original strategy
-        original_results = self._run_original_ngs(data)
-        
-        # Create and run AI strategies
-        if not self.active_strategies:
-            self.create_ai_strategy_set(['linear_equity', 'max_roi', 'high_winrate'])
-        
-        ai_results = {}
-        for strategy_id, strategy in self.active_strategies.items():
-            try:
-                strategy_results = strategy.execute_on_data(data, self.ngs_indicator_lib)
-                ai_results[strategy_id] = {
-                    'strategy': strategy,
-                    'results': strategy_results,
-                    'performance': strategy.performance_metrics
-                }
-            except Exception as e:
-                print(f"   ❌ AI Strategy {strategy_id} comparison failed: {e}")
-        
-        # Generate detailed comparison metrics
-        comparison_metrics = self._generate_comparison_metrics(original_results, ai_results)
-        
-        return {
-            'original_ngs': original_results,
-            'ai_strategies': ai_results,
-            'comparison_metrics': comparison_metrics
-        }
-    
-    # =============================================================================
-    # RISK MANAGEMENT & SYNCHRONIZATION
-    # =============================================================================
-    
-    def _sync_risk_management(self, original_strategy: NGSStrategy, ai_results: Dict):
-        """Sync risk management (disabled as not needed for AI-only)"""
-        print("   🔄 Risk sync disabled for AI-only mode.")
-    
-    def _calculate_strategy_performance(self, strategy_instance) -> Dict:
-        """Calculate standardized performance metrics for any strategy"""
-        if hasattr(strategy_instance, 'trades') and strategy_instance.trades:
-            trades = strategy_instance.trades
-            total_pnl = sum(trade['profit'] for trade in trades)
-            winning_trades = len([t for t in trades if t['profit'] > 0])
-            win_rate = winning_trades / len(trades)
-        else:
-            trades = []
-            total_pnl = 0
-            win_rate = 0
-        
-        return {
-            'total_trades': len(trades),
-            'total_pnl': total_pnl,
-            'win_rate': win_rate,
-            'cash': getattr(strategy_instance, 'cash', 0),
-            'positions': len(getattr(strategy_instance, 'positions', {})),
-            'me_ratio': getattr(strategy_instance, 'calculate_current_me_ratio', lambda: 0)()
-        }
-    
+
     # =============================================================================
     # PERFORMANCE ANALYSIS & REPORTING
     # =============================================================================
-    
-    def _generate_comparison_metrics(self, original_results: Dict, ai_results: Dict) -> Dict:
-        """Generate detailed comparison between original and AI strategies"""
-        
-        comparison = {
-            'performance_comparison': {},
-            'strategy_rankings': {},
-            'risk_analysis': {},
-            'trade_analysis': {}
-        }
-        
-        # Performance comparison
-        original_perf = original_results['performance']
-        
-        comparison['performance_comparison']['original_ngs'] = {
-            'total_pnl': original_perf['total_pnl'],
-            'win_rate': original_perf['win_rate'],
-            'total_trades': original_perf['trades'],
-            'me_ratio': original_perf['me_ratio']
-        }
-        
-        for strategy_id, ai_result in ai_results.items():
-            ai_perf = ai_result['performance']
-            comparison['performance_comparison'][strategy_id] = {
-                'objective': ai_result['strategy'].objective_name,
-                'total_pnl': ai_perf.get('total_return_pct', 0),
-                'win_rate': ai_perf.get('win_rate', 0),
-                'total_trades': ai_perf.get('total_trades', 0),
-                'max_drawdown': ai_perf.get('max_drawdown_pct', 0)
-            }
-        
-        # Strategy rankings by different metrics
-        all_strategies = {'original_ngs': original_perf['total_pnl']}
-        for strategy_id, ai_result in ai_results.items():
-            all_strategies[strategy_id] = ai_result['performance'].get('total_return_pct', 0)
-        
-        comparison['strategy_rankings']['by_pnl'] = sorted(
-            all_strategies.items(), key=lambda x: x[1], reverse=True
-        )
-        
-        return comparison
-    
     def _generate_integration_summary(self, results: Dict) -> Dict:
         """Generate summary of integration session"""
-        
         summary = {
             'session_timestamp': results['timestamp'],
             'operating_mode': results['mode'],
@@ -403,36 +246,22 @@ class NGSAIIntegrationManager:
         # Count strategies executed
         if results['ai_strategies']:
             summary['strategies_executed'] += len(results['ai_strategies'])
-            if self.operating_mode == 'ai_only':
-                summary['total_capital_deployed'] += sum(
-                    s['strategy'].allocated_capital for s in results['ai_strategies'].values()
-                )
-        
-        # Generate recommendations for comparison mode
-        if self.operating_mode == 'comparison' and results['comparison_metrics']:
-            rankings = results['comparison_metrics']['strategy_rankings']['by_pnl']
-            best_strategy = rankings[0][0] if rankings else None
-            if best_strategy != 'original_ngs':
-                summary['recommendations'].append(f"AI strategy {best_strategy} performed strongly")
-                summary['recommendations'].append("Consider continuing with AI-only mode")
+            summary['total_capital_deployed'] += sum(
+                s['strategy'].allocated_capital for s in results['ai_strategies'].values()
+            )
         
         return summary
-    
+
     # =============================================================================
     # STRATEGY MANAGEMENT
     # =============================================================================
-    
     def add_custom_ai_strategy(self, objective_name: str, custom_config: Dict = None) -> str:
         """Add a custom AI strategy with specific configuration"""
-        
         strategy = self.ai_generator.generate_ngs_strategy_for_objective(objective_name)
-        
         if custom_config:
             # Apply custom configuration
             strategy.config.update(custom_config)
-        
         self.active_strategies[strategy.strategy_id] = strategy
-        
         print(f"✅ Added custom AI strategy: {strategy.strategy_id}")
         return strategy.strategy_id
     
@@ -448,33 +277,25 @@ class NGSAIIntegrationManager:
     
     def list_active_strategies(self) -> Dict:
         """List all active strategies and their status"""
-        
         active_list = {}
-        
         for strategy_id, strategy in self.active_strategies.items():
             active_list[strategy_id] = {
-                'status': 'active' if self.operating_mode in ['ai_only', 'comparison'] else 'inactive',
+                'status': 'active',
                 'type': 'ai_generated',
                 'objective': strategy.objective_name,
                 'capital_allocation': getattr(strategy, 'allocated_capital', 0)
             }
-        
         return active_list
-    
+
     def save_integration_session(self, results: Dict, filename: str = None):
         """Save integration session results for analysis"""
         if filename is None:
             filename = f"integration_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        
         filepath = os.path.join(self.data_dir, 'integration_sessions', filename)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        
-        # Prepare results for JSON serialization
         serializable_results = self._prepare_results_for_json(results)
-        
         with open(filepath, 'w') as f:
             json.dump(serializable_results, f, indent=2)
-        
         print(f"✅ Integration session saved: {filepath}")
         return filepath
     
@@ -485,13 +306,11 @@ class NGSAIIntegrationManager:
             'timestamp': results['timestamp'],
             'integration_summary': results['integration_summary']
         }
-        
         if results['ai_strategies']:
             json_results['ai_strategies_summary'] = {
                 strategy_id: ai_result['performance'] 
                 for strategy_id, ai_result in results['ai_strategies'].items()
             }
-        
         return json_results
 
 def demonstrate_integration_manager():
@@ -502,22 +321,13 @@ def demonstrate_integration_manager():
     # Initialize integration manager
     manager = NGSAIIntegrationManager(account_size=1000000)
     
-    # Show available operating modes
-    print("\n📋 Available Operating Modes:")
-    modes = ['ai_only', 'comparison']
-    for mode in modes:
-        print(f"   {mode.upper()}: Use this mode for different integration approaches")
+    # Show available operating mode
+    print("\n📋 Available Operating Mode:")
+    print("   AI_ONLY: Use this mode for all integration approaches")
     
-    # Demonstrate mode switching
-    print(f"\n🔄 Demonstrating Mode Switching:")
-    
-    # AI only mode
-    manager.set_operating_mode('ai_only', {
-        'max_ai_strategies': 2
-    })
-    
-    # Comparison mode
-    manager.set_operating_mode('comparison')
+    # Demonstrate mode switching (AI only)
+    print(f"\n🔄 Demonstrating Mode Setting:")
+    manager.set_operating_mode('ai_only', {'max_ai_strategies': 2})
     
     # Show active strategies
     print(f"\n📊 Active Strategies:")
@@ -532,15 +342,15 @@ if __name__ == "__main__":
     print("🎯 nGS AI INTEGRATION MANAGER")
     print("=" * 60)
     print("🔄 Seamlessly integrate AI strategies with your system")
-    print("📊 Multiple operating modes for different use cases")
+    print("📊 AI-only mode for all use cases")
     
     # Run demonstration
     demonstrate_integration_manager()
     
     print(f"\n✅ INTEGRATION MANAGER READY!")
     print("\n🚀 Key Features:")
-    print("   ✅ AI-only and comparison modes")
+    print("   ✅ AI-only mode")
     print("   ✅ Capital allocation management")
-    print("   ✅ Performance tracking and comparison")
+    print("   ✅ Performance tracking")
     print("   ✅ Session saving and analysis")
     print("   ✅ Uses YOUR proven nGS parameters")
