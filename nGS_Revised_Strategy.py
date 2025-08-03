@@ -1772,71 +1772,25 @@ if __name__ == "__main__":
         
         print(f"✅ Successfully loaded data for {len(data)} symbols")
         
-        # STEP 3: AI Strategy Selection
-        if AI_AVAILABLE:
-            print(f"\n🔍 AI ANALYZING STRATEGY OPTIONS...")
-            ai_objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate']
-            
-            print(f"🧪 Testing {len(ai_objectives)} AI strategy objectives:")
-            for obj in ai_objectives:
-                print(f"   • {obj}")
-            
-            try:
-                # Run comprehensive comparison
-                print(f"\n📊 Running comprehensive performance analysis...")
-                comparison_results = performance_comparator.comprehensive_comparison(
-                    data=data,
-                    objectives=ai_objectives
-                )
-                
-                # AI makes recommendation
-                ai_score = comparison_results.ai_recommendation_score
-                best_strategy = comparison_results.best_overall_strategy
-                recommended_allocation = comparison_results.recommended_allocation
-                
-                print(f"\n🎯 AI STRATEGY SELECTION RESULTS")
-                print("=" * 50)
-                print(f"AI Recommendation Score: {ai_score:.0f}/100")
-                print(f"Best Overall Strategy:   {best_strategy}")
-                print(f"Statistical Significance: {'YES' if comparison_results.return_difference_significant else 'NO'}")
-                
-                # Show performance comparison
-                original_performance = comparison_results.original_metrics
-                best_ai_performance = max(comparison_results.ai_metrics, key=lambda x: x.total_return_pct)
-                
-                print(f"\n📈 PERFORMANCE COMPARISON:")
-                print(f"Original nGS:     {original_performance.total_return_pct:+7.2f}% return, {original_performance.max_drawdown_pct:7.2f}% drawdown")
-                print(f"Best AI Strategy: {best_ai_performance.total_return_pct:+7.2f}% return, {best_ai_performance.max_drawdown_pct:7.2f}% drawdown")
-                
-                # Set operating mode based on AI recommendation
-                print(f"\n🤖 AI DECISION:")
-                print("✅ AI RECOMMENDS: AI-Focused Strategy")
-                print(f"   Reason: Default AI analysis engaged")
-                ai_integration_manager.set_operating_mode('ai_only')
-                
-                print(f"\n💰 RECOMMENDED ALLOCATION:")
-                for strategy_name, allocation_pct in recommended_allocation.items():
-                    print(f"   {strategy_name}: {allocation_pct:.1f}%")
-                
-                # Execute AI-selected strategy
-                print(f"\n🚀 Executing AI-selected strategy...")
-                results = ai_integration_manager.run_integrated_strategy(data)
-                
-                print(f"✅ AI-powered strategy execution completed!")
-                print(f"Mode: AI-ONLY")
-                
-            except Exception as e:
-                print(f"❌ AI analysis failed: {e}")
-                exit(1)  # Terminate the program if AI analysis fails
-            
-            finally:
-                print("Execution attempt completed.") 
-                print(f"\n{'='*70}")
-                print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
-                print(f"{'='*70}")
-                
-                total_profit = sum(trade['profit'] for trade in strategy.trades)
-                winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
+        print("\n🚀 RUNNING AI-ONLY STRATEGY")
+strategy = NGSStrategy(account_size=1_000_000)
+results = strategy.run(data)
+
+print(f"\n{'='*70}")
+print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
+print(f"{'='*70}")
+
+total_profit = sum(trade['profit'] for trade in strategy.trades)
+winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
+
+print(f"Starting capital:     ${strategy.account_size:,.2f}")
+print(f"Ending cash:          ${strategy.cash:,.2f}")
+print(f"Total P&L:            ${total_profit:,.2f}")
+print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
+print(f"Total trades:         {len(strategy.trades)}")
+if strategy.trades:
+    print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
+print(f"✅ AI-powered strategy execution completed!")
                 
                 print(f"Starting capital:     ${strategy.account_size:,.2f}")
                 print(f"Ending cash:          ${strategy.cash:,.2f}")
