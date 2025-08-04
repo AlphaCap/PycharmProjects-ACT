@@ -7,6 +7,10 @@ import json
 import time
 
 def load_polygon_data(symbols):
+    """
+    Fetches or loads cached polygon data for the given symbols.
+    Handles rate limiting and caching to optimize API calls.
+    """
     data = {}
     cache_dir = 'data'
     last_fetch_file = os.path.join(cache_dir, 'last_fetch_dates.json')
