@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import logging
 import json
 import os
-from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
+from shared_utils import load_polygon_data
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
 from performance_objectives import ObjectiveManager
 from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
