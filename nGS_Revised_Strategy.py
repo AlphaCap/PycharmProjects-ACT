@@ -952,6 +952,7 @@ class NGSStrategy:
     # --- SIGNAL GENERATION (PRESERVED WITH SECTOR LIMITS) ---
     
     def _check_long_signals(self, df: pd.DataFrame, i: int) -> None:
+        from ngs_integrated_ai_system import NGSIndicatorLibrary, NGSAwareStrategyGenerator
         # Engulfing Long pattern
         if (df['Open'].iloc[i] < df['Close'].iloc[i-1] and
             df['Close'].iloc[i] > df['Open'].iloc[i-1] and
