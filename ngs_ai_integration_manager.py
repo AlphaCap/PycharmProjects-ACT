@@ -1,10 +1,3 @@
-"""
-nGS AI Integration Manager
-Manages integration between your existing nGS strategy and AI-generated strategies
-Allows seamless switching and performance tracking
-Revised: Uses only AI-generated strategies or comparison mode, with original and hybrid modes removed.
-"""
-
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Tuple, Any, Union
@@ -13,8 +6,7 @@ import logging
 import json
 import os
 
-# Import your existing strategy (retained for compatibility, but not used in AI-only mode)
-from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
+import nGS_Revised_Strategy
 
 # Import AI components
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
