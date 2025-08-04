@@ -233,5 +233,4 @@ class NGSAIBacktestingSystem:
             
             if not df_copy.empty:
                 filtered_data[symbol] = df_copy
-        
         return filtered_data

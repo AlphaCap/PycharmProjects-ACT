@@ -21,6 +21,8 @@ warnings.filterwarnings('ignore')
 
 # Import your existing components
 from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
+# Import your existing components (line 23 removed)
+
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary  
 from performance_objectives import ObjectiveManager
 from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
@@ -146,6 +148,7 @@ class NGSAIBacktestingSystem:
         """
         Backtest your original nGS strategy for comparison
         """
+        from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
         print(f"\n📊 Backtesting Original nGS Strategy")
         
         # Filter data by date range if specified
@@ -330,7 +333,6 @@ class NGSAIBacktestingSystem:
             # Apply commission (reduces profit)
             commission = self.backtest_config['commission_per_trade']
             adjusted_trade['profit'] = trade['profit'] - commission
-            
             # Apply slippage (reduces profit)
             entry_price = trade['entry_price']
             slippage_cost = entry_price * (self.backtest_config['slippage_pct'] / 100)
