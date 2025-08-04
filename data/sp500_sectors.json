@@ -357,6 +357,17 @@
     "Computer & Electronics Retail": [
       "BBY"
     ],
+    "Transaction & Payment Processing Services": [
+      "XYZ",
+      "CPAY",
+      "FIS",
+      "FI",
+      "GPN",
+      "JKHY",
+      "MA",
+      "PYPL",
+      "V"
+    ],
     "Pharmaceuticals": [
       "BMY",
       "JNJ",
@@ -454,8 +465,7 @@
     ],
     "Integrated Oil & Gas": [
       "CVX",
-      "XOM",
-      "HES"
+      "XOM"
     ],
     "Restaurants": [
       "CMG",
@@ -496,16 +506,6 @@
       "KDP",
       "MNST",
       "PEP"
-    ],
-    "Transaction & Payment Processing Services": [
-      "CPAY",
-      "FIS",
-      "FI",
-      "GPN",
-      "JKHY",
-      "MA",
-      "PYPL",
-      "V"
     ],
     "Consumer Staples Merchandise Retail": [
       "COST",
@@ -828,6 +828,7 @@
     "BIIB": "Biotechnology",
     "BLK": "Asset Management & Custody Banks",
     "BX": "Asset Management & Custody Banks",
+    "XYZ": "Transaction & Payment Processing Services",
     "BK": "Asset Management & Custody Banks",
     "BA": "Aerospace & Defense",
     "BKNG": "Hotels, Resorts & Cruise Lines",
@@ -991,7 +992,6 @@
     "DOC": "Health Care REITs",
     "HSIC": "Health Care Distributors",
     "HSY": "Packaged Foods & Meats",
-    "HES": "Integrated Oil & Gas",
     "HPE": "Technology Hardware, Storage & Peripherals",
     "HLT": "Hotels, Resorts & Cruise Lines",
     "HOLX": "Health Care Equipment",
@@ -1817,6 +1817,21 @@
         "BBY"
       ]
     },
+    "Transaction & Payment Processing Services": {
+      "count": 9,
+      "weight": 0.017892644135188866,
+      "symbols": [
+        "CPAY",
+        "FI",
+        "FIS",
+        "GPN",
+        "JKHY",
+        "MA",
+        "PYPL",
+        "V",
+        "XYZ"
+      ]
+    },
     "Pharmaceuticals": {
       "count": 7,
       "weight": 0.013916500994035786,
@@ -1973,11 +1988,10 @@
       ]
     },
     "Integrated Oil & Gas": {
-      "count": 3,
-      "weight": 0.005964214711729622,
+      "count": 2,
+      "weight": 0.003976143141153081,
       "symbols": [
         "CVX",
-        "HES",
         "XOM"
       ]
     },
@@ -2043,20 +2057,6 @@
         "KO",
         "MNST",
         "PEP"
-      ]
-    },
-    "Transaction & Payment Processing Services": {
-      "count": 8,
-      "weight": 0.015904572564612324,
-      "symbols": [
-        "CPAY",
-        "FI",
-        "FIS",
-        "GPN",
-        "JKHY",
-        "MA",
-        "PYPL",
-        "V"
       ]
     },
     "Consumer Staples Merchandise Retail": {
@@ -2548,5 +2548,5 @@
   },
   "total_symbols": 503,
   "sector_count": 129,
-  "last_updated": "2025-07-21T11:41:26.523309"
+  "last_updated": "2025-08-03T13:41:36.315877"
 }

@@ -23,3 +23,6 @@ typing-extensions>=4.5.0
 
 # Rate limit handling
 backoff>=2.2.1  # Added for exponential backoff retries
+
+# Machine Learning (for AI integration manager)
+scikit-learn>=1.2.0

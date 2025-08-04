@@ -164,11 +164,12 @@ def format_dollars(value):
 def get_sp500_symbols() -> list:
     """
     Load S&P 500 symbols from the saved txt file.
-    Returns a list of symbol strings.
+    Returns a list of uppercase symbol strings.
     """
     if os.path.exists(SP500_SYMBOLS_FILE):
         with open(SP500_SYMBOLS_FILE, 'r') as f:
-            symbols = [line.strip() for line in f if line.strip()]
+            symbols = [line.strip().upper() for line in f 
+            if line.strip() and (line.strip().isalpha() or '.' in line.strip() or '-' in line.strip())]
             logger.info(f"Loaded {len(symbols)} S&P 500 symbols from {SP500_SYMBOLS_FILE}")
             # Log first few symbols for verification
             if symbols:
@@ -177,6 +178,13 @@ def get_sp500_symbols() -> list:
     else:
         logger.warning(f"S&P 500 symbols file not found: {SP500_SYMBOLS_FILE}")
         return []
+
+def filter_to_sp500(symbols: list) -> list:
+    """
+    Filter a list of symbols to only those present in the S&P 500 universe.
+    """
+    sp500_set = set(get_sp500_symbols())
+    return [s for s in symbols if s.upper() in sp500_set]
 
 def verify_sp500_coverage():
     """Simplified S&P 500 validation"""
@@ -570,6 +578,15 @@ def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_D
         df = df[ALL_COLUMNS]
         df = df.sort_values("Date").drop_duplicates(subset=["Date"], keep="last").tail(history_days)
         df.to_csv(filename, index=False)
+        
+        # Legacy dashboard compatibility: copy to data/me_ratio_history.csv
+        if 'ME_Ratio' in df.columns:
+            legacy_me_path = os.path.join("data", "me_ratio_history.csv")
+            try:
+                df[['Date', 'ME_Ratio']].to_csv(legacy_me_path, index=False)
+                logger.info(f"Copied ME ratio history to legacy path: {legacy_me_path}")
+            except Exception as e:
+                logger.warning(f"Could not copy ME ratio file for legacy dashboard: {e}")
     else:
         logger.warning(f"No data to save for {symbol}")
 
@@ -586,7 +603,7 @@ def load_price_data(symbol: str) -> pd.DataFrame:
 
 TRADE_COLUMNS = [
     "symbol", "type", "entry_date", "exit_date", 
-    "entry_price", "exit_price", "shares", "profit", "exit_reason"
+    "entry_price", "exit_price", "shares", "profit", "exit_reason", "side", "strategy"
 ]
 POSITION_COLUMNS = [
     "symbol", "shares", "entry_price", "entry_date", "current_price", 
@@ -756,6 +773,11 @@ def save_trades(trades_list: List[Dict]):
                 trade_copy = trade.copy()
                 trade_copy['exit_date'] = exit_date.strftime('%Y-%m-%d')
                 trade_copy['entry_date'] = parse_date_flexibly(trade['entry_date']).strftime('%Y-%m-%d')
+                # Ensure 'side' and 'strategy' fields exist for dashboard/strategy compatibility
+                if 'side' not in trade_copy:
+                    trade_copy['side'] = 'long' if trade_copy.get('shares', 0) > 0 else 'short'
+                if 'strategy' not in trade_copy:
+                    trade_copy['strategy'] = 'nGS'
                 filtered_trades.append(trade_copy)
         except (KeyError, ValueError) as e:
             logger.warning(f"Invalid trade date in trade: {trade} - {e}")
@@ -812,6 +834,11 @@ def save_positions(positions_list: List[Dict]):
                 # Ensure date is in consistent format
                 pos_copy = pos.copy()
                 pos_copy['entry_date'] = entry_date.strftime('%Y-%m-%d')
+                # Ensure 'side' and 'strategy' fields exist for dashboard/strategy compatibility
+                if 'side' not in pos_copy:
+                    pos_copy['side'] = 'long' if pos_copy.get('shares', 0) > 0 else 'short'
+                if 'strategy' not in pos_copy:
+                    pos_copy['strategy'] = 'nGS'
                 filtered_positions.append(pos_copy)
         except (KeyError, ValueError) as e:
             logger.warning(f"Invalid entry date in position: {pos} - {e}")
@@ -857,19 +884,6 @@ def save_signals(signals: List[Dict]):
     logger.info(f"Saved {len(filtered_signals)} signals within retention period")
 
 # --- SYSTEM STATUS ---
-def get_system_status():
-    if os.path.exists(SYSTEM_STATUS_FILE):
-        df = pd.read_csv(SYSTEM_STATUS_FILE)
-        # Filter system status to retention period
-        if not df.empty and 'timestamp' in df.columns:
-            # Convert timestamp to datetime for filtering
-            df['timestamp'] = df['timestamp'].apply(parse_date_flexibly)
-            df = filter_by_retention_period(df, 'timestamp')
-            # Convert back to string for display
-            df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
-        return df
-    return pd.DataFrame(columns=SYSTEM_STATUS_COLUMNS)
-
 def save_system_status(message: str, system: str = "nGS"):
     ensure_dir(SYSTEM_STATUS_FILE)
     now = datetime.now()
@@ -959,7 +973,7 @@ def calculate_current_me_ratio(positions_df: pd.DataFrame, portfolio_value: floa
         logger.error(f"Error calculating current M/E ratio: {e}")
         return 0.0
 
-def calculate_historical_me_ratio(trades_df: pd.DataFrame, initial_value: float = 100000) -> float:
+def calculate_historical_me_ratio(trades_df: pd.DataFrame, initial_value: float = 1000000) -> float:
     """
     Get historical M/E ratio from stored daily indicator data across all S&P 500 symbols.
     """
@@ -1055,13 +1069,13 @@ def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
     mtd_trades = trades_df[trades_df['exit_date'] >= current_month_start]
     mtd_profit = mtd_trades['profit'].sum() if not mtd_trades.empty else 0
     
-    # Calculate percentage - FIXED: Use consistent variable name
+    # Calculate percentage
     mtd_pct = (mtd_profit / initial_value * 100) if initial_value > 0 else 0
     
     return format_dollars(mtd_profit), f"{mtd_pct:.2f}%"
 
 # --- DASHBOARD FUNCTIONS FOR LONG/SHORT SYSTEM ---
-def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical: bool = False) -> Dict:
+def get_portfolio_metrics(initial_portfolio_value: float = 1000000, is_historical: bool = False) -> Dict:
     """
     Calculate portfolio metrics with proper current vs historical M/E ratios (6-month filtered).
     
@@ -1112,7 +1126,6 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical
         
         # Returns based on closed trades
         total_return = total_trade_profit
-        # FIXED: Use consistent variable name
         total_return_pct = f"{(total_return / initial_portfolio_value * 100):.2f}%" if initial_portfolio_value > 0 else "0.00%"
         
         # Calculate proper MTD and YTD
@@ -1154,7 +1167,7 @@ def get_portfolio_metrics(initial_portfolio_value: float = 100000, is_historical
             'net_exposure': "$0"
         }
 
-def get_strategy_performance(initial_portfolio_value: float = 100000) -> pd.DataFrame:
+def get_strategy_performance(initial_portfolio_value: float = 1000000) -> pd.DataFrame:
     """
     Get strategy performance summary (6-month filtered).
     

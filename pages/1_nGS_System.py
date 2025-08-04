@@ -28,7 +28,6 @@ from data_manager import (
     get_strategy_performance,
     get_portfolio_performance_stats,
     get_signals,
-    get_system_status,
     get_trades_history,
     get_me_ratio_history  # Added for M/E charts
 )
@@ -38,6 +37,9 @@ try:
     USE_REAL_METRICS = True
 except ImportError:
     USE_REAL_METRICS = False
+
+# ---- NEW: Import AI integration manager ----
+from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 st.set_page_config(
     page_title="nGS Historical Performance",
@@ -90,6 +92,88 @@ initial_value = st.number_input(
     key="account_size_input"
 )
 st.session_state.initial_value = initial_value
+
+# ---- NEW: Display Best AI Strategy Section ----
+st.markdown("## 🏆 Best AI Strategy (AI Performance Hierarchy)")
+
+def load_latest_ai_integration_results(data_dir="data/integration_sessions"):
+    """
+    Loads the most recent integration session results (expects JSON files).
+    """
+    try:
+        session_dir = os.path.abspath(data_dir)
+        if not os.path.isdir(session_dir):
+            return None
+        files = [f for f in os.listdir(session_dir) if f.endswith(".json")]
+        if not files:
+            return None
+        latest_file = max(files, key=lambda x: os.path.getmtime(os.path.join(session_dir, x)))
+        with open(os.path.join(session_dir, latest_file), "r") as f:
+            import json
+            return json.load(f)
+    except Exception as e:
+        st.warning(f"Could not load AI integration session: {e}")
+        return None
+
+def get_best_ai_strategy(results, manager):
+    """
+    Returns (strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe)
+    """
+    best = None
+    best_tuple = None
+    if not results or "ai_strategies" not in results:
+        return None
+    for strategy_id, ai_result in results["ai_strategies"].items():
+        perf = ai_result.get("performance", {})
+        eq_curve = perf.get("combined_equity_curve", perf.get("equity_curve", None))
+        # If equity curve is a list, convert to Series
+        if isinstance(eq_curve, list) and len(eq_curve) > 0:
+            eq_curve = pd.Series(eq_curve)
+        elif isinstance(eq_curve, dict):
+            eq_curve = pd.Series(eq_curve)
+        r2 = manager.evaluate_linear_equity(eq_curve) if eq_curve is not None and not getattr(eq_curve, "empty", True) else 0
+        roi = perf.get('total_return_pct', 0)
+        drawdown = perf.get('max_drawdown_pct', 0)
+        sharpe = perf.get('sharpe_ratio', 0)
+        tup = (r2, -drawdown, roi, sharpe)
+        if best is None or tup > best_tuple:
+            best = (strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe)
+            best_tuple = tup
+    return best
+
+# Load latest AI integration results
+results = load_latest_ai_integration_results()
+manager = NGSAIIntegrationManager(account_size=initial_value)
+
+best = get_best_ai_strategy(results, manager) if results else None
+
+if best:
+    strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe = best
+    st.success(f"Best AI Strategy ID: {strategy_id}")
+    st.write(f"**R²:** {r2:.4f}")
+    st.write(f"**ROI:** {roi}")
+    st.write(f"**Max Drawdown:** {drawdown}")
+    st.write(f"**Sharpe Ratio:** {sharpe}")
+    st.write("**Indicators Used:**", perf.get("indicator_values", []))
+    st.write("**Entry Conditions:**", perf.get("entry_conditions", []))
+    st.write("**Exit Conditions:**", perf.get("exit_conditions", []))
+    # Show equity curve chart
+    if isinstance(eq_curve, pd.Series) and not eq_curve.empty:
+        fig, ax = plt.subplots(figsize=(8, 3))
+        ax.plot(eq_curve.index, eq_curve.values, label='Equity Curve', color='blue')
+        ax.set_title(f'Equity Curve: {strategy_id}')
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Equity")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        st.pyplot(fig)
+        plt.close()
+    elif 'equity_curve_chart' in perf and perf["equity_curve_chart"] and os.path.exists(perf["equity_curve_chart"]):
+        st.image(perf["equity_curve_chart"], caption="Equity Curve Chart")
+else:
+    st.info("No AI strategy integration results found. Run AI integration manager and save results to view hierarchy.")
+
+st.markdown("---")
 
 def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> float:
     """Calculate Value at Risk from historical trades"""

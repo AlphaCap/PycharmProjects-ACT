@@ -20,8 +20,6 @@ from data_manager import (
     get_sector_weights,
     get_positions_df
 )
-
-# Integrate me_ratio_calculator logic directly (copy-pasted class for self-contained)
 class DailyMERatioCalculator:
     def __init__(self, initial_portfolio_value: float = 1000000):
         self.initial_portfolio_value = initial_portfolio_value
@@ -31,17 +29,24 @@ class DailyMERatioCalculator:
         
     def update_position(self, symbol: str, shares: int, entry_price: float, 
                        current_price: float, trade_type: str = 'long'):
+        """
+        FIXED: Update position with current market price
+        """
         if shares == 0:
             if symbol in self.current_positions:
                 del self.current_positions[symbol]
         else:
+            # FIXED: Always store absolute position value (market value)
+            position_market_value = abs(shares) * current_price
+            unrealized_pnl = self._calculate_unrealized_pnl(shares, entry_price, current_price, trade_type)
+            
             self.current_positions[symbol] = {
                 'shares': shares,
                 'entry_price': entry_price,
-                'current_price': current_price,
+                'current_price': current_price,  # CRITICAL: Always current market price
                 'type': trade_type,
-                'position_value': abs(shares) * current_price,
-                'unrealized_pnl': self._calculate_unrealized_pnl(shares, entry_price, current_price, trade_type)
+                'position_value': position_market_value,  # Market value (always positive)
+                'unrealized_pnl': unrealized_pnl
             }
     
     def _calculate_unrealized_pnl(self, shares: int, entry_price: float, 
@@ -51,33 +56,56 @@ class DailyMERatioCalculator:
         else:  # short
             return (entry_price - current_price) * abs(shares)
     
+    def update_all_positions_with_current_prices(self, current_prices: dict):
+        """
+        CRITICAL FIX: Update all positions with current market prices
+        This should be called regularly to ensure accurate M/E ratios
+        """
+        for symbol in list(self.current_positions.keys()):
+            if symbol in current_prices:
+                position = self.current_positions[symbol]
+                new_price = current_prices[symbol]
+                
+                # Update with current market price
+                self.update_position(
+                    symbol=symbol,
+                    shares=position['shares'],
+                    entry_price=position['entry_price'],
+                    current_price=new_price,
+                    trade_type=position['type']
+                )
+    
     def add_realized_pnl(self, profit: float):
         self.realized_pnl += profit
     
-    def calculate_daily_me_ratio(self, date: str = None) -> Dict:
+    def calculate_daily_me_ratio(self, date: str = None, current_prices: dict = None) -> Dict:
         if date is None:
             date = datetime.now().strftime('%Y-%m-%d')
         
-        # Calculate position values
+        # CRITICAL: Update positions with current prices first
+        if current_prices:
+            self.update_all_positions_with_current_prices(current_prices)
+        
+        # Calculate position values (sum of all market values)
+        total_position_value = 0.0
         long_value = 0.0
         short_value = 0.0
         total_unrealized_pnl = 0.0
         
         for symbol, pos in self.current_positions.items():
+            # Position value is always market value (positive)
+            position_market_value = pos['position_value']
+            total_position_value += position_market_value
+            
+            # Separate long/short for reporting
             if pos['type'].lower() == 'long' and pos['shares'] > 0:
-                long_value += pos['position_value']
+                long_value += position_market_value
             elif pos['type'].lower() == 'short' and pos['shares'] < 0:
-                short_value += pos['position_value']
+                short_value += position_market_value
             
             total_unrealized_pnl += pos['unrealized_pnl']
-        
-        # Calculate portfolio equity
+              
         portfolio_equity = self.initial_portfolio_value + self.realized_pnl + total_unrealized_pnl
-        
-        # Calculate total position value (for M/E ratio)
-        total_position_value = long_value + short_value
-        
-        # Calculate M/E ratio
         me_ratio = (total_position_value / portfolio_equity * 100) if portfolio_equity > 0 else 0.0
         
         # Create daily metrics
@@ -93,10 +121,8 @@ class DailyMERatioCalculator:
             'Long_Positions': len([p for p in self.current_positions.values() if p['type'].lower() == 'long' and p['shares'] > 0]),
             'Short_Positions': len([p for p in self.current_positions.values() if p['type'].lower() == 'short' and p['shares'] < 0]),
         }
-        
-        # Store in history
+          
         self.daily_me_history.append(daily_metrics)
-        
         return daily_metrics
     
     def get_me_history_df(self) -> pd.DataFrame:
@@ -144,52 +170,12 @@ class DailyMERatioCalculator:
         
         return filename
     
-    def get_risk_assessment(self) -> Dict:
-        """
-        Get risk assessment based on current M/E ratio
-        """
-        current_metrics = self.calculate_daily_me_ratio()
-        me_ratio = current_metrics['ME_Ratio']
-        
-        if me_ratio > 100:
-            risk_level = "CRITICAL"
-            risk_color = "red"
-            recommendation = "IMMEDIATE REBALANCING REQUIRED - Reduce position sizes"
-        elif me_ratio > 80:
-            risk_level = "HIGH"
-            risk_color = "orange"
-            recommendation = "Consider reducing position sizes"
-        elif me_ratio > 60:
-            risk_level = "MODERATE"
-            risk_color = "yellow"
-            recommendation = "Monitor closely, consider position limits"
-        else:
-            risk_level = "LOW"
-            risk_color = "green"
-            recommendation = "Within acceptable risk parameters"
-        
-        return {
-            'risk_level': risk_level,
-            'risk_color': risk_color,
-            'recommendation': recommendation,
-            'me_ratio': me_ratio,
-            'portfolio_equity': current_metrics['Portfolio_Equity'],
-            'total_position_value': current_metrics['Total_Position_Value']
-        }
-
-# Configure logging with UTF-8 encoding for Windows
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
-
-# Set encoding for Windows console to handle Unicode
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 class NGSStrategy:
     """
@@ -216,10 +202,10 @@ class NGSStrategy:
         self.sector_rebalance_threshold = 1.0  # Effectively disabled
         
         # L/S Ratio and M/E Rebalancing Configuration - ENHANCED VERIFICATION
-        self.me_rebalancing_enabled = True  # ✅ CRITICAL: Enable M/E band rebalancing
-        self.me_target_min = 50.0  # ✅ Minimum M/E ratio (50%)
-        self.me_target_max = 80.0  # ✅ Maximum M/E ratio (80%)
-        self.min_positions_for_scaling_up = 5  # ✅ Minimum positions required for upward scaling
+        self.me_rebalancing_enabled = True  # CRITICAL: Enable M/E band rebalancing
+        self.me_target_min = 50.0  # Minimum M/E ratio (50%)
+        self.me_target_max = 80.0  # Maximum M/E ratio (80%)
+        self.min_positions_for_scaling_up = 5  # Minimum positions required for upward scaling
         self.ls_ratio_enabled = True  # Enable L/S ratio adjustments for shorts
         
         self.inputs = {
@@ -236,22 +222,41 @@ class NGSStrategy:
         
         # ENHANCED M/E VERIFICATION LOGGING
         print(f"\n{'='*70}")
-        print("🎯 M/E REBALANCING SYSTEM STATUS")
+        print("M/E REBALANCING SYSTEM STATUS")
         print(f"{'='*70}")
-        print(f"✅ M/E Rebalancing:      {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
-        print(f"✅ M/E Target Range:     {self.me_target_min:.1f}% - {self.me_target_max:.1f}%")
-        print(f"✅ Min Positions Scale:  {self.min_positions_for_scaling_up}")
-        print(f"✅ L/S Ratio Adjust:     {'ENABLED' if self.ls_ratio_enabled else 'DISABLED'}")
-        print(f"❌ Sector Management:    {'ENABLED' if self.sector_allocation_enabled else 'DISABLED'}")
+        print(f"M/E Rebalancing:      {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
+        print(f"M/E Target Range:     {self.me_target_min:.1f}% - {self.me_target_max:.1f}%")
+        print(f"Min Positions Scale:  {self.min_positions_for_scaling_up}")
+        print(f"L/S Ratio Adjust:     {'ENABLED' if self.ls_ratio_enabled else 'DISABLED'}")
+        print(f"Sector Management:    {'ENABLED' if self.sector_allocation_enabled else 'DISABLED'}")
         print(f"{'='*70}")
         
         logger.info(f"nGS Strategy initialized with {self.retention_days}-day data retention")
         logger.info(f"Data cutoff date: {self.cutoff_date.strftime('%Y-%m-%d')}")
-        logger.info(f"🎯 M/E rebalancing: {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
-        logger.info(f"🎯 M/E target range: {self.me_target_min}-{self.me_target_max}%")
-        logger.info(f"🎯 Min positions for scale-up: {self.min_positions_for_scaling_up}")
+        logger.info(f"M/E rebalancing: {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
+        logger.info(f"M/E target range: {self.me_target_min}-{self.me_target_max}%")
+        logger.info(f"Min positions for scale-up: {self.min_positions_for_scaling_up}")
         logger.info(f"L/S ratio adjustments: {'ENABLED' if self.ls_ratio_enabled else 'DISABLED'}")
         logger.info(f"Note: Sector management DISABLED - using M/E ratio control instead")
+
+    # FIXED: Added method to update M/E calculator with current prices
+    def update_me_calculator_with_current_prices(self, current_prices: dict):
+        """
+        CRITICAL FIX: Update M/E calculator with current market prices
+        Call this method regularly to ensure accurate M/E calculations
+        """
+        for symbol, position in self.positions.items():
+            if symbol in current_prices and position['shares'] != 0:
+                current_price = current_prices[symbol]
+                trade_type = 'long' if position['shares'] > 0 else 'short'
+                
+                self.me_calculator.update_position(
+                    symbol=symbol,
+                    shares=position['shares'],
+                    entry_price=position['entry_price'],
+                    current_price=current_price,
+                    trade_type=trade_type
+                )
 
     # --- SECTOR MANAGEMENT METHODS ---
     
@@ -488,20 +493,20 @@ class NGSStrategy:
         try:
             if ls_ratio > 1.5:
                 # Lower risk: Portfolio heavily net long, safer to add shorts
-                # Use 50% short margin → $10,000 position size
+                # Use 50% short margin -> $10,000 position size
                 adjusted_size = base_position_size * 2.0  # 50% margin = 2x leverage
-                logger.debug(f"L/S {ls_ratio:.2f} > 1.5: Lower risk, 50% margin → ${adjusted_size:,.0f}")
+                logger.debug(f"L/S {ls_ratio:.2f} > 1.5: Lower risk, 50% margin -> ${adjusted_size:,.0f}")
                 return adjusted_size
             elif ls_ratio > -1.5:
                 # Higher risk: Portfolio balanced to moderately net short
-                # Use 75% short margin → $3,750 position size
+                # Use 75% short margin -> $3,750 position size
                 adjusted_size = base_position_size * 0.75  # 75% margin = reduced size
-                logger.debug(f"L/S {ls_ratio:.2f} > -1.5: Higher risk, 75% margin → ${adjusted_size:,.0f}")
+                logger.debug(f"L/S {ls_ratio:.2f} > -1.5: Higher risk, 75% margin -> ${adjusted_size:,.0f}")
                 return adjusted_size
             else:
                 # Very high risk: Heavily net short
                 # Use standard size with high margin requirement
-                logger.debug(f"L/S {ls_ratio:.2f} ≤ -1.5: Very high risk, standard size")
+                logger.debug(f"L/S {ls_ratio:.2f} <= -1.5: Very high risk, standard size")
                 return base_position_size
                 
         except Exception as e:
@@ -514,7 +519,7 @@ class NGSStrategy:
         Returns: 'scale_up', 'scale_down', or None
         """
         if not self.me_rebalancing_enabled:
-            print(f"⚠️  M/E REBALANCING DISABLED - No action taken")
+            print(f"M/E REBALANCING DISABLED - No action taken")
             return None
         
         try:
@@ -522,7 +527,7 @@ class NGSStrategy:
             position_count = len([pos for pos in self.positions.values() if pos['shares'] != 0])
             
             # ENHANCED DEBUG OUTPUT
-            print(f"\n🎯 M/E REBALANCING CHECK:")
+            print(f"\nM/E REBALANCING CHECK:")
             print(f"   Current M/E:        {current_me:.1f}%")
             print(f"   Target Range:       {self.me_target_min:.1f}% - {self.me_target_max:.1f}%")
             print(f"   Position Count:     {position_count}")
@@ -531,21 +536,21 @@ class NGSStrategy:
             if current_me < self.me_target_min:
                 # Below minimum - need to scale up
                 if position_count >= self.min_positions_for_scaling_up:
-                    print(f"🚀 SCALE UP NEEDED: {current_me:.1f}% < {self.me_target_min}% with {position_count} positions")
+                    print(f"SCALE UP NEEDED: {current_me:.1f}% < {self.me_target_min}% with {position_count} positions")
                     logger.info(f"M/E {current_me:.1f}% < {self.me_target_min}% with {position_count} positions: SCALE UP needed")
                     return 'scale_up'
                 else:
-                    print(f"⏸️  SCALE UP BLOCKED: Only {position_count} positions (need min {self.min_positions_for_scaling_up})")
+                    print(f"SCALE UP BLOCKED: Only {position_count} positions (need min {self.min_positions_for_scaling_up})")
                     logger.info(f"M/E {current_me:.1f}% < {self.me_target_min}% but only {position_count} positions (min {self.min_positions_for_scaling_up}): No scaling")
                     return None
             elif current_me > self.me_target_max:
                 # Above maximum - need to scale down
-                print(f"📉 SCALE DOWN NEEDED: {current_me:.1f}% > {self.me_target_max}%")
+                print(f"SCALE DOWN NEEDED: {current_me:.1f}% > {self.me_target_max}%")
                 logger.info(f"M/E {current_me:.1f}% > {self.me_target_max}%: SCALE DOWN needed")
                 return 'scale_down'
             else:
                 # Within target range
-                print(f"✅ M/E IN TARGET RANGE: {current_me:.1f}% within {self.me_target_min:.1f}%-{self.me_target_max:.1f}%")
+                print(f"M/E IN TARGET RANGE: {current_me:.1f}% within {self.me_target_min:.1f}%-{self.me_target_max:.1f}%")
                 logger.debug(f"M/E {current_me:.1f}% within target range {self.me_target_min}-{self.me_target_max}%")
                 return None
                 
@@ -555,14 +560,14 @@ class NGSStrategy:
     
     def perform_me_rebalancing(self, action: str) -> bool:
         """
-        Perform M/E ratio rebalancing by scaling positions - ENHANCED WITH DEBUGGING
+        Perform M/E ratio rebalancing by scaling positions - FIXED OVERSHOOT ISSUE
         Args:
             action: 'scale_up' or 'scale_down'
         Returns:
             True if rebalancing was performed, False otherwise
         """
         if not self.me_rebalancing_enabled or not action:
-            print(f"⚠️  M/E REBALANCING SKIPPED: {'Disabled' if not self.me_rebalancing_enabled else 'No action specified'}")
+            print(f"M/E REBALANCING SKIPPED: {'Disabled' if not self.me_rebalancing_enabled else 'No action specified'}")
             return False
         
         try:
@@ -570,31 +575,38 @@ class NGSStrategy:
             positions_to_rebalance = {symbol: pos for symbol, pos in self.positions.items() if pos['shares'] != 0}
             
             if not positions_to_rebalance:
-                print(f"⚠️  NO POSITIONS TO REBALANCE")
+                print(f"NO POSITIONS TO REBALANCE")
                 logger.warning("No positions to rebalance")
                 return False
             
-            # Calculate target scaling factor
+            # CRITICAL FIX: More precise scaling calculation to stay within bounds
             if action == 'scale_up':
-                # Scale up to reach minimum M/E target
-                target_scaling = self.me_target_min / current_me if current_me > 0 else 1.5
-                target_scaling = min(target_scaling, 2.0)  # Cap at 2x for safety
+                # Scale up to reach the MIDDLE of target range, not minimum
+                target_me = (self.me_target_min + self.me_target_max) / 2  # 65% instead of 50%
+                target_scaling = target_me / current_me if current_me > 0 else 1.3
+                # Cap scaling more conservatively
+                target_scaling = min(target_scaling, 1.8)  # Max 1.8x instead of 2x
+                
             elif action == 'scale_down':
-                # Scale down to reach maximum M/E target
-                target_scaling = self.me_target_max / current_me if current_me > 0 else 0.8
-                target_scaling = max(target_scaling, 0.5)  # Minimum 50% scaling for safety
+                # Scale down to reach the MIDDLE of target range, not maximum  
+                target_me = (self.me_target_min + self.me_target_max) / 2  # 65% instead of 80%
+                target_scaling = target_me / current_me if current_me > 0 else 0.75
+                # Ensure minimum scaling
+                target_scaling = max(target_scaling, 0.6)  # Minimum 60% scaling
+                
             else:
                 logger.error(f"Invalid rebalancing action: {action}")
                 return False
             
             # ENHANCED REBALANCING OUTPUT
-            print(f"\n🎯 PERFORMING M/E REBALANCING:")
+            print(f"\nPERFORMING M/E REBALANCING:")
             print(f"   Action:             {action.upper()}")
+            print(f"   Target M/E:         {target_me:.1f}% (middle of range)")
             print(f"   Scaling Factor:     {target_scaling:.3f}x")
             print(f"   Before M/E:         {current_me:.1f}%")
             print(f"   Positions:          {len(positions_to_rebalance)}")
             
-            logger.info(f"M/E Rebalancing: {action} with {target_scaling:.2f}x scaling factor")
+            logger.info(f"M/E Rebalancing: {action} targeting {target_me:.1f}% with {target_scaling:.2f}x scaling factor")
             logger.info(f"Before: M/E {current_me:.1f}%, {len(positions_to_rebalance)} positions")
             
             # Apply proportional scaling to all positions
@@ -633,8 +645,8 @@ class NGSStrategy:
                     'value_change': value_change
                 })
                 
-                print(f"   {symbol}: {old_shares:+4d} → {new_shares:+4d} shares ({shares_change:+3d}) | ${value_change:+8,.0f}")
-                logger.debug(f"  {symbol}: {old_shares} → {new_shares} shares ({shares_change:+d}), value change: ${value_change:+,.2f}")
+                print(f"   {symbol}: {old_shares:+4d} -> {new_shares:+4d} shares ({shares_change:+3d}) | ${value_change:+8,.0f}")
+                logger.debug(f"  {symbol}: {old_shares} -> {new_shares} shares ({shares_change:+d}), value change: ${value_change:+,.2f}")
             
             # Adjust cash for the position changes
             self.cash = round(float(self.cash - total_value_change), 2)
@@ -644,7 +656,17 @@ class NGSStrategy:
             
             print(f"   After M/E:          {new_me:.1f}%")
             print(f"   Cash Change:        ${total_value_change:+,.0f}")
-            print(f"✅ M/E REBALANCING COMPLETED: {len(rebalanced_positions)} positions scaled")
+            
+            # CRITICAL: Check if we're still within bounds
+            if self.me_target_min <= new_me <= self.me_target_max:
+                print(f"M/E REBALANCING COMPLETED: {len(rebalanced_positions)} positions scaled")
+                print(f"TARGET ACHIEVED: {new_me:.1f}% is within {self.me_target_min:.1f}%-{self.me_target_max:.1f}% range")
+            else:
+                print(f"M/E REBALANCING WARNING: {new_me:.1f}% outside target range")
+                if new_me > self.me_target_max:
+                    print(f"   Still above {self.me_target_max:.1f}% limit - may need further adjustment")
+                elif new_me < self.me_target_min:
+                    print(f"   Still below {self.me_target_min:.1f}% limit - may need further adjustment")
             
             logger.info(f"After: M/E {new_me:.1f}%, cash change: ${total_value_change:+,.2f}")
             logger.info(f"M/E Rebalancing completed: {len(rebalanced_positions)} positions scaled")
@@ -665,12 +687,12 @@ class NGSStrategy:
         """
         try:
             print(f"\n{'='*70}")
-            print("🎯 END OF DAY M/E REBALANCING CHECK")
+            print("END OF DAY M/E REBALANCING CHECK")
             print(f"{'='*70}")
             print(f"M/E Rebalancing Status: {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
             
             if not self.me_rebalancing_enabled:
-                print(f"⚠️  M/E REBALANCING DISABLED - Skipping EOD check")
+                print(f"M/E REBALANCING DISABLED - Skipping EOD check")
                 logger.info("M/E rebalancing disabled - skipping EOD check")
                 return
             
@@ -682,14 +704,14 @@ class NGSStrategy:
             if rebalancing_action:
                 success = self.perform_me_rebalancing(rebalancing_action)
                 if success:
-                    print(f"✅ M/E REBALANCING COMPLETED: {rebalancing_action.upper()}")
-                    logger.info(f"✅ M/E rebalancing completed: {rebalancing_action}")
+                    print(f"M/E REBALANCING COMPLETED: {rebalancing_action.upper()}")
+                    logger.info(f"M/E rebalancing completed: {rebalancing_action}")
                 else:
-                    print(f"❌ M/E REBALANCING FAILED: {rebalancing_action.upper()}")
-                    logger.warning(f"❌ M/E rebalancing failed: {rebalancing_action}")
+                    print(f"M/E REBALANCING FAILED: {rebalancing_action.upper()}")
+                    logger.warning(f"M/E rebalancing failed: {rebalancing_action}")
             else:
-                print(f"✅ NO REBALANCING NEEDED")
-                logger.info("✅ M/E ratio within target range - no rebalancing needed")
+                print(f"NO REBALANCING NEEDED")
+                logger.info("M/E ratio within target range - no rebalancing needed")
             
             # Generate final status report
             final_me = self.calculate_current_me_ratio()
@@ -714,10 +736,10 @@ class NGSStrategy:
         return self.me_calculator.calculate_daily_me_ratio()['ME_Ratio']
 
     def calculate_historical_me_ratio(self, current_prices: Dict[str, float] = None) -> float:
-        return self.me_calculator.calculate_daily_me_ratio()['ME_Ratio']  # Historical is now daily snapshot
+        return self.me_calculator.calculate_daily_me_ratio(current_prices=current_prices)['ME_Ratio']
 
     def record_historical_me_ratio(self, date_str: str, trade_occurred: bool = False, current_prices: Dict[str, float] = None):
-        self.me_calculator.calculate_daily_me_ratio(date_str)  # Automatically appends to history
+        self.me_calculator.calculate_daily_me_ratio(date_str, current_prices=current_prices)
 
     # --- DATA FILTERING AND INDICATOR CALCULATIONS (PRESERVED) ---
     
@@ -930,6 +952,7 @@ class NGSStrategy:
     # --- SIGNAL GENERATION (PRESERVED WITH SECTOR LIMITS) ---
     
     def _check_long_signals(self, df: pd.DataFrame, i: int) -> None:
+        from ngs_integrated_ai_system import NGSIndicatorLibrary, NGSAwareStrategyGenerator
         # Engulfing Long pattern
         if (df['Open'].iloc[i] < df['Close'].iloc[i-1] and
             df['Close'].iloc[i] > df['Open'].iloc[i-1] and
@@ -1012,23 +1035,7 @@ class NGSStrategy:
             base_shares = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
             adjusted_position_size = self.get_short_position_size(self.inputs['PositionSize'])
             df.loc[df.index[i], 'Shares'] = int(round(adjusted_position_size / df['Close'].iloc[i]))
-        # Engulfing Short with New High pattern
-        elif (df['Open'].iloc[i] > df['Close'].iloc[i-1] and
-              df['Close'].iloc[i] < df['Open'].iloc[i-1] and
-              df['Close'].iloc[i] < df['Open'].iloc[i] and
-              df['Close'].iloc[i-1] > df['Open'].iloc[i-1] and
-              df['Close'].iloc[i-1] - df['Low'].iloc[i-1] <= df['ATR'].iloc[i] * 2 and
-              df['Close'].iloc[i-1] - df['Open'].iloc[i-1] > 0.05 and
-              df['Close'].iloc[i-1] >= df['SwingHigh'].iloc[i] and
-              abs(df['Close'].iloc[i-1] - df['Low'].iloc[i-1]) / df['Close'].iloc[i-1] < 0.05 and
-              df['High'].iloc[i] >= df['UpperBB'].iloc[i] * 0.98 and
-              df['Close'].iloc[i] >= df['LowerBB'].iloc[i] * 1.05):
-            df.loc[df.index[i], 'Signal'] = -1
-            df.loc[df.index[i], 'SignalType'] = 'Engf S NuHu3'
-            # Apply L/S ratio adjustment for short position sizing
-            base_shares = int(round(self.inputs['PositionSize'] / df['Close'].iloc[i]))
-            adjusted_position_size = self.get_short_position_size(self.inputs['PositionSize'])
-            df.loc[df.index[i], 'Shares'] = int(round(adjusted_position_size / df['Close'].iloc[i]))
+        
         # Semi-Engulfing Short pattern
         elif (df['Open'].iloc[i] >= df['Close'].iloc[i-1] * 0.999 and
               df['Open'].iloc[i] < df['Close'].iloc[i-1] and
@@ -1150,11 +1157,9 @@ class NGSStrategy:
             df['ATR'].iloc[i] > df['ATRma'].iloc[i]):
             possible_exits.append(('reversal', 'L 2 S', 1, 1))
 
-        # Hard Stop
         if df['Close'].iloc[i] > position['entry_price'] * 1.1:
             possible_exits.append(('hard_stop', 'Hard Stop L', 1, None))
 
-        # Prioritize: hard_stop > reversal > atr_x > be > gap_target
         priority_order = ['hard_stop', 'reversal', 'atr_x', 'be', 'gap_target']
         for prio in priority_order:
             for exit_type, exit_label, exit_sig, entry_sig in possible_exits:
@@ -1166,8 +1171,6 @@ class NGSStrategy:
                         df.loc[df.index[i], 'SignalType'] = exit_label
                         df.loc[df.index[i], 'Shares'] = int(round(self.inputs['PositionSize'] * 2 / df['Close'].iloc[i]))
                     return  # Apply first in priority
-
-    # --- POSITION MANAGEMENT (ENHANCED WITH SECTOR CHECKS) ---
     
     def _process_exit(self, df: pd.DataFrame, i: int, symbol: str, position: Dict) -> None:
         exit_price = round(float(df['Close'].iloc[i]), 2)
@@ -1198,14 +1201,11 @@ class NGSStrategy:
             else:
                 logger.warning(f"Invalid trade skipped: {trade}")
         
-        # Compute trade_type explicitly (fix for KeyError 'type')
         trade_type = 'long' if position['shares'] > 0 else 'short'
         self.me_calculator.update_position(symbol, 0, 0, 0, trade_type)  # Close position
         self.me_calculator.add_realized_pnl(profit)  # Add realized profit
         
         self.cash = round(float(self.cash + position['shares'] * exit_price), 2)
-        
-        # Record historical M/E after exit
         self.record_historical_me_ratio(exit_date, trade_occurred=True)
         
         logger.info(f"Exit {symbol}: {df['ExitType'].iloc[i]} at {exit_price}, profit: {profit}")
@@ -1214,15 +1214,11 @@ class NGSStrategy:
         shares = int(round(df['Shares'].iloc[i])) if df['Signal'].iloc[i] > 0 else -int(round(df['Shares'].iloc[i]))
         cost = round(float(shares * df['Close'].iloc[i]), 2)
         
-        # Ensure entry date is within retention period
         entry_date = str(df['Date'].iloc[i])[:10]
         entry_datetime = datetime.strptime(entry_date, '%Y-%m-%d')
         
         if entry_datetime >= self.cutoff_date and abs(cost) <= self.cash:
-            
-            # Note: Sector limits disabled - using M/E ratio control instead
-            # Position entry controlled by M/E rebalancing, not sector limits
-            
+                          
             self.cash = round(float(self.cash - cost), 2)
             position = {
                 'shares': shares,
@@ -1236,11 +1232,8 @@ class NGSStrategy:
             current_price = round(float(df['Close'].iloc[i]), 2)
             trade_type = 'long' if shares > 0 else 'short'
             self.me_calculator.update_position(symbol, shares, position['entry_price'], current_price, trade_type)
-            
-            # Record historical M/E after entry
             self.record_historical_me_ratio(entry_date, trade_occurred=True)
             
-            # Log sector information
             sector = get_symbol_sector(symbol)
             logger.info(f"Entry {symbol} ({sector}): {df['SignalType'].iloc[i]} with {shares} shares at {df['Close'].iloc[i]}")
             
@@ -1311,9 +1304,7 @@ class NGSStrategy:
             self._check_long_signals(df, i)
             self._check_short_signals(df, i)
         return df
-
-    # --- POSITION LOADING AND MANAGEMENT (PRESERVED) ---
-    
+  
     def _load_positions(self) -> None:
         positions_list = get_positions()
         logger.info(f"Attempting to load {len(positions_list)} positions from data manager")
@@ -1324,12 +1315,10 @@ class NGSStrategy:
             
             logger.debug(f"Processing position: {symbol}, entry_date: {entry_date} (type: {type(entry_date)})")
             
-            # Only load positions within retention period
             if symbol and entry_date:
                 try:
-                    # Handle multiple date formats
                     if isinstance(entry_date, str):
-                        # Try multiple date formats
+                        
                         for fmt in ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S']:
                             try:
                                 entry_datetime = datetime.strptime(entry_date.split()[0], '%Y-%m-%d')  # Just take date part
@@ -1338,11 +1327,9 @@ class NGSStrategy:
                             except ValueError:
                                 continue
                         else:
-                            # If no format worked, skip this position
                             logger.warning(f"Could not parse date for position {symbol}: {entry_date}")
                             continue
                     else:
-                        # Assume it's a pandas Timestamp
                         entry_datetime = entry_date.to_pydatetime() if hasattr(entry_date, 'to_pydatetime') else entry_date
                         entry_date_str = entry_datetime.strftime('%Y-%m-%d')
                     
@@ -1354,7 +1341,7 @@ class NGSStrategy:
                             'bars_since_entry': int(pos.get('days_held', 0)),
                             'profit': float(pos.get('profit', 0))
                         }
-                        # Update M/E calculator with loaded position
+                        
                         current_price = pos.get('current_price', pos.get('entry_price', 0))
                         trade_type = pos.get('side', 'long')
                         self.me_calculator.update_position(symbol, self.positions[symbol]['shares'], 
@@ -1422,37 +1409,43 @@ class NGSStrategy:
                 return None
             df_with_signals = self.generate_signals(df_with_indicators)
             result_df = self.manage_positions(df_with_signals, symbol)
+            
+            if not result_df.empty and symbol in self.positions:
+                current_price = result_df['Close'].iloc[-1]
+                if self.positions[symbol]['shares'] != 0:
+                    trade_type = 'long' if self.positions[symbol]['shares'] > 0 else 'short'
+                    self.me_calculator.update_position(
+                        symbol=symbol,
+                        shares=self.positions[symbol]['shares'],
+                        entry_price=self.positions[symbol]['entry_price'],
+                        current_price=current_price,
+                        trade_type=trade_type
+                    )
+            
             return result_df
         except Exception as e:
             logger.error(f"Error processing {symbol}: {e}")
             return None
 
-    # --- MAIN RUN METHOD (ENHANCED WITH M/E VERIFICATION) ---
-    
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
-        # Initialize for this run
+        
         self.trades = []
         self.me_calculator = DailyMERatioCalculator(self.account_size)  # Reset M/E tracking
-        
-        # Filter trades by retention period
         self._filter_trades_by_retention()
-        
-        # ENHANCED M/E STATUS VERIFICATION
         print(f"\n{'='*70}")
-        print("🚀 STARTING STRATEGY RUN - M/E VERIFICATION")
+        print("STARTING STRATEGY RUN - M/E VERIFICATION")
         print(f"{'='*70}")
-        print(f"🎯 M/E Rebalancing:      {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
-        print(f"🎯 M/E Target Range:     {self.me_target_min:.1f}% - {self.me_target_max:.1f}%")
-        print(f"🎯 Min Positions Scale:  {self.min_positions_for_scaling_up}")
-        print(f"🎯 Initial Positions:    {len(self.positions)}")
+        print(f"M/E Rebalancing:      {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
+        print(f"M/E Target Range:     {self.me_target_min:.1f}% - {self.me_target_max:.1f}%")
+        print(f"Min Positions Scale:  {self.min_positions_for_scaling_up}")
+        print(f"Initial Positions:    {len(self.positions)}")
         
-        # Calculate initial M/E ratio for any existing positions
         if self.positions:
             initial_me_ratio = self.calculate_current_me_ratio()
-            print(f"🎯 Initial M/E:          {initial_me_ratio:.2f}%")
+            print(f"Initial M/E:          {initial_me_ratio:.2f}%")
             logger.info(f"Initial M/E ratio with {len(self.positions)} existing positions: {initial_me_ratio:.2f}%")
         else:
-            print(f"🎯 Initial M/E:          0.00% (no positions)")
+            print(f"Initial M/E:          0.00% (no positions)")
         
         print(f"{'='*70}")
         
@@ -1466,7 +1459,12 @@ class NGSStrategy:
                     print(f"Progress: {i+1}/{len(data)} symbols | Current M/E: {current_me:.1f}%")
                 logger.info(f"Processed {symbol}: {len(result)} rows ({i+1}/{len(data)})")
         
-        # Save M/E history after run
+        final_prices = {}
+        for symbol, df in results.items():
+            if not df.empty:
+                final_prices[symbol] = df['Close'].iloc[-1]
+        
+        self.update_me_calculator_with_current_prices(final_prices)
         self.me_calculator.save_daily_me_data()
         
         long_positions, short_positions = self.get_current_positions()
@@ -1478,7 +1476,6 @@ class NGSStrategy:
             else:
                 current_price = pos['entry_price']
             
-            # Calculate days held using proper datetime import
             entry_dt = datetime.strptime(pos['entry_date'], '%Y-%m-%d')
             days_held = (datetime.now() - entry_dt).days
             
@@ -1502,7 +1499,6 @@ class NGSStrategy:
             else:
                 current_price = pos['entry_price']
             
-            # Calculate days held and profit using proper datetime import
             shares_abs = abs(pos['shares'])
             profit = round(float((pos['entry_price'] - current_price) * shares_abs), 2)
             entry_dt = datetime.strptime(pos['entry_date'], '%Y-%m-%d')
@@ -1524,50 +1520,42 @@ class NGSStrategy:
         
         save_positions(all_positions)
         
-        # CRITICAL: Perform end-of-day M/E rebalancing
-        print(f"\n🎯 CALLING END-OF-DAY M/E REBALANCING...")
+        print(f"\nCALLING END-OF-DAY M/E REBALANCING...")
         self.end_of_day_rebalancing()
         
-        # Note: Sector reporting disabled - using M/E ratio control instead
-        # if self.sector_allocation_enabled:
-        #     sector_report = self.generate_sector_report()
-        #     self._display_sector_summary(sector_report)
+        final_me_metrics = self.me_calculator.calculate_daily_me_ratio(
+        date=datetime.now().strftime('%Y-%m-%d'),
+        current_prices=final_prices
+        )
+        final_me = final_me_metrics['ME_Ratio']
         
-        # FINAL M/E STATUS VERIFICATION
-        final_me = self.calculate_current_me_ratio()
         print(f"\n{'='*70}")
-        print("🎯 FINAL M/E STATUS")
+        print("FINAL M/E STATUS")
         print(f"{'='*70}")
         print(f"Final M/E Ratio:      {final_me:.2f}%")
         print(f"Target Range:         {self.me_target_min:.1f}% - {self.me_target_max:.1f}%")
         print(f"Final Positions:      {len(all_positions)}")
         print(f"Rebalancing System:   {'ACTIVE' if self.me_rebalancing_enabled else 'INACTIVE'}")
         
-        # Debug: Show M/E calculation details
-        total_equity = 0
-        for symbol, position in self.positions.items():
-            if position['shares'] != 0:
-                equity = position['entry_price'] * abs(position['shares'])
-                total_equity += equity
-        
         print(f"\nM/E Calculation Details:")
-        print(f"Total Open Trade Equity: ${total_equity:,.2f}")
-        print(f"Account Value (Cash):    ${self.cash:,.2f}")
-        if self.cash > 0:
-            calculated_me = (total_equity/self.cash*100)
-            print(f"Calculated M/E:         {calculated_me:.2f}% (should match Final M/E)")
+        print(f"Portfolio Equity:       ${final_me_metrics['Portfolio_Equity']:,.2f}")
+        print(f"Total Position Value:   ${final_me_metrics['Total_Position_Value']:,.2f}")
+        print(f"Long Value:             ${final_me_metrics['Long_Value']:,.2f}")
+        print(f"Short Value:            ${final_me_metrics['Short_Value']:,.2f}")
+        print(f"Unrealized P&L:         ${final_me_metrics['Unrealized_PnL']:,.2f}")
+        print(f"Realized P&L:           ${final_me_metrics['Realized_PnL']:,.2f}")
+        print(f"Starting Account:       ${self.account_size:,.2f}")
         
         # Final M/E status
         risk = self.me_calculator.get_risk_assessment()
         print(f"M/E Risk Status:        {risk['risk_level']}")
-        print(f"M/E Realized P&L:       ${self.me_calculator.realized_pnl:.2f}")
         print(f"M/E Active Positions:   {len(self.me_calculator.current_positions)}")
         print(f"{'='*70}")
         
         logger.info(f"Strategy run complete. Processed {len(data)} symbols, currently have {len(all_positions)} positions")
         logger.info(f"Data retention: {self.retention_days} days, cutoff: {self.cutoff_date.strftime('%Y-%m-%d')}")
-        logger.info(f"🎯 M/E rebalancing: {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
-        logger.info(f"🎯 Final M/E ratio: {final_me:.2f}%")
+        logger.info(f"M/E rebalancing: {'ENABLED' if self.me_rebalancing_enabled else 'DISABLED'}")
+        logger.info(f"Final M/E ratio: {final_me:.2f}%")
         logger.info(f"L/S ratio adjustments: {'ENABLED' if self.ls_ratio_enabled else 'DISABLED'}")
         logger.info(f"Note: Sector management DISABLED - using M/E ratio control instead")
         
@@ -1622,8 +1610,6 @@ class NGSStrategy:
         else:
             logger.warning(f"No data to backfill for {symbol}")
 
-# --- DATA LOADING FUNCTION (PRESERVED) ---
-
 def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str = None) -> Dict[str, pd.DataFrame]:
     """
     Load EOD data using your existing data_manager functions.
@@ -1640,7 +1626,6 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
     logger.info(f"Loading data for {len(symbols)} symbols")
     logger.info(f"Note: data_manager automatically filters to 6-month retention period")
     
-    # Progress tracking for large symbol lists
     batch_size = 50
     total_batches = (len(symbols) + batch_size - 1) // batch_size
     
@@ -1653,8 +1638,6 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
         
         for i, symbol in enumerate(batch_symbols):
             try:
-                # Use your existing load_price_data function from data_manager
-                # It only takes symbol as argument and returns 6-month filtered data
                 df = load_price_data(symbol)  # FIXED: Only pass symbol
                 
                 if df is not None and not df.empty:
@@ -1678,148 +1661,43 @@ def load_polygon_data(symbols: List[str], start_date: str = None, end_date: str 
     logger.info(f"\nCompleted loading data. Successfully loaded {len(data)} out of {len(symbols)} symbols")
     return data
 
-# --- MAIN EXECUTION (ENHANCED WITH M/E VERIFICATION) ---
+def run_ngs_automated_reporting(comparison=None):
+    import pandas as pd
+import os
+from ngs_ai_integration_manager import NGSAIIntegrationManager
+
+HISTORICAL_DATA_PATH = "signal_analysis.json"  # Or your preferred data file
+DATA_FORMAT = "json"
+
+def load_data(path, data_format):
+    if data_format == "json":
+        df = pd.read_json(path)
+        if "symbol" in df.columns:
+            data_dict = {sym: df[df["symbol"] == sym].copy() for sym in df["symbol"].unique()}
+            return data_dict
+        return {"default": df}
+    elif data_format == "csv":
+        df = pd.read_csv(path)
+        if "symbol" in df.columns:
+            data_dict = {sym: df[df["symbol"] == sym].copy() for sym in df["symbol"].unique()}
+            return data_dict
+        return {"default": df}
+    else:
+        raise ValueError("Unsupported data format")
 
 if __name__ == "__main__":
-    print("nGS Trading Strategy - Neural Grid System with ACTIVE M/E Rebalancing")
+    print("🚀 nGS Trading Strategy with AI SELECTION ENABLED")
     print("=" * 70)
-    print(f"Data Retention: {RETENTION_DAYS} days (6 months)")
-    print("=" * 70)
-    
-    try:
-        strategy = NGSStrategy(account_size=1000000)
-        
-        # ENHANCED M/E VERIFICATION OUTPUT
-        print(f"\n🎯 M/E REBALANCING SYSTEM VERIFICATION:")
-        print(f"   Status:              {'ACTIVE' if strategy.me_rebalancing_enabled else 'INACTIVE'}")
-        print(f"   Target Range:        {strategy.me_target_min:.1f}% - {strategy.me_target_max:.1f}%")
-        print(f"   Min Positions:       {strategy.min_positions_for_scaling_up}")
-        print(f"   Sector Management:   {'ENABLED' if strategy.sector_allocation_enabled else 'DISABLED'}")
-        
-        # Note: Sector management disabled - using M/E ratio control instead
-        # strategy.enable_sector_rebalancing()  # Disabled
-        print(f"🎯 Using M/E Ratio Control (50-80% band) instead of sector limits")
-        
-        # Load ALL S&P 500 symbols from your data files
-        sp500_file = os.path.join('data', 'sp500_symbols.txt')
-        try:
-            with open(sp500_file, 'r') as f:
-                symbols = [line.strip() for line in f if line.strip()]
-            
-            print(f"\nTrading Universe: ALL S&P 500 symbols")
-            print(f"Total symbols loaded: {len(symbols)}")
-            print(f"First 10 symbols: {', '.join(symbols[:10])}...")
-            print(f"Last 10 symbols: {', '.join(symbols[-10:])}...")
-            
-        except FileNotFoundError:
-            print(f"\nWARNING: {sp500_file} not found. Using sample symbols instead.")
-            # Fallback to sample symbols if file not found
-            symbols = [
-                'AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN', 'META', 'NVDA',
-                'JPM', 'JNJ', 'PG', 'UNH', 'HD', 'BAC', 'XOM', 'CVX', 'PFE'
-            ]
-            print(f"Using {len(symbols)} sample symbols")
-        
-        print(f"\nLoading historical data for {len(symbols)} symbols...")
-        print("This may take several minutes for 500+ symbols...")
-        
-        # Load data using your existing data_manager functions
-        data = load_polygon_data(symbols)
-        
-        if not data:
-            print("No data loaded - check your data files")
-            exit(1)
-        
-        print(f"\nSuccessfully loaded data for {len(data)} symbols")
-        
-        # Run the strategy
-        print(f"\nRunning nGS strategy with ACTIVE M/E rebalancing on {len(data)} symbols...")
-        print("Processing signals and managing positions...")
-        
-        results = strategy.run(data)
-        
-        # Results summary
-        print(f"\n{'='*70}")
-        print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
-        print(f"{'='*70}")
-        
-        total_profit = sum(trade['profit'] for trade in strategy.trades)
-        winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
-        
-        print(f"Starting capital:     ${strategy.account_size:,.2f}")
-        print(f"Ending cash:          ${strategy.cash:,.2f}")
-        print(f"Total P&L:            ${total_profit:,.2f}")
-        print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
-        print(f"Total trades:         {len(strategy.trades)}")
-        print(f"Symbols processed:    {len(data)}")
-        print(f"Data period:          {strategy.cutoff_date.strftime('%Y-%m-%d')} to {datetime.now().strftime('%Y-%m-%d')}")
-        print(f"M/E rebalancing:      {'ENABLED' if strategy.me_rebalancing_enabled else 'DISABLED'}")
-        print(f"Sector management:    {'ENABLED' if strategy.sector_allocation_enabled else 'DISABLED'}")
-        
-        if strategy.trades:
-            print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
-            
-            # Trade statistics
-            profits = [trade['profit'] for trade in strategy.trades]
-            avg_profit = np.mean(profits)
-            max_win = max(profits)
-            max_loss = min(profits)
-            
-            print(f"Average trade:        ${avg_profit:.2f}")
-            print(f"Best trade:           ${max_win:.2f}")
-            print(f"Worst trade:          ${max_loss:.2f}")
-            
-            # Symbol performance
-            symbol_profits = {}
-            for trade in strategy.trades:
-                symbol = trade['symbol']
-                if symbol not in symbol_profits:
-                    symbol_profits[symbol] = 0
-                symbol_profits[symbol] += trade['profit']
-            
-            # Top performers
-            sorted_symbols = sorted(symbol_profits.items(), key=lambda x: x[1], reverse=True)
-            print(f"\nTop 5 performing symbols:")
-            for symbol, profit in sorted_symbols[:5]:
-                sector = get_symbol_sector(symbol)
-                print(f"  {symbol:6s} ({sector:20s}): ${profit:+8.2f}")
-            
-            print(f"\nBottom 5 performing symbols:")
-            for symbol, profit in sorted_symbols[-5:]:
-                sector = get_symbol_sector(symbol)
-                print(f"  {symbol:6s} ({sector:20s}): ${profit:+8.2f}")
-        
-        # Show recent trades
-        if strategy.trades:
-            print(f"\nRecent trades (last 10):")
-            for trade in strategy.trades[-10:]:
-                sector = get_symbol_sector(trade['symbol'])
-                print(f"  {trade['symbol']} ({sector:15s}) {trade['type']:5s} | "
-                      f"{trade['entry_date']} → {trade['exit_date']} | "
-                      f"${trade['entry_price']:7.2f} → ${trade['exit_price']:7.2f} | "
-                      f"P&L: ${trade['profit']:+8.2f} | {trade['exit_reason']}")
-        
-        # Current positions
-        long_pos, short_pos = strategy.get_current_positions()
-        total_positions = len(long_pos) + len(short_pos)
-        print(f"\nCurrent positions: {total_positions} total ({len(long_pos)} long, {len(short_pos)} short)")
-        
-        if total_positions > 0:
-            print(f"\nSample positions (first 10):")
-            all_pos = long_pos[:5] + short_pos[:5]
-            for pos in all_pos[:10]:
-                side = "Long " if pos in long_pos else "Short"
-                shares = pos['shares'] if pos in long_pos else pos['shares']
-                sector = get_symbol_sector(pos['symbol'])
-                print(f"  {side} {pos['symbol']:6s} ({sector:15s}): {shares:4d} shares @ ${pos['entry_price']:7.2f}")
-        
-        print(f"\n✅ Strategy backtest completed successfully!")
-        print(f"✅ Processed all {len(data)} symbols")
-        print(f"✅ Data retention enforced: {RETENTION_DAYS} days")
-        print(f"🎯 M/E rebalancing: {'ACTIVE' if strategy.me_rebalancing_enabled else 'INACTIVE'}")
-        print(f"✅ Sector management: {'ENABLED' if strategy.sector_allocation_enabled else 'DISABLED'}")
-        
-    except Exception as e:
-        logger.error(f"Strategy backtest failed: {e}")
-        import traceback
-        traceback.print_exc()
+
+    # 1. Load your historical/back data (change path if needed)
+    data = load_data(HISTORICAL_DATA_PATH, DATA_FORMAT)
+
+    # 2. Initialize integration manager
+    manager = NGSAIIntegrationManager(account_size=1_000_000, data_dir="data")
+
+    # 3. Run AI integration manager on your data
+    results = manager.run_integrated_strategy(data)
+
+    # 4. Save results for dashboard
+    manager.save_integration_session(results, filename="latest_results.json")
+    print("\n✅ AI integration complete. Results saved for dashboard.")
