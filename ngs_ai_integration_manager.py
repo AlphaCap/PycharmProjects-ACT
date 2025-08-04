@@ -21,7 +21,7 @@ class NGSAIIntegrationManager:
         self.account_size = account_size
         self.data_dir = data_dir
         
-        # Initialize your original nGS strategy (retained for comparison mode)
+        from nGS_Revised_Strategy import NGSStrategy
         self.original_ngs = NGSStrategy(account_size=account_size, data_dir=data_dir)
         
         # Initialize AI components
