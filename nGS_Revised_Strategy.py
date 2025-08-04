@@ -170,40 +170,6 @@ class DailyMERatioCalculator:
         
         return filename
     
-    def get_risk_assessment(self) -> Dict:
-        """
-        Get risk assessment based on current M/E ratio
-        """
-        current_metrics = self.calculate_daily_me_ratio()
-        me_ratio = current_metrics['ME_Ratio']
-        
-        if me_ratio > 100:
-            risk_level = "CRITICAL"
-            risk_color = "red"
-            recommendation = "IMMEDIATE REBALANCING REQUIRED - Reduce position sizes"
-        elif me_ratio > 80:
-            risk_level = "HIGH"
-            risk_color = "orange"
-            recommendation = "Consider reducing position sizes"
-        elif me_ratio > 60:
-            risk_level = "MODERATE"
-            risk_color = "yellow"
-            recommendation = "Monitor closely, consider position limits"
-        else:
-            risk_level = "LOW"
-            risk_color = "green"
-            recommendation = "Within acceptable risk parameters"
-        
-        return {
-            'risk_level': risk_level,
-            'risk_color': risk_color,
-            'recommendation': recommendation,
-            'me_ratio': me_ratio,
-            'portfolio_equity': current_metrics['Portfolio_Equity'],
-            'total_position_value': current_metrics['Total_Position_Value']
-        }
-
-# Configure logging with UTF-8 encoding for Windows
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
