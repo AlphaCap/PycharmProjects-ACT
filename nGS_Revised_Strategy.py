@@ -545,12 +545,10 @@ class NGSStrategy:
                     logger.info(f"M/E {current_me:.1f}% < {self.me_target_min}% but only {position_count} positions (min {self.min_positions_for_scaling_up}): No scaling")
                     return None
             elif current_me > self.me_target_max:
-                # Above maximum - need to scale down
                 print(f"SCALE DOWN NEEDED: {current_me:.1f}% > {self.me_target_max}%")
                 logger.info(f"M/E {current_me:.1f}% > {self.me_target_max}%: SCALE DOWN needed")
                 return 'scale_down'
             else:
-                # Within target range
                 print(f"M/E IN TARGET RANGE: {current_me:.1f}% within {self.me_target_min:.1f}%-{self.me_target_max:.1f}%")
                 logger.debug(f"M/E {current_me:.1f}% within target range {self.me_target_min}-{self.me_target_max}%")
                 return None
