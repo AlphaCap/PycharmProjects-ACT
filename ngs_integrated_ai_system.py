@@ -20,7 +20,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 
 # Import your existing components
-#from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
+from shared_utils import load_polygon_data
 # Import your existing components (line 23 removed)
 
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary  
