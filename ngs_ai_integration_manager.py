@@ -12,7 +12,7 @@ from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrate
 from data_manager import save_trades, save_positions, load_price_data
 from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
-from ngs_integrated_ai_system import
+from ngs_integrated_ai_system import NGSIndicatorLibrary
 
 logger = logging.getLogger(__name__)
 
