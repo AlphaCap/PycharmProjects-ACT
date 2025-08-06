@@ -360,12 +360,6 @@ class ObjectiveManager:
         
         print(f"📊 Objective Manager initialized with {len(self.objectives)} objectives")
     
-    def get_primary_objective(self):
-        """Return the first objective as the primary objective."""
-        if hasattr(self, 'objectives') and self.objectives:
-            return next(iter(self.objectives))  # Return the first objective key
-        return 'default_objective'  # Fallback value if no objectives exist
-    
     def get_objective(self, name: str) -> PerformanceObjective:
         """Get objective by name"""
         if name not in self.objectives:
