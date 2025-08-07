@@ -92,10 +92,19 @@ class NGSAIIntegrationManager:
                 logger.error(f"Error processing original strategy for {symbol}: {str(e)}")
         return results
     
-    def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
-        """Run AI-generated strategies exclusively."""
-        results = {}
-        objective = self.objective_manager.get_primary_objective()
+   # Line ~95: Add debugging inside `_run_ai_strategies_only`
+def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
+    """Run AI-generated strategies exclusively."""
+    results = {}
+    
+    # Debugging before objective retrieval
+    print("Debug: Checking ObjectiveManager instance...")
+    print("ObjectiveManager type:", type(self.objective_manager))
+    print("Available methods:", dir(self.objective_manager))
+    
+    # Objective retrieval
+    objective = self.objective_manager.get_primary_objective()  # This is where the error occurs
+    print("Primary objective retrieved:", objective)
         self.active_strategies = self.create_ai_strategy_set(data, objective)
         
         for symbol, strategy in self.active_strategies.items():
