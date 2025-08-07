@@ -1,2552 +1,724 @@
 {
   "sectors": {
-    "Industrial Conglomerates": [
-      "MMM",
-      "HON"
-    ],
-    "Building Products": [
-      "AOS",
-      "ALLE",
-      "BLDR",
-      "CARR",
-      "JCI",
-      "LII",
-      "MAS",
-      "TT"
-    ],
-    "Health Care Equipment": [
-      "ABT",
-      "BAX",
-      "BDX",
-      "BSX",
-      "DXCM",
-      "EW",
-      "GEHC",
-      "HOLX",
-      "IDXX",
-      "PODD",
-      "ISRG",
-      "MDT",
-      "RMD",
-      "RVTY",
-      "STE",
-      "SYK",
-      "ZBH"
-    ],
-    "Biotechnology": [
-      "ABBV",
-      "AMGN",
-      "BIIB",
-      "GILD",
-      "INCY",
-      "MRNA",
-      "REGN",
-      "VRTX"
-    ],
-    "IT Consulting & Other Services": [
-      "ACN",
-      "CTSH",
-      "EPAM",
-      "IT",
-      "IBM"
-    ],
-    "Application Software": [
-      "ADBE",
-      "ADSK",
-      "CDNS",
-      "DDOG",
-      "FICO",
-      "INTU",
-      "ORCL",
-      "PLTR",
-      "PTC",
-      "CRM",
-      "SNPS",
-      "TYL",
-      "WDAY"
-    ],
-    "Semiconductors": [
-      "AMD",
-      "ADI",
-      "AVGO",
-      "FSLR",
-      "INTC",
-      "MCHP",
-      "MU",
-      "MPWR",
-      "NVDA",
-      "NXPI",
-      "ON",
-      "QCOM",
-      "SWKS",
-      "TXN"
-    ],
-    "Independent Power Producers & Energy Traders": [
-      "AES",
-      "NRG"
-    ],
-    "Life & Health Insurance": [
-      "AFL",
-      "GL",
-      "MET",
-      "PFG",
-      "PRU"
-    ],
-    "Life Sciences Tools & Services": [
-      "A",
-      "TECH",
-      "CRL",
-      "DHR",
-      "IQV",
-      "MTD",
-      "TMO",
-      "WAT"
-    ],
-    "Industrial Gases": [
-      "APD",
-      "LIN"
-    ],
-    "Hotels, Resorts & Cruise Lines": [
-      "ABNB",
-      "BKNG",
-      "CCL",
-      "EXPE",
-      "HLT",
-      "MAR",
-      "NCLH",
-      "RCL"
-    ],
-    "Internet Services & Infrastructure": [
-      "AKAM",
-      "GDDY",
-      "VRSN"
-    ],
-    "Specialty Chemicals": [
-      "ALB",
-      "DD",
-      "EMN",
-      "ECL",
-      "IFF",
-      "LYB",
-      "PPG",
-      "SHW"
-    ],
-    "Office REITs": [
-      "ARE",
-      "BXP"
-    ],
-    "Health Care Supplies": [
-      "ALGN",
-      "COO",
-      "WST"
-    ],
-    "Electric Utilities": [
-      "LNT",
-      "AEP",
-      "CEG",
-      "DUK",
-      "EIX",
-      "ETR",
-      "EVRG",
-      "ES",
-      "EXC",
-      "FE",
-      "PPL",
-      "PEG",
-      "SO",
-      "VST",
-      "WEC"
-    ],
-    "Property & Casualty Insurance": [
-      "ALL",
-      "ACGL",
-      "CB",
-      "CINF",
-      "HIG",
-      "PGR",
-      "TRV",
-      "WRB"
-    ],
-    "Interactive Media & Services": [
+    "Information Technology": [
+      "AAPL",
+      "MSFT",
       "GOOGL",
       "GOOG",
-      "MTCH",
-      "META"
-    ],
-    "Tobacco": [
-      "MO",
-      "PM"
-    ],
-    "Broadline Retail": [
-      "AMZN",
-      "EBAY"
-    ],
-    "Paper & Plastic Packaging Products & Materials": [
-      "AMCR",
-      "AVY",
-      "IP",
-      "PKG",
-      "SW"
-    ],
-    "Multi-Utilities": [
-      "AEE",
-      "CNP",
-      "CMS",
-      "ED",
-      "D",
-      "DTE",
-      "NEE",
-      "NI",
-      "PCG",
-      "PNW",
-      "SRE",
-      "XEL"
-    ],
-    "Consumer Finance": [
-      "AXP",
-      "COF",
-      "SYF"
-    ],
-    "Multi-line Insurance": [
-      "AIG",
-      "AIZ",
-      "L"
-    ],
-    "Telecom Tower REITs": [
-      "AMT",
-      "CCI",
-      "SBAC"
-    ],
-    "Water Utilities": [
-      "AWK"
-    ],
-    "Asset Management & Custody Banks": [
-      "AMP",
-      "APO",
-      "BLK",
-      "BX",
-      "BK",
-      "BEN",
-      "IVZ",
-      "KKR",
-      "NTRS",
-      "STT",
-      "TROW"
-    ],
-    "Electrical Components & Equipment": [
-      "AME",
-      "ETN",
-      "EMR",
-      "GNRC",
-      "ROK"
-    ],
-    "Electronic Components": [
-      "APH",
-      "GLW"
-    ],
-    "Insurance Brokers": [
-      "AON",
-      "AJG",
-      "BRO",
-      "ERIE",
-      "MMC",
-      "WTW"
-    ],
-    "Oil & Gas Exploration & Production": [
-      "APA",
-      "COP",
-      "CTRA",
-      "DVN",
-      "FANG",
-      "EOG",
-      "EQT",
-      "EXE",
-      "OXY",
-      "TPL"
-    ],
-    "Technology Hardware, Storage & Peripherals": [
-      "AAPL",
-      "DELL",
-      "HPE",
-      "HPQ",
-      "NTAP",
-      "STX",
-      "SMCI",
-      "WDC"
-    ],
-    "Semiconductor Materials & Equipment": [
-      "AMAT",
-      "ENPH",
-      "KLAC",
-      "LRCX",
-      "TER"
-    ],
-    "Automotive Parts & Equipment": [
-      "APTV"
-    ],
-    "Agricultural Products & Services": [
-      "ADM",
-      "BG"
-    ],
-    "Communications Equipment": [
-      "ANET",
+      "META",
+      "TSLA",
+      "NVDA",
+      "CRM",
+      "ORCL",
+      "ADBE",
+      "NFLX",
+      "INTC",
       "CSCO",
-      "FFIV",
-      "MSI"
+      "AMD",
+      "IBM",
+      "NOW",
+      "TXN",
+      "QCOM",
+      "AMAT",
+      "MU"
     ],
-    "Integrated Telecommunication Services": [
-      "T",
-      "VZ"
-    ],
-    "Gas Utilities": [
-      "ATO"
-    ],
-    "Human Resource & Employment Services": [
-      "ADP",
-      "DAY",
-      "PAYX",
-      "PAYC"
-    ],
-    "Automotive Retail": [
-      "AZO",
-      "KMX",
-      "ORLY"
-    ],
-    "Multi-Family Residential REITs": [
-      "AVB",
-      "CPT",
-      "EQR",
-      "ESS",
-      "MAA",
-      "UDR"
-    ],
-    "Aerospace & Defense": [
-      "AXON",
-      "BA",
-      "GE",
-      "GD",
-      "HWM",
-      "HII",
-      "LHX",
-      "LMT",
-      "NOC",
-      "RTX",
-      "TXT",
-      "TDG"
-    ],
-    "Oil & Gas Equipment & Services": [
-      "BKR",
-      "HAL",
-      "SLB"
-    ],
-    "Metal, Glass & Plastic Containers": [
-      "BALL"
-    ],
-    "Diversified Banks": [
-      "BAC",
-      "C",
-      "JPM",
-      "PNC",
-      "TFC",
-      "USB",
-      "WFC"
-    ],
-    "Multi-Sector Holdings": [
-      "BRK.B"
-    ],
-    "Computer & Electronics Retail": [
-      "BBY"
-    ],
-    "Transaction & Payment Processing Services": [
-      "XYZ",
-      "CPAY",
-      "FIS",
-      "FI",
-      "GPN",
-      "JKHY",
-      "MA",
-      "PYPL",
-      "V"
-    ],
-    "Pharmaceuticals": [
-      "BMY",
+    "Health Care": [
+      "UNH",
       "JNJ",
-      "LLY",
-      "MRK",
       "PFE",
-      "VTRS",
-      "ZTS"
-    ],
-    "Data Processing & Outsourced Services": [
-      "BR"
-    ],
-    "Distillers & Vintners": [
-      "BF.B",
-      "STZ"
-    ],
-    "Air Freight & Logistics": [
-      "CHRW",
-      "EXPD",
-      "FDX",
-      "UPS"
-    ],
-    "Casinos & Gaming": [
-      "CZR",
-      "LVS",
-      "MGM",
-      "WYNN"
-    ],
-    "Packaged Foods & Meats": [
-      "CPB",
-      "CAG",
-      "GIS",
-      "HSY",
-      "HRL",
-      "K",
-      "KHC",
-      "LW",
-      "MKC",
-      "MDLZ",
-      "SJM",
-      "TSN"
-    ],
-    "Health Care Distributors": [
-      "CAH",
-      "COR",
-      "HSIC",
-      "MCK"
-    ],
-    "Construction Machinery & Heavy Transportation Equipment": [
-      "CAT",
-      "CMI",
-      "PCAR",
-      "WAB"
-    ],
-    "Financial Exchanges & Data": [
-      "CBOE",
-      "CME",
-      "COIN",
-      "FDS",
-      "ICE",
-      "MKTX",
-      "MCO",
-      "MSCI",
-      "NDAQ",
-      "SPGI"
-    ],
-    "Real Estate Services": [
-      "CBRE",
-      "CSGP"
-    ],
-    "Technology Distributors": [
-      "CDW"
-    ],
-    "Managed Health Care": [
-      "CNC",
+      "ABT",
+      "TMO",
+      "LLY",
+      "ABBV",
+      "MRK",
+      "MDT",
+      "BMY",
+      "AMGN",
+      "GILD",
+      "CVS",
+      "DHR",
+      "SYK",
+      "BDX",
+      "REGN",
+      "VRTX",
       "ELV",
-      "HUM",
-      "MOH",
-      "UNH"
+      "CI"
     ],
-    "Fertilizers & Agricultural Chemicals": [
-      "CF",
-      "CTVA",
-      "MOS"
-    ],
-    "Investment Banking & Brokerage": [
-      "SCHW",
+    "Financials": [
+      "BRK.B",
+      "JPM",
+      "V",
+      "MA",
+      "BAC",
+      "WFC",
       "GS",
       "MS",
-      "RJF"
+      "AXP",
+      "BLK",
+      "SPGI",
+      "C",
+      "MMC",
+      "CB",
+      "PGR",
+      "ICE",
+      "TFC",
+      "AON",
+      "USB",
+      "COF"
     ],
-    "Cable & Satellite": [
-      "CHTR",
-      "CMCSA"
+    "Communication Services": [
+      "GOOGL",
+      "GOOG",
+      "META",
+      "NFLX",
+      "DIS",
+      "CMCSA",
+      "VZ",
+      "T",
+      "TMUS",
+      "CHTR"
     ],
-    "Integrated Oil & Gas": [
-      "CVX",
-      "XOM"
-    ],
-    "Restaurants": [
-      "CMG",
-      "DRI",
-      "DPZ",
+    "Consumer Discretionary": [
+      "AMZN",
+      "TSLA",
+      "HD",
       "MCD",
+      "NKE",
+      "LOW",
       "SBUX",
-      "YUM"
-    ],
-    "Household Products": [
-      "CHD",
-      "CLX",
-      "CL",
-      "KMB"
-    ],
-    "Health Care Services": [
-      "CI",
-      "CVS",
-      "DVA",
-      "LH",
-      "DGX"
-    ],
-    "Diversified Support Services": [
-      "CTAS",
-      "CPRT",
-      "LDOS"
-    ],
-    "Regional Banks": [
-      "CFG",
-      "FITB",
-      "HBAN",
-      "KEY",
-      "MTB",
-      "RF"
-    ],
-    "Soft Drinks & Non-alcoholic Beverages": [
-      "KO",
-      "KDP",
-      "MNST",
-      "PEP"
-    ],
-    "Consumer Staples Merchandise Retail": [
-      "COST",
-      "DG",
-      "DLTR",
-      "TGT",
-      "WMT"
-    ],
-    "Systems Software": [
-      "CRWD",
-      "FTNT",
-      "GEN",
-      "MSFT",
-      "PANW",
-      "NOW"
-    ],
-    "Rail Transportation": [
-      "CSX",
-      "NSC",
-      "UNP"
-    ],
-    "Footwear": [
-      "DECK"
-    ],
-    "Agricultural & Farm Machinery": [
-      "DE"
-    ],
-    "Passenger Airlines": [
-      "DAL",
-      "LUV",
-      "UAL"
-    ],
-    "Data Center REITs": [
-      "DLR",
-      "EQIX"
-    ],
-    "Specialized Consumer Services": [
-      "DASH"
-    ],
-    "Industrial Machinery & Supplies & Components": [
-      "DOV",
-      "FTV",
-      "HUBB",
-      "IEX",
-      "ITW",
-      "IR",
-      "NDSN",
-      "OTIS",
-      "PH",
-      "PNR",
-      "SNA",
-      "SWK",
-      "GWW",
-      "XYL"
-    ],
-    "Commodity Chemicals": [
-      "DOW"
-    ],
-    "Homebuilding": [
-      "DHI",
-      "LEN",
-      "NVR",
-      "PHM"
-    ],
-    "Interactive Home Entertainment": [
-      "EA",
-      "TTWO"
-    ],
-    "Research & Consulting Services": [
-      "EFX",
-      "VRSK"
-    ],
-    "Personal Care Products": [
-      "EL",
-      "KVUE",
-      "PG"
-    ],
-    "Reinsurance": [
-      "EG"
-    ],
-    "Self-Storage REITs": [
-      "EXR",
-      "PSA"
-    ],
-    "Trading Companies & Distributors": [
-      "FAST",
-      "URI"
-    ],
-    "Retail REITs": [
-      "FRT",
-      "KIM",
-      "O",
-      "REG",
-      "SPG"
-    ],
-    "Automobile Manufacturers": [
+      "TJX",
+      "BKNG",
       "F",
       "GM",
-      "TSLA"
+      "MAR",
+      "HLT",
+      "ABNB",
+      "CMG",
+      "LRCX",
+      "ORLY",
+      "TGT",
+      "AZO",
+      "ROST"
     ],
-    "Broadcasting": [
-      "FOXA",
-      "FOX",
-      "WBD"
+    "Industrials": [
+      "BA",
+      "CAT",
+      "UNP",
+      "RTX",
+      "HON",
+      "UPS",
+      "LMT",
+      "DE",
+      "ADP",
+      "GE",
+      "MMM",
+      "FDX",
+      "NOC",
+      "WM",
+      "EMR",
+      "ITW",
+      "CSX",
+      "GD",
+      "NSC",
+      "RSG"
     ],
-    "Copper": [
-      "FCX"
+    "Consumer Staples": [
+      "PG",
+      "KO",
+      "PEP",
+      "WMT",
+      "COST",
+      "MDLZ",
+      "CL",
+      "KMB",
+      "GIS",
+      "K",
+      "SYY",
+      "HSY",
+      "MKC",
+      "CPB",
+      "CAG",
+      "CLX",
+      "TSN",
+      "HRL",
+      "LW",
+      "CHD"
     ],
-    "Consumer Electronics": [
-      "GRMN"
-    ],
-    "Heavy Electrical Equipment": [
-      "GEV"
-    ],
-    "Distributors": [
-      "GPC",
-      "LKQ",
-      "POOL"
-    ],
-    "Leisure Products": [
-      "HAS"
-    ],
-    "Health Care Facilities": [
-      "HCA",
-      "UHS"
-    ],
-    "Health Care REITs": [
-      "DOC",
-      "VTR",
-      "WELL"
-    ],
-    "Home Improvement Retail": [
-      "HD",
-      "LOW"
-    ],
-    "Hotel & Resort REITs": [
-      "HST",
-      "VICI"
-    ],
-    "Advertising": [
-      "IPG",
-      "OMC",
-      "TTD"
-    ],
-    "Single-Family Residential REITs": [
-      "INVH"
-    ],
-    "Other Specialized REITs": [
-      "IRM"
-    ],
-    "Cargo Ground Transportation": [
-      "JBHT",
-      "ODFL"
-    ],
-    "Electronic Manufacturing Services": [
-      "JBL",
-      "TEL"
-    ],
-    "Construction & Engineering": [
-      "J",
-      "PWR"
-    ],
-    "Electronic Equipment & Instruments": [
-      "KEYS",
-      "ROP",
-      "TDY",
-      "TRMB",
-      "ZBRA"
-    ],
-    "Oil & Gas Storage & Transportation": [
+    "Energy": [
+      "XOM",
+      "CVX",
+      "COP",
+      "EOG",
+      "SLB",
+      "PSX",
+      "VLO",
+      "MPC",
       "KMI",
       "OKE",
-      "TRGP",
-      "WMB"
+      "WMB",
+      "BKR",
+      "HAL",
+      "DVN",
+      "FANG",
+      "APA",
+      "EQT",
+      "CTRA",
+      "MRO",
+      "OXY"
     ],
-    "Food Retail": [
-      "KR"
+    "Utilities": [
+      "NEE",
+      "SO",
+      "DUK",
+      "AEP",
+      "SRE",
+      "D",
+      "PEG",
+      "EXC",
+      "XEL",
+      "ED",
+      "WEC",
+      "AWK",
+      "ES",
+      "DTE",
+      "ETR",
+      "FE",
+      "EIX",
+      "PPL",
+      "ATO",
+      "CMS"
     ],
-    "Movies & Entertainment": [
-      "LYV",
-      "NFLX",
-      "PARA",
-      "TKO",
-      "DIS"
+    "Real Estate": [
+      "PLD",
+      "AMT",
+      "CCI",
+      "EQIX",
+      "PSA",
+      "EXR",
+      "AVB",
+      "EQR",
+      "WELL",
+      "DLR",
+      "SBAC",
+      "VTR",
+      "ESS",
+      "MAA",
+      "ARE",
+      "INVH",
+      "UDR",
+      "CPT",
+      "HST",
+      "REG"
     ],
-    "Apparel, Accessories & Luxury Goods": [
-      "LULU",
-      "NKE",
-      "RL",
-      "TPR"
-    ],
-    "Oil & Gas Refining & Marketing": [
-      "MPC",
-      "PSX",
-      "VLO"
-    ],
-    "Construction Materials": [
-      "MLM",
-      "VMC"
-    ],
-    "Home Furnishings": [
-      "MHK"
-    ],
-    "Brewers": [
-      "TAP"
-    ],
-    "Gold": [
-      "NEM"
-    ],
-    "Publishing": [
-      "NWSA",
-      "NWS"
-    ],
-    "Steel": [
+    "Materials": [
+      "LIN",
+      "APD",
+      "SHW",
+      "FCX",
       "NUE",
-      "STLD"
-    ],
-    "Industrial REITs": [
-      "PLD"
-    ],
-    "Environmental & Facilities Services": [
-      "RSG",
-      "ROL",
-      "VLTO",
-      "WM"
-    ],
-    "Apparel Retail": [
-      "ROST",
-      "TJX"
-    ],
-    "Health Care Technology": [
-      "SOLV"
-    ],
-    "Food Distributors": [
-      "SYY"
-    ],
-    "Wireless Telecommunication Services": [
-      "TMUS"
-    ],
-    "Other Specialty Retail": [
-      "TSCO",
-      "ULTA"
-    ],
-    "Passenger Ground Transportation": [
-      "UBER"
-    ],
-    "Drug Retail": [
-      "WBA"
-    ],
-    "Timber REITs": [
-      "WY"
-    ],
-    "Homefurnishing Retail": [
-      "WSM"
+      "NEM",
+      "DOW",
+      "VMC",
+      "MLM",
+      "PPG",
+      "ECL",
+      "CTVA",
+      "DD",
+      "ALB",
+      "IFF",
+      "PKG",
+      "BALL",
+      "AMCR",
+      "AVY",
+      "CF"
     ]
   },
   "symbol_to_sector": {
-    "MMM": "Industrial Conglomerates",
-    "AOS": "Building Products",
-    "ABT": "Health Care Equipment",
-    "ABBV": "Biotechnology",
-    "ACN": "IT Consulting & Other Services",
-    "ADBE": "Application Software",
-    "AMD": "Semiconductors",
-    "AES": "Independent Power Producers & Energy Traders",
-    "AFL": "Life & Health Insurance",
-    "A": "Life Sciences Tools & Services",
-    "APD": "Industrial Gases",
-    "ABNB": "Hotels, Resorts & Cruise Lines",
-    "AKAM": "Internet Services & Infrastructure",
-    "ALB": "Specialty Chemicals",
-    "ARE": "Office REITs",
-    "ALGN": "Health Care Supplies",
-    "ALLE": "Building Products",
-    "LNT": "Electric Utilities",
-    "ALL": "Property & Casualty Insurance",
-    "GOOGL": "Interactive Media & Services",
-    "GOOG": "Interactive Media & Services",
-    "MO": "Tobacco",
-    "AMZN": "Broadline Retail",
-    "AMCR": "Paper & Plastic Packaging Products & Materials",
-    "AEE": "Multi-Utilities",
-    "AEP": "Electric Utilities",
-    "AXP": "Consumer Finance",
-    "AIG": "Multi-line Insurance",
-    "AMT": "Telecom Tower REITs",
-    "AWK": "Water Utilities",
-    "AMP": "Asset Management & Custody Banks",
-    "AME": "Electrical Components & Equipment",
-    "AMGN": "Biotechnology",
-    "APH": "Electronic Components",
-    "ADI": "Semiconductors",
-    "AON": "Insurance Brokers",
-    "APA": "Oil & Gas Exploration & Production",
-    "APO": "Asset Management & Custody Banks",
-    "AAPL": "Technology Hardware, Storage & Peripherals",
-    "AMAT": "Semiconductor Materials & Equipment",
-    "APTV": "Automotive Parts & Equipment",
-    "ACGL": "Property & Casualty Insurance",
-    "ADM": "Agricultural Products & Services",
-    "ANET": "Communications Equipment",
-    "AJG": "Insurance Brokers",
-    "AIZ": "Multi-line Insurance",
-    "T": "Integrated Telecommunication Services",
-    "ATO": "Gas Utilities",
-    "ADSK": "Application Software",
-    "ADP": "Human Resource & Employment Services",
-    "AZO": "Automotive Retail",
-    "AVB": "Multi-Family Residential REITs",
-    "AVY": "Paper & Plastic Packaging Products & Materials",
-    "AXON": "Aerospace & Defense",
-    "BKR": "Oil & Gas Equipment & Services",
-    "BALL": "Metal, Glass & Plastic Containers",
-    "BAC": "Diversified Banks",
-    "BAX": "Health Care Equipment",
-    "BDX": "Health Care Equipment",
-    "BRK.B": "Multi-Sector Holdings",
-    "BBY": "Computer & Electronics Retail",
-    "TECH": "Life Sciences Tools & Services",
-    "BIIB": "Biotechnology",
-    "BLK": "Asset Management & Custody Banks",
-    "BX": "Asset Management & Custody Banks",
-    "XYZ": "Transaction & Payment Processing Services",
-    "BK": "Asset Management & Custody Banks",
-    "BA": "Aerospace & Defense",
-    "BKNG": "Hotels, Resorts & Cruise Lines",
-    "BSX": "Health Care Equipment",
-    "BMY": "Pharmaceuticals",
-    "AVGO": "Semiconductors",
-    "BR": "Data Processing & Outsourced Services",
-    "BRO": "Insurance Brokers",
-    "BF.B": "Distillers & Vintners",
-    "BLDR": "Building Products",
-    "BG": "Agricultural Products & Services",
-    "BXP": "Office REITs",
-    "CHRW": "Air Freight & Logistics",
-    "CDNS": "Application Software",
-    "CZR": "Casinos & Gaming",
-    "CPT": "Multi-Family Residential REITs",
-    "CPB": "Packaged Foods & Meats",
-    "COF": "Consumer Finance",
-    "CAH": "Health Care Distributors",
-    "KMX": "Automotive Retail",
-    "CCL": "Hotels, Resorts & Cruise Lines",
-    "CARR": "Building Products",
-    "CAT": "Construction Machinery & Heavy Transportation Equipment",
-    "CBOE": "Financial Exchanges & Data",
-    "CBRE": "Real Estate Services",
-    "CDW": "Technology Distributors",
-    "COR": "Health Care Distributors",
-    "CNC": "Managed Health Care",
-    "CNP": "Multi-Utilities",
-    "CF": "Fertilizers & Agricultural Chemicals",
-    "CRL": "Life Sciences Tools & Services",
-    "SCHW": "Investment Banking & Brokerage",
-    "CHTR": "Cable & Satellite",
-    "CVX": "Integrated Oil & Gas",
-    "CMG": "Restaurants",
-    "CB": "Property & Casualty Insurance",
-    "CHD": "Household Products",
-    "CI": "Health Care Services",
-    "CINF": "Property & Casualty Insurance",
-    "CTAS": "Diversified Support Services",
-    "CSCO": "Communications Equipment",
-    "C": "Diversified Banks",
-    "CFG": "Regional Banks",
-    "CLX": "Household Products",
-    "CME": "Financial Exchanges & Data",
-    "CMS": "Multi-Utilities",
-    "KO": "Soft Drinks & Non-alcoholic Beverages",
-    "CTSH": "IT Consulting & Other Services",
-    "COIN": "Financial Exchanges & Data",
-    "CL": "Household Products",
-    "CMCSA": "Cable & Satellite",
-    "CAG": "Packaged Foods & Meats",
-    "COP": "Oil & Gas Exploration & Production",
-    "ED": "Multi-Utilities",
-    "STZ": "Distillers & Vintners",
-    "CEG": "Electric Utilities",
-    "COO": "Health Care Supplies",
-    "CPRT": "Diversified Support Services",
-    "GLW": "Electronic Components",
-    "CPAY": "Transaction & Payment Processing Services",
-    "CTVA": "Fertilizers & Agricultural Chemicals",
-    "CSGP": "Real Estate Services",
-    "COST": "Consumer Staples Merchandise Retail",
-    "CTRA": "Oil & Gas Exploration & Production",
-    "CRWD": "Systems Software",
-    "CCI": "Telecom Tower REITs",
-    "CSX": "Rail Transportation",
-    "CMI": "Construction Machinery & Heavy Transportation Equipment",
-    "CVS": "Health Care Services",
-    "DHR": "Life Sciences Tools & Services",
-    "DRI": "Restaurants",
-    "DDOG": "Application Software",
-    "DVA": "Health Care Services",
-    "DAY": "Human Resource & Employment Services",
-    "DECK": "Footwear",
-    "DE": "Agricultural & Farm Machinery",
-    "DELL": "Technology Hardware, Storage & Peripherals",
-    "DAL": "Passenger Airlines",
-    "DVN": "Oil & Gas Exploration & Production",
-    "DXCM": "Health Care Equipment",
-    "FANG": "Oil & Gas Exploration & Production",
-    "DLR": "Data Center REITs",
-    "DG": "Consumer Staples Merchandise Retail",
-    "DLTR": "Consumer Staples Merchandise Retail",
-    "D": "Multi-Utilities",
-    "DPZ": "Restaurants",
-    "DASH": "Specialized Consumer Services",
-    "DOV": "Industrial Machinery & Supplies & Components",
-    "DOW": "Commodity Chemicals",
-    "DHI": "Homebuilding",
-    "DTE": "Multi-Utilities",
-    "DUK": "Electric Utilities",
-    "DD": "Specialty Chemicals",
-    "EMN": "Specialty Chemicals",
-    "ETN": "Electrical Components & Equipment",
-    "EBAY": "Broadline Retail",
-    "ECL": "Specialty Chemicals",
-    "EIX": "Electric Utilities",
-    "EW": "Health Care Equipment",
-    "EA": "Interactive Home Entertainment",
-    "ELV": "Managed Health Care",
-    "EMR": "Electrical Components & Equipment",
-    "ENPH": "Semiconductor Materials & Equipment",
-    "ETR": "Electric Utilities",
-    "EOG": "Oil & Gas Exploration & Production",
-    "EPAM": "IT Consulting & Other Services",
-    "EQT": "Oil & Gas Exploration & Production",
-    "EFX": "Research & Consulting Services",
-    "EQIX": "Data Center REITs",
-    "EQR": "Multi-Family Residential REITs",
-    "ERIE": "Insurance Brokers",
-    "ESS": "Multi-Family Residential REITs",
-    "EL": "Personal Care Products",
-    "EG": "Reinsurance",
-    "EVRG": "Electric Utilities",
-    "ES": "Electric Utilities",
-    "EXC": "Electric Utilities",
-    "EXE": "Oil & Gas Exploration & Production",
-    "EXPE": "Hotels, Resorts & Cruise Lines",
-    "EXPD": "Air Freight & Logistics",
-    "EXR": "Self-Storage REITs",
-    "XOM": "Integrated Oil & Gas",
-    "FFIV": "Communications Equipment",
-    "FDS": "Financial Exchanges & Data",
-    "FICO": "Application Software",
-    "FAST": "Trading Companies & Distributors",
-    "FRT": "Retail REITs",
-    "FDX": "Air Freight & Logistics",
-    "FIS": "Transaction & Payment Processing Services",
-    "FITB": "Regional Banks",
-    "FSLR": "Semiconductors",
-    "FE": "Electric Utilities",
-    "FI": "Transaction & Payment Processing Services",
-    "F": "Automobile Manufacturers",
-    "FTNT": "Systems Software",
-    "FTV": "Industrial Machinery & Supplies & Components",
-    "FOXA": "Broadcasting",
-    "FOX": "Broadcasting",
-    "BEN": "Asset Management & Custody Banks",
-    "FCX": "Copper",
-    "GRMN": "Consumer Electronics",
-    "IT": "IT Consulting & Other Services",
-    "GE": "Aerospace & Defense",
-    "GEHC": "Health Care Equipment",
-    "GEV": "Heavy Electrical Equipment",
-    "GEN": "Systems Software",
-    "GNRC": "Electrical Components & Equipment",
-    "GD": "Aerospace & Defense",
-    "GIS": "Packaged Foods & Meats",
-    "GM": "Automobile Manufacturers",
-    "GPC": "Distributors",
-    "GILD": "Biotechnology",
-    "GPN": "Transaction & Payment Processing Services",
-    "GL": "Life & Health Insurance",
-    "GDDY": "Internet Services & Infrastructure",
-    "GS": "Investment Banking & Brokerage",
-    "HAL": "Oil & Gas Equipment & Services",
-    "HIG": "Property & Casualty Insurance",
-    "HAS": "Leisure Products",
-    "HCA": "Health Care Facilities",
-    "DOC": "Health Care REITs",
-    "HSIC": "Health Care Distributors",
-    "HSY": "Packaged Foods & Meats",
-    "HPE": "Technology Hardware, Storage & Peripherals",
-    "HLT": "Hotels, Resorts & Cruise Lines",
-    "HOLX": "Health Care Equipment",
-    "HD": "Home Improvement Retail",
-    "HON": "Industrial Conglomerates",
-    "HRL": "Packaged Foods & Meats",
-    "HST": "Hotel & Resort REITs",
-    "HWM": "Aerospace & Defense",
-    "HPQ": "Technology Hardware, Storage & Peripherals",
-    "HUBB": "Industrial Machinery & Supplies & Components",
-    "HUM": "Managed Health Care",
-    "HBAN": "Regional Banks",
-    "HII": "Aerospace & Defense",
-    "IBM": "IT Consulting & Other Services",
-    "IEX": "Industrial Machinery & Supplies & Components",
-    "IDXX": "Health Care Equipment",
-    "ITW": "Industrial Machinery & Supplies & Components",
-    "INCY": "Biotechnology",
-    "IR": "Industrial Machinery & Supplies & Components",
-    "PODD": "Health Care Equipment",
-    "INTC": "Semiconductors",
-    "ICE": "Financial Exchanges & Data",
-    "IFF": "Specialty Chemicals",
-    "IP": "Paper & Plastic Packaging Products & Materials",
-    "IPG": "Advertising",
-    "INTU": "Application Software",
-    "ISRG": "Health Care Equipment",
-    "IVZ": "Asset Management & Custody Banks",
-    "INVH": "Single-Family Residential REITs",
-    "IQV": "Life Sciences Tools & Services",
-    "IRM": "Other Specialized REITs",
-    "JBHT": "Cargo Ground Transportation",
-    "JBL": "Electronic Manufacturing Services",
-    "JKHY": "Transaction & Payment Processing Services",
-    "J": "Construction & Engineering",
-    "JNJ": "Pharmaceuticals",
-    "JCI": "Building Products",
-    "JPM": "Diversified Banks",
-    "K": "Packaged Foods & Meats",
-    "KVUE": "Personal Care Products",
-    "KDP": "Soft Drinks & Non-alcoholic Beverages",
-    "KEY": "Regional Banks",
-    "KEYS": "Electronic Equipment & Instruments",
-    "KMB": "Household Products",
-    "KIM": "Retail REITs",
-    "KMI": "Oil & Gas Storage & Transportation",
-    "KKR": "Asset Management & Custody Banks",
-    "KLAC": "Semiconductor Materials & Equipment",
-    "KHC": "Packaged Foods & Meats",
-    "KR": "Food Retail",
-    "LHX": "Aerospace & Defense",
-    "LH": "Health Care Services",
-    "LRCX": "Semiconductor Materials & Equipment",
-    "LW": "Packaged Foods & Meats",
-    "LVS": "Casinos & Gaming",
-    "LDOS": "Diversified Support Services",
-    "LEN": "Homebuilding",
-    "LII": "Building Products",
-    "LLY": "Pharmaceuticals",
-    "LIN": "Industrial Gases",
-    "LYV": "Movies & Entertainment",
-    "LKQ": "Distributors",
-    "LMT": "Aerospace & Defense",
-    "L": "Multi-line Insurance",
-    "LOW": "Home Improvement Retail",
-    "LULU": "Apparel, Accessories & Luxury Goods",
-    "LYB": "Specialty Chemicals",
-    "MTB": "Regional Banks",
-    "MPC": "Oil & Gas Refining & Marketing",
-    "MKTX": "Financial Exchanges & Data",
-    "MAR": "Hotels, Resorts & Cruise Lines",
-    "MMC": "Insurance Brokers",
-    "MLM": "Construction Materials",
-    "MAS": "Building Products",
-    "MA": "Transaction & Payment Processing Services",
-    "MTCH": "Interactive Media & Services",
-    "MKC": "Packaged Foods & Meats",
-    "MCD": "Restaurants",
-    "MCK": "Health Care Distributors",
-    "MDT": "Health Care Equipment",
-    "MRK": "Pharmaceuticals",
-    "META": "Interactive Media & Services",
-    "MET": "Life & Health Insurance",
-    "MTD": "Life Sciences Tools & Services",
-    "MGM": "Casinos & Gaming",
-    "MCHP": "Semiconductors",
-    "MU": "Semiconductors",
-    "MSFT": "Systems Software",
-    "MAA": "Multi-Family Residential REITs",
-    "MRNA": "Biotechnology",
-    "MHK": "Home Furnishings",
-    "MOH": "Managed Health Care",
-    "TAP": "Brewers",
-    "MDLZ": "Packaged Foods & Meats",
-    "MPWR": "Semiconductors",
-    "MNST": "Soft Drinks & Non-alcoholic Beverages",
-    "MCO": "Financial Exchanges & Data",
-    "MS": "Investment Banking & Brokerage",
-    "MOS": "Fertilizers & Agricultural Chemicals",
-    "MSI": "Communications Equipment",
-    "MSCI": "Financial Exchanges & Data",
-    "NDAQ": "Financial Exchanges & Data",
-    "NTAP": "Technology Hardware, Storage & Peripherals",
-    "NFLX": "Movies & Entertainment",
-    "NEM": "Gold",
-    "NWSA": "Publishing",
-    "NWS": "Publishing",
-    "NEE": "Multi-Utilities",
-    "NKE": "Apparel, Accessories & Luxury Goods",
-    "NI": "Multi-Utilities",
-    "NDSN": "Industrial Machinery & Supplies & Components",
-    "NSC": "Rail Transportation",
-    "NTRS": "Asset Management & Custody Banks",
-    "NOC": "Aerospace & Defense",
-    "NCLH": "Hotels, Resorts & Cruise Lines",
-    "NRG": "Independent Power Producers & Energy Traders",
-    "NUE": "Steel",
-    "NVDA": "Semiconductors",
-    "NVR": "Homebuilding",
-    "NXPI": "Semiconductors",
-    "ORLY": "Automotive Retail",
-    "OXY": "Oil & Gas Exploration & Production",
-    "ODFL": "Cargo Ground Transportation",
-    "OMC": "Advertising",
-    "ON": "Semiconductors",
-    "OKE": "Oil & Gas Storage & Transportation",
-    "ORCL": "Application Software",
-    "OTIS": "Industrial Machinery & Supplies & Components",
-    "PCAR": "Construction Machinery & Heavy Transportation Equipment",
-    "PKG": "Paper & Plastic Packaging Products & Materials",
-    "PLTR": "Application Software",
-    "PANW": "Systems Software",
-    "PARA": "Movies & Entertainment",
-    "PH": "Industrial Machinery & Supplies & Components",
-    "PAYX": "Human Resource & Employment Services",
-    "PAYC": "Human Resource & Employment Services",
-    "PYPL": "Transaction & Payment Processing Services",
-    "PNR": "Industrial Machinery & Supplies & Components",
-    "PEP": "Soft Drinks & Non-alcoholic Beverages",
-    "PFE": "Pharmaceuticals",
-    "PCG": "Multi-Utilities",
-    "PM": "Tobacco",
-    "PSX": "Oil & Gas Refining & Marketing",
-    "PNW": "Multi-Utilities",
-    "PNC": "Diversified Banks",
-    "POOL": "Distributors",
-    "PPG": "Specialty Chemicals",
-    "PPL": "Electric Utilities",
-    "PFG": "Life & Health Insurance",
-    "PG": "Personal Care Products",
-    "PGR": "Property & Casualty Insurance",
-    "PLD": "Industrial REITs",
-    "PRU": "Life & Health Insurance",
-    "PEG": "Electric Utilities",
-    "PTC": "Application Software",
-    "PSA": "Self-Storage REITs",
-    "PHM": "Homebuilding",
-    "PWR": "Construction & Engineering",
-    "QCOM": "Semiconductors",
-    "DGX": "Health Care Services",
-    "RL": "Apparel, Accessories & Luxury Goods",
-    "RJF": "Investment Banking & Brokerage",
-    "RTX": "Aerospace & Defense",
-    "O": "Retail REITs",
-    "REG": "Retail REITs",
-    "REGN": "Biotechnology",
-    "RF": "Regional Banks",
-    "RSG": "Environmental & Facilities Services",
-    "RMD": "Health Care Equipment",
-    "RVTY": "Health Care Equipment",
-    "ROK": "Electrical Components & Equipment",
-    "ROL": "Environmental & Facilities Services",
-    "ROP": "Electronic Equipment & Instruments",
-    "ROST": "Apparel Retail",
-    "RCL": "Hotels, Resorts & Cruise Lines",
-    "SPGI": "Financial Exchanges & Data",
-    "CRM": "Application Software",
-    "SBAC": "Telecom Tower REITs",
-    "SLB": "Oil & Gas Equipment & Services",
-    "STX": "Technology Hardware, Storage & Peripherals",
-    "SRE": "Multi-Utilities",
-    "NOW": "Systems Software",
-    "SHW": "Specialty Chemicals",
-    "SPG": "Retail REITs",
-    "SWKS": "Semiconductors",
-    "SJM": "Packaged Foods & Meats",
-    "SW": "Paper & Plastic Packaging Products & Materials",
-    "SNA": "Industrial Machinery & Supplies & Components",
-    "SOLV": "Health Care Technology",
-    "SO": "Electric Utilities",
-    "LUV": "Passenger Airlines",
-    "SWK": "Industrial Machinery & Supplies & Components",
-    "SBUX": "Restaurants",
-    "STT": "Asset Management & Custody Banks",
-    "STLD": "Steel",
-    "STE": "Health Care Equipment",
-    "SYK": "Health Care Equipment",
-    "SMCI": "Technology Hardware, Storage & Peripherals",
-    "SYF": "Consumer Finance",
-    "SNPS": "Application Software",
-    "SYY": "Food Distributors",
-    "TMUS": "Wireless Telecommunication Services",
-    "TROW": "Asset Management & Custody Banks",
-    "TTWO": "Interactive Home Entertainment",
-    "TPR": "Apparel, Accessories & Luxury Goods",
-    "TRGP": "Oil & Gas Storage & Transportation",
-    "TGT": "Consumer Staples Merchandise Retail",
-    "TEL": "Electronic Manufacturing Services",
-    "TDY": "Electronic Equipment & Instruments",
-    "TER": "Semiconductor Materials & Equipment",
-    "TSLA": "Automobile Manufacturers",
-    "TXN": "Semiconductors",
-    "TPL": "Oil & Gas Exploration & Production",
-    "TXT": "Aerospace & Defense",
-    "TMO": "Life Sciences Tools & Services",
-    "TJX": "Apparel Retail",
-    "TKO": "Movies & Entertainment",
-    "TTD": "Advertising",
-    "TSCO": "Other Specialty Retail",
-    "TT": "Building Products",
-    "TDG": "Aerospace & Defense",
-    "TRV": "Property & Casualty Insurance",
-    "TRMB": "Electronic Equipment & Instruments",
-    "TFC": "Diversified Banks",
-    "TYL": "Application Software",
-    "TSN": "Packaged Foods & Meats",
-    "USB": "Diversified Banks",
-    "UBER": "Passenger Ground Transportation",
-    "UDR": "Multi-Family Residential REITs",
-    "ULTA": "Other Specialty Retail",
-    "UNP": "Rail Transportation",
-    "UAL": "Passenger Airlines",
-    "UPS": "Air Freight & Logistics",
-    "URI": "Trading Companies & Distributors",
-    "UNH": "Managed Health Care",
-    "UHS": "Health Care Facilities",
-    "VLO": "Oil & Gas Refining & Marketing",
-    "VTR": "Health Care REITs",
-    "VLTO": "Environmental & Facilities Services",
-    "VRSN": "Internet Services & Infrastructure",
-    "VRSK": "Research & Consulting Services",
-    "VZ": "Integrated Telecommunication Services",
-    "VRTX": "Biotechnology",
-    "VTRS": "Pharmaceuticals",
-    "VICI": "Hotel & Resort REITs",
-    "V": "Transaction & Payment Processing Services",
-    "VST": "Electric Utilities",
-    "VMC": "Construction Materials",
-    "WRB": "Property & Casualty Insurance",
-    "GWW": "Industrial Machinery & Supplies & Components",
-    "WAB": "Construction Machinery & Heavy Transportation Equipment",
-    "WBA": "Drug Retail",
-    "WMT": "Consumer Staples Merchandise Retail",
-    "DIS": "Movies & Entertainment",
-    "WBD": "Broadcasting",
-    "WM": "Environmental & Facilities Services",
-    "WAT": "Life Sciences Tools & Services",
-    "WEC": "Electric Utilities",
-    "WFC": "Diversified Banks",
-    "WELL": "Health Care REITs",
-    "WST": "Health Care Supplies",
-    "WDC": "Technology Hardware, Storage & Peripherals",
-    "WY": "Timber REITs",
-    "WSM": "Homefurnishing Retail",
-    "WMB": "Oil & Gas Storage & Transportation",
-    "WTW": "Insurance Brokers",
-    "WDAY": "Application Software",
-    "WYNN": "Casinos & Gaming",
-    "XEL": "Multi-Utilities",
-    "XYL": "Industrial Machinery & Supplies & Components",
-    "YUM": "Restaurants",
-    "ZBRA": "Electronic Equipment & Instruments",
-    "ZBH": "Health Care Equipment",
-    "ZTS": "Pharmaceuticals"
+    "AAPL": "Information Technology",
+    "MSFT": "Information Technology",
+    "GOOGL": "Communication Services",
+    "GOOG": "Communication Services",
+    "META": "Communication Services",
+    "TSLA": "Consumer Discretionary",
+    "NVDA": "Information Technology",
+    "CRM": "Information Technology",
+    "ORCL": "Information Technology",
+    "ADBE": "Information Technology",
+    "NFLX": "Communication Services",
+    "INTC": "Information Technology",
+    "CSCO": "Information Technology",
+    "AMD": "Information Technology",
+    "IBM": "Information Technology",
+    "NOW": "Information Technology",
+    "TXN": "Information Technology",
+    "QCOM": "Information Technology",
+    "AMAT": "Information Technology",
+    "MU": "Information Technology",
+    "UNH": "Health Care",
+    "JNJ": "Health Care",
+    "PFE": "Health Care",
+    "ABT": "Health Care",
+    "TMO": "Health Care",
+    "LLY": "Health Care",
+    "ABBV": "Health Care",
+    "MRK": "Health Care",
+    "MDT": "Health Care",
+    "BMY": "Health Care",
+    "AMGN": "Health Care",
+    "GILD": "Health Care",
+    "CVS": "Health Care",
+    "DHR": "Health Care",
+    "SYK": "Health Care",
+    "BDX": "Health Care",
+    "REGN": "Health Care",
+    "VRTX": "Health Care",
+    "ELV": "Health Care",
+    "CI": "Health Care",
+    "BRK.B": "Financials",
+    "JPM": "Financials",
+    "V": "Financials",
+    "MA": "Financials",
+    "BAC": "Financials",
+    "WFC": "Financials",
+    "GS": "Financials",
+    "MS": "Financials",
+    "AXP": "Financials",
+    "BLK": "Financials",
+    "SPGI": "Financials",
+    "C": "Financials",
+    "MMC": "Financials",
+    "CB": "Financials",
+    "PGR": "Financials",
+    "ICE": "Financials",
+    "TFC": "Financials",
+    "AON": "Financials",
+    "USB": "Financials",
+    "COF": "Financials",
+    "DIS": "Communication Services",
+    "CMCSA": "Communication Services",
+    "VZ": "Communication Services",
+    "T": "Communication Services",
+    "TMUS": "Communication Services",
+    "CHTR": "Communication Services",
+    "AMZN": "Consumer Discretionary",
+    "HD": "Consumer Discretionary",
+    "MCD": "Consumer Discretionary",
+    "NKE": "Consumer Discretionary",
+    "LOW": "Consumer Discretionary",
+    "SBUX": "Consumer Discretionary",
+    "TJX": "Consumer Discretionary",
+    "BKNG": "Consumer Discretionary",
+    "F": "Consumer Discretionary",
+    "GM": "Consumer Discretionary",
+    "MAR": "Consumer Discretionary",
+    "HLT": "Consumer Discretionary",
+    "ABNB": "Consumer Discretionary",
+    "CMG": "Consumer Discretionary",
+    "LRCX": "Consumer Discretionary",
+    "ORLY": "Consumer Discretionary",
+    "TGT": "Consumer Discretionary",
+    "AZO": "Consumer Discretionary",
+    "ROST": "Consumer Discretionary",
+    "BA": "Industrials",
+    "CAT": "Industrials",
+    "UNP": "Industrials",
+    "RTX": "Industrials",
+    "HON": "Industrials",
+    "UPS": "Industrials",
+    "LMT": "Industrials",
+    "DE": "Industrials",
+    "ADP": "Industrials",
+    "GE": "Industrials",
+    "MMM": "Industrials",
+    "FDX": "Industrials",
+    "NOC": "Industrials",
+    "WM": "Industrials",
+    "EMR": "Industrials",
+    "ITW": "Industrials",
+    "CSX": "Industrials",
+    "GD": "Industrials",
+    "NSC": "Industrials",
+    "RSG": "Industrials",
+    "PG": "Consumer Staples",
+    "KO": "Consumer Staples",
+    "PEP": "Consumer Staples",
+    "WMT": "Consumer Staples",
+    "COST": "Consumer Staples",
+    "MDLZ": "Consumer Staples",
+    "CL": "Consumer Staples",
+    "KMB": "Consumer Staples",
+    "GIS": "Consumer Staples",
+    "K": "Consumer Staples",
+    "SYY": "Consumer Staples",
+    "HSY": "Consumer Staples",
+    "MKC": "Consumer Staples",
+    "CPB": "Consumer Staples",
+    "CAG": "Consumer Staples",
+    "CLX": "Consumer Staples",
+    "TSN": "Consumer Staples",
+    "HRL": "Consumer Staples",
+    "LW": "Consumer Staples",
+    "CHD": "Consumer Staples",
+    "XOM": "Energy",
+    "CVX": "Energy",
+    "COP": "Energy",
+    "EOG": "Energy",
+    "SLB": "Energy",
+    "PSX": "Energy",
+    "VLO": "Energy",
+    "MPC": "Energy",
+    "KMI": "Energy",
+    "OKE": "Energy",
+    "WMB": "Energy",
+    "BKR": "Energy",
+    "HAL": "Energy",
+    "DVN": "Energy",
+    "FANG": "Energy",
+    "APA": "Energy",
+    "EQT": "Energy",
+    "CTRA": "Energy",
+    "MRO": "Energy",
+    "OXY": "Energy",
+    "NEE": "Utilities",
+    "SO": "Utilities",
+    "DUK": "Utilities",
+    "AEP": "Utilities",
+    "SRE": "Utilities",
+    "D": "Utilities",
+    "PEG": "Utilities",
+    "EXC": "Utilities",
+    "XEL": "Utilities",
+    "ED": "Utilities",
+    "WEC": "Utilities",
+    "AWK": "Utilities",
+    "ES": "Utilities",
+    "DTE": "Utilities",
+    "ETR": "Utilities",
+    "FE": "Utilities",
+    "EIX": "Utilities",
+    "PPL": "Utilities",
+    "ATO": "Utilities",
+    "CMS": "Utilities",
+    "PLD": "Real Estate",
+    "AMT": "Real Estate",
+    "CCI": "Real Estate",
+    "EQIX": "Real Estate",
+    "PSA": "Real Estate",
+    "EXR": "Real Estate",
+    "AVB": "Real Estate",
+    "EQR": "Real Estate",
+    "WELL": "Real Estate",
+    "DLR": "Real Estate",
+    "SBAC": "Real Estate",
+    "VTR": "Real Estate",
+    "ESS": "Real Estate",
+    "MAA": "Real Estate",
+    "ARE": "Real Estate",
+    "INVH": "Real Estate",
+    "UDR": "Real Estate",
+    "CPT": "Real Estate",
+    "HST": "Real Estate",
+    "REG": "Real Estate",
+    "LIN": "Materials",
+    "APD": "Materials",
+    "SHW": "Materials",
+    "FCX": "Materials",
+    "NUE": "Materials",
+    "NEM": "Materials",
+    "DOW": "Materials",
+    "VMC": "Materials",
+    "MLM": "Materials",
+    "PPG": "Materials",
+    "ECL": "Materials",
+    "CTVA": "Materials",
+    "DD": "Materials",
+    "ALB": "Materials",
+    "IFF": "Materials",
+    "PKG": "Materials",
+    "BALL": "Materials",
+    "AMCR": "Materials",
+    "AVY": "Materials",
+    "CF": "Materials"
   },
   "sector_info": {
-    "Industrial Conglomerates": {
-      "count": 2,
-      "weight": 0.003976143141153081,
+    "Information Technology": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "HON",
-        "MMM"
-      ]
-    },
-    "Building Products": {
-      "count": 8,
-      "weight": 0.015904572564612324,
-      "symbols": [
-        "ALLE",
-        "AOS",
-        "BLDR",
-        "CARR",
-        "JCI",
-        "LII",
-        "MAS",
-        "TT"
-      ]
-    },
-    "Health Care Equipment": {
-      "count": 17,
-      "weight": 0.033797216699801194,
-      "symbols": [
-        "ABT",
-        "BAX",
-        "BDX",
-        "BSX",
-        "DXCM",
-        "EW",
-        "GEHC",
-        "HOLX",
-        "IDXX",
-        "ISRG",
-        "MDT",
-        "PODD",
-        "RMD",
-        "RVTY",
-        "STE",
-        "SYK",
-        "ZBH"
-      ]
-    },
-    "Biotechnology": {
-      "count": 8,
-      "weight": 0.015904572564612324,
-      "symbols": [
-        "ABBV",
-        "AMGN",
-        "BIIB",
-        "GILD",
-        "INCY",
-        "MRNA",
-        "REGN",
-        "VRTX"
-      ]
-    },
-    "IT Consulting & Other Services": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "ACN",
-        "CTSH",
-        "EPAM",
-        "IBM",
-        "IT"
-      ]
-    },
-    "Application Software": {
-      "count": 13,
-      "weight": 0.02584493041749503,
-      "symbols": [
+        "AAPL",
         "ADBE",
-        "ADSK",
-        "CDNS",
-        "CRM",
-        "DDOG",
-        "FICO",
-        "INTU",
-        "ORCL",
-        "PLTR",
-        "PTC",
-        "SNPS",
-        "TYL",
-        "WDAY"
-      ]
-    },
-    "Semiconductors": {
-      "count": 14,
-      "weight": 0.027833001988071572,
-      "symbols": [
-        "ADI",
+        "AMAT",
         "AMD",
-        "AVGO",
-        "FSLR",
+        "CRM",
+        "CSCO",
+        "GOOG",
+        "GOOGL",
+        "IBM",
         "INTC",
-        "MCHP",
-        "MPWR",
+        "META",
+        "MSFT",
         "MU",
+        "NFLX",
+        "NOW",
         "NVDA",
-        "NXPI",
-        "ON",
+        "ORCL",
         "QCOM",
-        "SWKS",
+        "TSLA",
         "TXN"
       ]
     },
-    "Independent Power Producers & Energy Traders": {
-      "count": 2,
-      "weight": 0.003976143141153081,
+    "Health Care": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "AES",
-        "NRG"
-      ]
-    },
-    "Life & Health Insurance": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "AFL",
-        "GL",
-        "MET",
-        "PFG",
-        "PRU"
-      ]
-    },
-    "Life Sciences Tools & Services": {
-      "count": 8,
-      "weight": 0.015904572564612324,
-      "symbols": [
-        "A",
-        "CRL",
+        "ABBV",
+        "ABT",
+        "AMGN",
+        "BDX",
+        "BMY",
+        "CI",
+        "CVS",
         "DHR",
-        "IQV",
-        "MTD",
-        "TECH",
+        "ELV",
+        "GILD",
+        "JNJ",
+        "LLY",
+        "MDT",
+        "MRK",
+        "PFE",
+        "REGN",
+        "SYK",
         "TMO",
-        "WAT"
+        "UNH",
+        "VRTX"
       ]
     },
-    "Industrial Gases": {
-      "count": 2,
-      "weight": 0.003976143141153081,
+    "Financials": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "APD",
-        "LIN"
-      ]
-    },
-    "Hotels, Resorts & Cruise Lines": {
-      "count": 8,
-      "weight": 0.015904572564612324,
-      "symbols": [
-        "ABNB",
-        "BKNG",
-        "CCL",
-        "EXPE",
-        "HLT",
-        "MAR",
-        "NCLH",
-        "RCL"
-      ]
-    },
-    "Internet Services & Infrastructure": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "AKAM",
-        "GDDY",
-        "VRSN"
-      ]
-    },
-    "Specialty Chemicals": {
-      "count": 8,
-      "weight": 0.015904572564612324,
-      "symbols": [
-        "ALB",
-        "DD",
-        "ECL",
-        "EMN",
-        "IFF",
-        "LYB",
-        "PPG",
-        "SHW"
-      ]
-    },
-    "Office REITs": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "ARE",
-        "BXP"
-      ]
-    },
-    "Health Care Supplies": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "ALGN",
-        "COO",
-        "WST"
-      ]
-    },
-    "Electric Utilities": {
-      "count": 15,
-      "weight": 0.02982107355864811,
-      "symbols": [
-        "AEP",
-        "CEG",
-        "DUK",
-        "EIX",
-        "ES",
-        "ETR",
-        "EVRG",
-        "EXC",
-        "FE",
-        "LNT",
-        "PEG",
-        "PPL",
-        "SO",
-        "VST",
-        "WEC"
-      ]
-    },
-    "Property & Casualty Insurance": {
-      "count": 8,
-      "weight": 0.015904572564612324,
-      "symbols": [
-        "ACGL",
-        "ALL",
-        "CB",
-        "CINF",
-        "HIG",
-        "PGR",
-        "TRV",
-        "WRB"
-      ]
-    },
-    "Interactive Media & Services": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "GOOG",
-        "GOOGL",
-        "META",
-        "MTCH"
-      ]
-    },
-    "Tobacco": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "MO",
-        "PM"
-      ]
-    },
-    "Broadline Retail": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "AMZN",
-        "EBAY"
-      ]
-    },
-    "Paper & Plastic Packaging Products & Materials": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "AMCR",
-        "AVY",
-        "IP",
-        "PKG",
-        "SW"
-      ]
-    },
-    "Multi-Utilities": {
-      "count": 12,
-      "weight": 0.02385685884691849,
-      "symbols": [
-        "AEE",
-        "CMS",
-        "CNP",
-        "D",
-        "DTE",
-        "ED",
-        "NEE",
-        "NI",
-        "PCG",
-        "PNW",
-        "SRE",
-        "XEL"
-      ]
-    },
-    "Consumer Finance": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "AXP",
-        "COF",
-        "SYF"
-      ]
-    },
-    "Multi-line Insurance": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "AIG",
-        "AIZ",
-        "L"
-      ]
-    },
-    "Telecom Tower REITs": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "AMT",
-        "CCI",
-        "SBAC"
-      ]
-    },
-    "Water Utilities": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "AWK"
-      ]
-    },
-    "Asset Management & Custody Banks": {
-      "count": 11,
-      "weight": 0.02186878727634195,
-      "symbols": [
-        "AMP",
-        "APO",
-        "BEN",
-        "BK",
-        "BLK",
-        "BX",
-        "IVZ",
-        "KKR",
-        "NTRS",
-        "STT",
-        "TROW"
-      ]
-    },
-    "Electrical Components & Equipment": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "AME",
-        "EMR",
-        "ETN",
-        "GNRC",
-        "ROK"
-      ]
-    },
-    "Electronic Components": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "APH",
-        "GLW"
-      ]
-    },
-    "Insurance Brokers": {
-      "count": 6,
-      "weight": 0.011928429423459244,
-      "symbols": [
-        "AJG",
         "AON",
-        "BRO",
-        "ERIE",
-        "MMC",
-        "WTW"
-      ]
-    },
-    "Oil & Gas Exploration & Production": {
-      "count": 10,
-      "weight": 0.019880715705765408,
-      "symbols": [
-        "APA",
-        "COP",
-        "CTRA",
-        "DVN",
-        "EOG",
-        "EQT",
-        "EXE",
-        "FANG",
-        "OXY",
-        "TPL"
-      ]
-    },
-    "Technology Hardware, Storage & Peripherals": {
-      "count": 8,
-      "weight": 0.015904572564612324,
-      "symbols": [
-        "AAPL",
-        "DELL",
-        "HPE",
-        "HPQ",
-        "NTAP",
-        "SMCI",
-        "STX",
-        "WDC"
-      ]
-    },
-    "Semiconductor Materials & Equipment": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "AMAT",
-        "ENPH",
-        "KLAC",
-        "LRCX",
-        "TER"
-      ]
-    },
-    "Automotive Parts & Equipment": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "APTV"
-      ]
-    },
-    "Agricultural Products & Services": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "ADM",
-        "BG"
-      ]
-    },
-    "Communications Equipment": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "ANET",
-        "CSCO",
-        "FFIV",
-        "MSI"
-      ]
-    },
-    "Integrated Telecommunication Services": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "T",
-        "VZ"
-      ]
-    },
-    "Gas Utilities": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "ATO"
-      ]
-    },
-    "Human Resource & Employment Services": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "ADP",
-        "DAY",
-        "PAYC",
-        "PAYX"
-      ]
-    },
-    "Automotive Retail": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "AZO",
-        "KMX",
-        "ORLY"
-      ]
-    },
-    "Multi-Family Residential REITs": {
-      "count": 6,
-      "weight": 0.011928429423459244,
-      "symbols": [
-        "AVB",
-        "CPT",
-        "EQR",
-        "ESS",
-        "MAA",
-        "UDR"
-      ]
-    },
-    "Aerospace & Defense": {
-      "count": 12,
-      "weight": 0.02385685884691849,
-      "symbols": [
-        "AXON",
-        "BA",
-        "GD",
-        "GE",
-        "HII",
-        "HWM",
-        "LHX",
-        "LMT",
-        "NOC",
-        "RTX",
-        "TDG",
-        "TXT"
-      ]
-    },
-    "Oil & Gas Equipment & Services": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "BKR",
-        "HAL",
-        "SLB"
-      ]
-    },
-    "Metal, Glass & Plastic Containers": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "BALL"
-      ]
-    },
-    "Diversified Banks": {
-      "count": 7,
-      "weight": 0.013916500994035786,
-      "symbols": [
+        "AXP",
         "BAC",
+        "BLK",
+        "BRK.B",
         "C",
+        "CB",
+        "COF",
+        "GS",
+        "ICE",
         "JPM",
-        "PNC",
+        "MA",
+        "MMC",
+        "MS",
+        "PGR",
+        "SPGI",
         "TFC",
         "USB",
+        "V",
         "WFC"
       ]
     },
-    "Multi-Sector Holdings": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
+    "Communication Services": {
+      "count": 10,
+      "weight": 0.04878048780487805,
       "symbols": [
-        "BRK.B"
+        "CHTR",
+        "CMCSA",
+        "DIS",
+        "GOOG",
+        "GOOGL",
+        "META",
+        "NFLX",
+        "T",
+        "TMUS",
+        "VZ"
       ]
     },
-    "Computer & Electronics Retail": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
+    "Consumer Discretionary": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "BBY"
+        "ABNB",
+        "AMZN",
+        "AZO",
+        "BKNG",
+        "CMG",
+        "F",
+        "GM",
+        "HD",
+        "HLT",
+        "LOW",
+        "LRCX",
+        "MAR",
+        "MCD",
+        "NKE",
+        "ORLY",
+        "ROST",
+        "SBUX",
+        "TGT",
+        "TJX",
+        "TSLA"
       ]
     },
-    "Transaction & Payment Processing Services": {
-      "count": 9,
-      "weight": 0.017892644135188866,
+    "Industrials": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "CPAY",
-        "FI",
-        "FIS",
-        "GPN",
-        "JKHY",
-        "MA",
-        "PYPL",
-        "V",
-        "XYZ"
-      ]
-    },
-    "Pharmaceuticals": {
-      "count": 7,
-      "weight": 0.013916500994035786,
-      "symbols": [
-        "BMY",
-        "JNJ",
-        "LLY",
-        "MRK",
-        "PFE",
-        "VTRS",
-        "ZTS"
-      ]
-    },
-    "Data Processing & Outsourced Services": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "BR"
-      ]
-    },
-    "Distillers & Vintners": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "BF.B",
-        "STZ"
-      ]
-    },
-    "Air Freight & Logistics": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "CHRW",
-        "EXPD",
+        "ADP",
+        "BA",
+        "CAT",
+        "CSX",
+        "DE",
+        "EMR",
         "FDX",
-        "UPS"
+        "GD",
+        "GE",
+        "HON",
+        "ITW",
+        "LMT",
+        "MMM",
+        "NOC",
+        "NSC",
+        "RSG",
+        "RTX",
+        "UNP",
+        "UPS",
+        "WM"
       ]
     },
-    "Casinos & Gaming": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "CZR",
-        "LVS",
-        "MGM",
-        "WYNN"
-      ]
-    },
-    "Packaged Foods & Meats": {
-      "count": 12,
-      "weight": 0.02385685884691849,
+    "Consumer Staples": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
         "CAG",
+        "CHD",
+        "CL",
+        "CLX",
+        "COST",
         "CPB",
         "GIS",
         "HRL",
         "HSY",
         "K",
-        "KHC",
+        "KMB",
+        "KO",
         "LW",
         "MDLZ",
         "MKC",
-        "SJM",
-        "TSN"
-      ]
-    },
-    "Health Care Distributors": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "CAH",
-        "COR",
-        "HSIC",
-        "MCK"
-      ]
-    },
-    "Construction Machinery & Heavy Transportation Equipment": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "CAT",
-        "CMI",
-        "PCAR",
-        "WAB"
-      ]
-    },
-    "Financial Exchanges & Data": {
-      "count": 10,
-      "weight": 0.019880715705765408,
-      "symbols": [
-        "CBOE",
-        "CME",
-        "COIN",
-        "FDS",
-        "ICE",
-        "MCO",
-        "MKTX",
-        "MSCI",
-        "NDAQ",
-        "SPGI"
-      ]
-    },
-    "Real Estate Services": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "CBRE",
-        "CSGP"
-      ]
-    },
-    "Technology Distributors": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "CDW"
-      ]
-    },
-    "Managed Health Care": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "CNC",
-        "ELV",
-        "HUM",
-        "MOH",
-        "UNH"
-      ]
-    },
-    "Fertilizers & Agricultural Chemicals": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "CF",
-        "CTVA",
-        "MOS"
-      ]
-    },
-    "Investment Banking & Brokerage": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "GS",
-        "MS",
-        "RJF",
-        "SCHW"
-      ]
-    },
-    "Cable & Satellite": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "CHTR",
-        "CMCSA"
-      ]
-    },
-    "Integrated Oil & Gas": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "CVX",
-        "XOM"
-      ]
-    },
-    "Restaurants": {
-      "count": 6,
-      "weight": 0.011928429423459244,
-      "symbols": [
-        "CMG",
-        "DPZ",
-        "DRI",
-        "MCD",
-        "SBUX",
-        "YUM"
-      ]
-    },
-    "Household Products": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "CHD",
-        "CL",
-        "CLX",
-        "KMB"
-      ]
-    },
-    "Health Care Services": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "CI",
-        "CVS",
-        "DGX",
-        "DVA",
-        "LH"
-      ]
-    },
-    "Diversified Support Services": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "CPRT",
-        "CTAS",
-        "LDOS"
-      ]
-    },
-    "Regional Banks": {
-      "count": 6,
-      "weight": 0.011928429423459244,
-      "symbols": [
-        "CFG",
-        "FITB",
-        "HBAN",
-        "KEY",
-        "MTB",
-        "RF"
-      ]
-    },
-    "Soft Drinks & Non-alcoholic Beverages": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "KDP",
-        "KO",
-        "MNST",
-        "PEP"
-      ]
-    },
-    "Consumer Staples Merchandise Retail": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "COST",
-        "DG",
-        "DLTR",
-        "TGT",
+        "PEP",
+        "PG",
+        "SYY",
+        "TSN",
         "WMT"
       ]
     },
-    "Systems Software": {
-      "count": 6,
-      "weight": 0.011928429423459244,
+    "Energy": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "CRWD",
-        "FTNT",
-        "GEN",
-        "MSFT",
-        "NOW",
-        "PANW"
+        "APA",
+        "BKR",
+        "COP",
+        "CTRA",
+        "CVX",
+        "DVN",
+        "EOG",
+        "EQT",
+        "FANG",
+        "HAL",
+        "KMI",
+        "MPC",
+        "MRO",
+        "OKE",
+        "OXY",
+        "PSX",
+        "SLB",
+        "VLO",
+        "WMB",
+        "XOM"
       ]
     },
-    "Rail Transportation": {
-      "count": 3,
-      "weight": 0.005964214711729622,
+    "Utilities": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "CSX",
-        "NSC",
-        "UNP"
+        "AEP",
+        "ATO",
+        "AWK",
+        "CMS",
+        "D",
+        "DTE",
+        "DUK",
+        "ED",
+        "EIX",
+        "ES",
+        "ETR",
+        "EXC",
+        "FE",
+        "NEE",
+        "PEG",
+        "PPL",
+        "SO",
+        "SRE",
+        "WEC",
+        "XEL"
       ]
     },
-    "Footwear": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
+    "Real Estate": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "DECK"
-      ]
-    },
-    "Agricultural & Farm Machinery": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "DE"
-      ]
-    },
-    "Passenger Airlines": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "DAL",
-        "LUV",
-        "UAL"
-      ]
-    },
-    "Data Center REITs": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
+        "AMT",
+        "ARE",
+        "AVB",
+        "CCI",
+        "CPT",
         "DLR",
-        "EQIX"
-      ]
-    },
-    "Specialized Consumer Services": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "DASH"
-      ]
-    },
-    "Industrial Machinery & Supplies & Components": {
-      "count": 14,
-      "weight": 0.027833001988071572,
-      "symbols": [
-        "DOV",
-        "FTV",
-        "GWW",
-        "HUBB",
-        "IEX",
-        "IR",
-        "ITW",
-        "NDSN",
-        "OTIS",
-        "PH",
-        "PNR",
-        "SNA",
-        "SWK",
-        "XYL"
-      ]
-    },
-    "Commodity Chemicals": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "DOW"
-      ]
-    },
-    "Homebuilding": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "DHI",
-        "LEN",
-        "NVR",
-        "PHM"
-      ]
-    },
-    "Interactive Home Entertainment": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "EA",
-        "TTWO"
-      ]
-    },
-    "Research & Consulting Services": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "EFX",
-        "VRSK"
-      ]
-    },
-    "Personal Care Products": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "EL",
-        "KVUE",
-        "PG"
-      ]
-    },
-    "Reinsurance": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "EG"
-      ]
-    },
-    "Self-Storage REITs": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
+        "EQIX",
+        "EQR",
+        "ESS",
         "EXR",
-        "PSA"
-      ]
-    },
-    "Trading Companies & Distributors": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "FAST",
-        "URI"
-      ]
-    },
-    "Retail REITs": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "FRT",
-        "KIM",
-        "O",
+        "HST",
+        "INVH",
+        "MAA",
+        "PLD",
+        "PSA",
         "REG",
-        "SPG"
-      ]
-    },
-    "Automobile Manufacturers": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "F",
-        "GM",
-        "TSLA"
-      ]
-    },
-    "Broadcasting": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "FOX",
-        "FOXA",
-        "WBD"
-      ]
-    },
-    "Copper": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "FCX"
-      ]
-    },
-    "Consumer Electronics": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "GRMN"
-      ]
-    },
-    "Heavy Electrical Equipment": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "GEV"
-      ]
-    },
-    "Distributors": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "GPC",
-        "LKQ",
-        "POOL"
-      ]
-    },
-    "Leisure Products": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "HAS"
-      ]
-    },
-    "Health Care Facilities": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "HCA",
-        "UHS"
-      ]
-    },
-    "Health Care REITs": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "DOC",
+        "SBAC",
+        "UDR",
         "VTR",
         "WELL"
       ]
     },
-    "Home Improvement Retail": {
-      "count": 2,
-      "weight": 0.003976143141153081,
+    "Materials": {
+      "count": 20,
+      "weight": 0.0975609756097561,
       "symbols": [
-        "HD",
-        "LOW"
-      ]
-    },
-    "Hotel & Resort REITs": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "HST",
-        "VICI"
-      ]
-    },
-    "Advertising": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "IPG",
-        "OMC",
-        "TTD"
-      ]
-    },
-    "Single-Family Residential REITs": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "INVH"
-      ]
-    },
-    "Other Specialized REITs": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "IRM"
-      ]
-    },
-    "Cargo Ground Transportation": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "JBHT",
-        "ODFL"
-      ]
-    },
-    "Electronic Manufacturing Services": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "JBL",
-        "TEL"
-      ]
-    },
-    "Construction & Engineering": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "J",
-        "PWR"
-      ]
-    },
-    "Electronic Equipment & Instruments": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "KEYS",
-        "ROP",
-        "TDY",
-        "TRMB",
-        "ZBRA"
-      ]
-    },
-    "Oil & Gas Storage & Transportation": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "KMI",
-        "OKE",
-        "TRGP",
-        "WMB"
-      ]
-    },
-    "Food Retail": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "KR"
-      ]
-    },
-    "Movies & Entertainment": {
-      "count": 5,
-      "weight": 0.009940357852882704,
-      "symbols": [
-        "DIS",
-        "LYV",
-        "NFLX",
-        "PARA",
-        "TKO"
-      ]
-    },
-    "Apparel, Accessories & Luxury Goods": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "LULU",
-        "NKE",
-        "RL",
-        "TPR"
-      ]
-    },
-    "Oil & Gas Refining & Marketing": {
-      "count": 3,
-      "weight": 0.005964214711729622,
-      "symbols": [
-        "MPC",
-        "PSX",
-        "VLO"
-      ]
-    },
-    "Construction Materials": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
+        "ALB",
+        "AMCR",
+        "APD",
+        "AVY",
+        "BALL",
+        "CF",
+        "CTVA",
+        "DD",
+        "DOW",
+        "ECL",
+        "FCX",
+        "IFF",
+        "LIN",
         "MLM",
-        "VMC"
-      ]
-    },
-    "Home Furnishings": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "MHK"
-      ]
-    },
-    "Brewers": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "TAP"
-      ]
-    },
-    "Gold": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "NEM"
-      ]
-    },
-    "Publishing": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "NWS",
-        "NWSA"
-      ]
-    },
-    "Steel": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
+        "NEM",
         "NUE",
-        "STLD"
-      ]
-    },
-    "Industrial REITs": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "PLD"
-      ]
-    },
-    "Environmental & Facilities Services": {
-      "count": 4,
-      "weight": 0.007952286282306162,
-      "symbols": [
-        "ROL",
-        "RSG",
-        "VLTO",
-        "WM"
-      ]
-    },
-    "Apparel Retail": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "ROST",
-        "TJX"
-      ]
-    },
-    "Health Care Technology": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "SOLV"
-      ]
-    },
-    "Food Distributors": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "SYY"
-      ]
-    },
-    "Wireless Telecommunication Services": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "TMUS"
-      ]
-    },
-    "Other Specialty Retail": {
-      "count": 2,
-      "weight": 0.003976143141153081,
-      "symbols": [
-        "TSCO",
-        "ULTA"
-      ]
-    },
-    "Passenger Ground Transportation": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "UBER"
-      ]
-    },
-    "Drug Retail": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "WBA"
-      ]
-    },
-    "Timber REITs": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "WY"
-      ]
-    },
-    "Homefurnishing Retail": {
-      "count": 1,
-      "weight": 0.0019880715705765406,
-      "symbols": [
-        "WSM"
+        "PKG",
+        "PPG",
+        "SHW",
+        "VMC"
       ]
     }
   },
-  "total_symbols": 503,
-  "sector_count": 129,
-  "last_updated": "2025-08-03T13:41:36.315877"
+  "total_symbols": 205,
+  "sector_count": 11,
+  "last_updated": "2025-08-06T15:05:21.276264"
 }
