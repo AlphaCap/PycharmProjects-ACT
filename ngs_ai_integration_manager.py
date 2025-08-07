@@ -27,6 +27,10 @@ class NGSAIIntegrationManager:
         # Initialize AI components
         self.ngs_indicator_lib = NGSIndicatorLibrary()
         self.objective_manager = ObjectiveManager()
+        # Debugging statements
+        print("ObjectiveManager initialized:", isinstance(self.objective_manager, ObjectiveManager))
+        print("Available methods in ObjectiveManager:", dir(self.objective_manager))
+        print("Primary objective (test):", self.objective_manager.get_primary_objective())
         self.ai_generator = NGSAwareStrategyGenerator(self.ngs_indicator_lib, self.objective_manager)
         logger.info("Initialized NGSIndicatorLibrary and NGSAwareStrategyGenerator from ngs_ai_components")
         
