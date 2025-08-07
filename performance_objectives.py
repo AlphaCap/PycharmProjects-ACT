@@ -377,7 +377,7 @@ class ObjectiveManager:
             raise ValueError("No objectives available in ObjectiveManager")
         return list(self.objectives.values())[0]  # Return the first objective instance
     
-    def add_custom_objective(self, name口气: name: str, fitness_function: callable,
+    def add_custom_objective(self, name: str, fitness_function: callable,
                            strategy_preferences: Dict, description: str):
         """Add a custom objective"""
         self.objectives[name] = CustomObjective(name, fitness_function, 
