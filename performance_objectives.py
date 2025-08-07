@@ -371,11 +371,11 @@ class ObjectiveManager:
         return {name: obj.get_objective_description() 
                 for name, obj in self.objectives.items()}
     
-    def get_primary_objective(self):
-        """Return the first objective as the primary objective."""
-        if hasattr(self, 'objectives') and self.objectives:
-            return next(iter(self.objectives))  # Return the first objective key
-        return 'default_objective'  # Fallback value if no objectives exist
+    def get_primary_objective(self) -> PerformanceObjective:
+        """Return the first objective instance as the primary objective."""
+        if not hasattr(self, 'objectives') or not self.objectives:
+            raise ValueError("No objectives available in ObjectiveManager")
+        return list(self.objectives.values())[0]  # Return the first objective instance
     
     def add_custom_objective(self, name: str, fitness_function: callable,
                            strategy_preferences: Dict, description: str):
