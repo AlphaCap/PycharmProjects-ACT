@@ -1665,7 +1665,7 @@ def run_ngs_automated_reporting(comparison=None):
 import os
 from ngs_ai_integration_manager import NGSAIIntegrationManager
 
-HISTORICAL_DATA_PATH = "signal_analysis.json"  # Or your preferred data file
+HISTORICAL_DATA_PATH = r"c:\ACT\Python NEW 2025\signal_analysis.json"
 DATA_FORMAT = "json"
 
 def load_data(path, data_format):
