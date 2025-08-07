@@ -4,6 +4,14 @@ import logging
 import json
 from datetime import datetime, timedelta
 import os
+
+# Debugging code to check the file path
+print("Looking for file at:", os.path.abspath(HISTORICAL_DATA_PATH))
+if not os.path.exists(HISTORICAL_DATA_PATH):
+    print("File does not exist! Check the path.")
+    exit(1)  # Exit the script if the file is not found
+else:
+    print("File exists! Proceeding to load data.")
 from typing import Dict, List, Optional, Tuple, Union
 import sys
 
