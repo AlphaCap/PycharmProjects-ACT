@@ -12,18 +12,16 @@ import logging
 import argparse
 from utils.polygon_api import PolygonClient
 import sys
-sys.path.append('C:/ACT/Python NEW 2025')
+
+sys.path.append("C:/ACT/Python NEW 2025")
 
 # Import from data_manager
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("ngs_system.log"),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("ngs_system.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
@@ -47,32 +45,32 @@ def update_sp500_list():
             "active": "true",
             "sort": "market_cap",
             "order": "desc",
-            "limit": 500
+            "limit": 500,
         }
 
         response_data = client._make_request(endpoint, params)
 
-        if not response_data or 'results' not in response_data:
+        if not response_data or "results" not in response_data:
             logger.error("Failed to get stock symbols from Polygon")
             # If update fails, try to load existing list
             if os.path.exists("data/sp500_symbols.csv"):
-                symbols = pd.read_csv(
-                    "data/sp500_symbols.csv")["symbol"].tolist()
+                symbols = pd.read_csv("data/sp500_symbols.csv")["symbol"].tolist()
                 logger.info(
                     f"Loaded {
-                        len(symbols)} symbols from existing SP500 list")
+                        len(symbols)} symbols from existing SP500 list"
+                )
                 return symbols
             return []
 
-        symbols = [item['ticker'] for item in response_data['results']]
+        symbols = [item["ticker"] for item in response_data["results"]]
 
         # Save to CSV
         os.makedirs("data", exist_ok=True)
-        pd.DataFrame({"symbol": symbols}).to_csv(
-            "data/sp500_symbols.csv", index=False)
+        pd.DataFrame({"symbol": symbols}).to_csv("data/sp500_symbols.csv", index=False)
         logger.info(
             f"Updated stock list with {
-                len(symbols)} symbols from Polygon API")
+                len(symbols)} symbols from Polygon API"
+        )
         return symbols
 
     except Exception as e:
@@ -82,7 +80,8 @@ def update_sp500_list():
             symbols = pd.read_csv("data/sp500_symbols.csv")["symbol"].tolist()
             logger.info(
                 f"Loaded {
-                    len(symbols)} symbols from existing SP500 list")
+                    len(symbols)} symbols from existing SP500 list"
+            )
             return symbols
         return []
 
@@ -100,46 +99,44 @@ def download_single_symbol(symbol, days=200):
         start_date = end_date - timedelta(days=days)
 
         # Format dates for Polygon API
-        start_date_str = start_date.strftime('%Y-%m-%d')
-        end_date_str = end_date.strftime('%Y-%m-%d')
+        start_date_str = start_date.strftime("%Y-%m-%d")
+        end_date_str = end_date.strftime("%Y-%m-%d")
 
         # API endpoint for aggregated daily bars
         endpoint = f"https://api.polygon.io/v2/aggs/ticker/{symbol}/range/1/day/{start_date_str}/{end_date_str}"
 
         # Make API request
         response = requests.get(
-            endpoint,
-            params={'apiKey': POLYGON_API_KEY, 'adjusted': 'true'},
-            timeout=10
+            endpoint, params={"apiKey": POLYGON_API_KEY, "adjusted": "true"}, timeout=10
         )
 
         if response.status_code == 200:
             data = response.json()
 
             # Check if results exist
-            if 'results' in data and data['results']:
+            if "results" in data and data["results"]:
                 # Convert to DataFrame
-                df = pd.DataFrame(data['results'])
+                df = pd.DataFrame(data["results"])
 
                 # Rename columns to match our expected format
                 column_map = {
-                    't': 'timestamp',
-                    'o': 'Open',
-                    'h': 'High',
-                    'l': 'Low',
-                    'c': 'Close',
-                    'v': 'Volume'
+                    "t": "timestamp",
+                    "o": "Open",
+                    "h": "High",
+                    "l": "Low",
+                    "c": "Close",
+                    "v": "Volume",
                 }
                 df = df.rename(columns=column_map)
 
                 # Convert timestamp to datetime
-                df['Date'] = pd.to_datetime(df['timestamp'], unit='ms')
+                df["Date"] = pd.to_datetime(df["timestamp"], unit="ms")
 
                 # Select and order columns
-                df = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']]
+                df = df[["Date", "Open", "High", "Low", "Close", "Volume"]]
 
                 # Sort by date
-                df = df.sort_values('Date')
+                df = df.sort_values("Date")
 
                 # Save the data
                 os.makedirs("data/daily", exist_ok=True)
@@ -147,7 +144,8 @@ def download_single_symbol(symbol, days=200):
 
                 logger.info(
                     f"Downloaded and saved {
-                        len(df)} bars for {symbol}")
+                        len(df)} bars for {symbol}"
+                )
                 return df
             else:
                 logger.warning(f"No data returned for {symbol}")
@@ -157,7 +155,8 @@ def download_single_symbol(symbol, days=200):
             logger.error(
                 f"Error {
                     response.status_code} for {symbol}: {
-                    response.text}")
+                    response.text}"
+            )
             return None
 
     except Exception as e:
@@ -179,8 +178,7 @@ def run_daily_update():
 
         # Process each symbol with throttling
         for i, symbol in enumerate(update_symbols):
-            print(
-                f"Downloading data for {symbol}... ({i + 1}/{len(update_symbols)})")
+            print(f"Downloading data for {symbol}... ({i + 1}/{len(update_symbols)})")
             df = download_single_symbol(symbol)
 
             if df is not None and not df.empty:
@@ -190,14 +188,14 @@ def run_daily_update():
 
             # Apply throttling - respect Polygon API rate limits
             # For free tier: 5 calls per minute = 12 seconds between calls
-            if i < len(update_symbols) - \
-                    1:  # Don't sleep after the last symbol
+            if i < len(update_symbols) - 1:  # Don't sleep after the last symbol
                 print(f"Throttling API requests... waiting 12 seconds")
                 time.sleep(12)  # Wait 12 seconds between API calls
 
         # Update metadata with last run time
-        update_metadata("daily_update.last_run",
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        update_metadata(
+            "daily_update.last_run", datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
 
         print("Daily update process complete.")
         return True
@@ -231,7 +229,7 @@ def setup_system():
             "reporting_time": "17:30",
             "history_days": 200,
             "max_workers": 8,
-            "batch_size": 100
+            "batch_size": 100,
         }
 
         # Ensure config directory exists
@@ -246,7 +244,9 @@ def setup_system():
     symbols = update_sp500_list()
     logger.info(f"Updated SP500 list with {len(symbols)} symbols")
 
-    print(f"System setup complete. Created necessary directories and configuration files.")
+    print(
+        f"System setup complete. Created necessary directories and configuration files."
+    )
     return True
 
 
@@ -274,24 +274,25 @@ def process_single_symbol(symbol):
     if result is not None and not result.empty:
         logger.info(
             f"Successfully processed {symbol}, result has {
-                len(result)} rows")
+                len(result)} rows"
+        )
 
         # Show the last few bars with signals
-        signal_rows = result[(result['Signal'] != 0) |
-                             (result['ExitSignal'] != 0)]
+        signal_rows = result[(result["Signal"] != 0) | (result["ExitSignal"] != 0)]
         if not signal_rows.empty:
             print("\nSignal rows:")
-            print(signal_rows[['Date',
-                               'Close',
-                               'Signal',
-                               'SignalType',
-                               'ExitSignal',
-                               'ExitType']].tail(5).to_string())
+            print(
+                signal_rows[
+                    ["Date", "Close", "Signal", "SignalType", "ExitSignal", "ExitType"]
+                ]
+                .tail(5)
+                .to_string()
+            )
         else:
             print("\nNo signals generated in the recent bars")
 
         # Show current position if exists
-        if symbol in strategy.positions and strategy.positions[symbol]['shares'] != 0:
+        if symbol in strategy.positions and strategy.positions[symbol]["shares"] != 0:
             pos = strategy.positions[symbol]
             print("\nCurrent position:")
             print(f"Shares: {pos['shares']}")
@@ -300,9 +301,12 @@ def process_single_symbol(symbol):
             print(f"Days Held: {pos['bars_since_entry']}")
 
             # Calculate current profit
-            last_price = result['Close'].iloc[-1]
-            profit = (last_price - pos['entry_price']) * pos['shares'] if pos['shares'] > 0 else (
-                pos['entry_price'] - last_price) * abs(pos['shares'])
+            last_price = result["Close"].iloc[-1]
+            profit = (
+                (last_price - pos["entry_price"]) * pos["shares"]
+                if pos["shares"] > 0
+                else (pos["entry_price"] - last_price) * abs(pos["shares"])
+            )
             print(f"Current Profit: ${profit:.2f}")
         else:
             print("\nNo active position for this symbol")
@@ -334,10 +338,10 @@ def run_reporting(days=30):
 
         # Calculate basic metrics
         total_trades = len(trades_df)
-        winning_trades = len(trades_df[trades_df['profit'] > 0])
-        losing_trades = len(trades_df[trades_df['profit'] <= 0])
+        winning_trades = len(trades_df[trades_df["profit"] > 0])
+        losing_trades = len(trades_df[trades_df["profit"] <= 0])
         win_rate = winning_trades / total_trades if total_trades > 0 else 0
-        total_profit = trades_df['profit'].sum()
+        total_profit = trades_df["profit"].sum()
 
         # Print summary
         print("\n" + "=" * 50)
@@ -359,7 +363,8 @@ def run_reporting(days=30):
                 print(
                     f"{symbol}: {
                         pos['shares']} shares, Entry: ${
-                        pos['entry_price']:.2f}")
+                        pos['entry_price']:.2f}"
+                )
 
         return True
 
@@ -377,7 +382,7 @@ def run_scheduled_tasks():
     # Load configuration
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 config = json.load(f)
         except Exception as e:
             logger.error(f"Error loading config: {e}")
@@ -387,8 +392,8 @@ def run_scheduled_tasks():
         config = {}
 
     # Get scheduled times
-    update_time = config.get('update_time', '16:30')
-    reporting_time = config.get('reporting_time', '17:30')
+    update_time = config.get("update_time", "16:30")
+    reporting_time = config.get("reporting_time", "17:30")
 
     print(f"Scheduled update time: {update_time}")
     print(f"Scheduled reporting time: {reporting_time}")
@@ -403,7 +408,8 @@ def run_scheduled_tasks():
             if current_time == update_time:
                 logger.info("Running scheduled data update")
                 print(
-                    f"\n[{now.strftime('%Y-%m-%d %H:%M:%S')}] Running scheduled data update...")
+                    f"\n[{now.strftime('%Y-%m-%d %H:%M:%S')}] Running scheduled data update..."
+                )
                 run_daily_update()
                 time.sleep(60)  # Sleep to avoid multiple runs
 
@@ -411,7 +417,8 @@ def run_scheduled_tasks():
             elif current_time == reporting_time:
                 logger.info("Running scheduled reporting")
                 print(
-                    f"\n[{now.strftime('%Y-%m-%d %H:%M:%S')}] Running scheduled reporting...")
+                    f"\n[{now.strftime('%Y-%m-%d %H:%M:%S')}] Running scheduled reporting..."
+                )
                 run_reporting()
                 time.sleep(60)  # Sleep to avoid multiple runs
 
@@ -464,7 +471,7 @@ def display_system_status():
     # Configuration
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(CONFIG_FILE, "r") as f:
                 config = json.load(f)
 
             print("\nConfiguration:")
@@ -483,32 +490,38 @@ def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description=f"nGS Trading System for SP500 v{VERSION}",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
-    parser.add_argument("--setup", action="store_true",
-                        help="Set up the system directories and files")
+    parser.add_argument(
+        "--setup", action="store_true", help="Set up the system directories and files"
+    )
 
-    parser.add_argument("--update", action="store_true",
-                        help="Run daily data update")
+    parser.add_argument("--update", action="store_true", help="Run daily data update")
 
-    parser.add_argument("--report", action="store_true",
-                        help="Generate performance report")
+    parser.add_argument(
+        "--report", action="store_true", help="Generate performance report"
+    )
 
-    parser.add_argument("--days", type=int, default=30,
-                        help="Days to include in report (default: 30)")
+    parser.add_argument(
+        "--days", type=int, default=30, help="Days to include in report (default: 30)"
+    )
 
-    parser.add_argument("--symbol", type=str,
-                        help="Process a single symbol for testing")
+    parser.add_argument(
+        "--symbol", type=str, help="Process a single symbol for testing"
+    )
 
-    parser.add_argument("--status", action="store_true",
-                        help="Display system status")
+    parser.add_argument("--status", action="store_true", help="Display system status")
 
-    parser.add_argument("--scheduler", action="store_true",
-                        help="Run scheduled tasks (press Ctrl+C to stop)")
+    parser.add_argument(
+        "--scheduler",
+        action="store_true",
+        help="Run scheduled tasks (press Ctrl+C to stop)",
+    )
 
-    parser.add_argument("--version", action="store_true",
-                        help="Show version information")
+    parser.add_argument(
+        "--version", action="store_true", help="Show version information"
+    )
 
     return parser.parse_args()
 
@@ -518,18 +531,20 @@ def main():
     args = parse_arguments()
 
     # Check for API key
-    polygon_api_key = os.getenv('POLYGON_API_KEY')
+    polygon_api_key = os.getenv("POLYGON_API_KEY")
 
     # Use hardcoded key if environment variable not found
     if not polygon_api_key:
         polygon_api_key = "yTZVrttxzFCK58_gOUGGATWxQzytgAxy"  # Hardcoded API key
         # Set it for downstream modules that might use the environment variable
-        os.environ['POLYGON_API_KEY'] = polygon_api_key
+        os.environ["POLYGON_API_KEY"] = polygon_api_key
         print("Using hardcoded Polygon API key.")
 
     # Final check (should not trigger now that we have a fallback)
     if not polygon_api_key and (args.update or args.symbol or args.scheduler):
-        print("ERROR: Polygon API key not set. Please set the POLYGON_API_KEY environment variable.")
+        print(
+            "ERROR: Polygon API key not set. Please set the POLYGON_API_KEY environment variable."
+        )
         print("Example: export POLYGON_API_KEY='your_api_key_here'")
         return 1
 
@@ -577,3 +592,5 @@ def main():
 if __name__ == "__main__":
     print(f"nGS Trading System v{VERSION} - {datetime.now().strftime('%Y-%m-%d')}")
     sys.exit(main())
+
+

@@ -8,3 +8,5 @@ url = f"https://api.polygon.io/v2/aggs/ticker/AAPL/range/1/day/2023-01-01/2023-0
 response = requests.get(url)
 print(f"Status code: {response.status_code}")
 print(f"Response: {response.text[:200]}")
+
+

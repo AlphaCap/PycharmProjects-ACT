@@ -1690,6 +1690,7 @@ def load_data(path, data_format):
             return data_dict
         return {"default": df}
     else:
+<<<<<<< HEAD
         raise ValueError("Unsupported data format")
 
 if __name__ == "__main__":
@@ -1708,3 +1709,154 @@ if __name__ == "__main__":
     # 4. Save results for dashboard
     manager.save_integration_session(results, filename="latest_results.json")
     print("\n✅ AI integration complete. Results saved for dashboard.")
+=======
+        symbols = ["AAPL", "MSFT", "GOOGL"]
+
+    data = load_polygon_data(symbols)
+    strategy = NGSStrategy(account_size=1_000_000)
+    results = strategy.run(data)
+    trade_history_path = 'data/trade_history.csv'
+    if os.path.exists(trade_history_path):
+        prior_trades = pd.read_csv(trade_history_path)
+    else:
+        prior_trades = pd.DataFrame()
+    new_trades_df = pd.DataFrame([{
+        'symbol': trade['symbol'],
+        'entry_date': trade['entry_date'],
+        'exit_date': trade['exit_date'],
+        'entry_price': trade['entry_price'],
+        'exit_price': trade['exit_price'],
+        'profit_loss': trade['profit']
+    } for trade in strategy.trades])
+    all_trades_df = pd.concat([prior_trades, new_trades_df], ignore_index=True)
+    all_trades_df = all_trades_df.drop_duplicates(subset=['symbol', 'entry_date', 'exit_date'])
+    all_trades_df.to_csv(trade_history_path, index=False)
+
+    print(" Trades exported for Streamlit dashboard (no summary stats).")
+
+if __name__ == "__main__":
+    from ngs_ai_integration_manager import NGSAIIntegrationManager
+    from ngs_ai_performance_comparator import NGSAIPerformanceComparator
+    
+    print(" nGS Trading Strategy with AI SELECTION ENABLED")
+    print("=" * 70)
+    print(f"Data Retention: {RETENTION_DAYS} days (6 months)")
+    print("=" * 70)
+    
+    try:
+        print("\n Initializing AI Strategy Selection System...")
+        
+        AI_AVAILABLE = True
+        print(" AI modules imported successfully")
+        
+        ai_integration_manager = NGSAIIntegrationManager(
+            account_size=1000000,
+            data_dir='data'
+        )
+
+        # STEP 2: Load data
+        sp500_file = os.path.join('data', 'sp500_symbols.txt')
+        try:
+            with open(sp500_file, 'r') as f:
+                symbols = [line.strip() for line in f if line.strip()]
+            print(f" Loaded {len(symbols)} S&P 500 symbols")
+        except FileNotFoundError:
+            print(f"  {sp500_file} not found. Using sample symbols.")
+            symbols = [
+                'AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN', 'META', 'NVDA',
+                'JPM', 'JNJ', 'PG', 'UNH', 'HD', 'BAC', 'XOM', 'CVX', 'PFE'
+            ]
+        
+        print(f" Loading market data for {len(symbols)} symbols...")
+        data = load_polygon_data(symbols)
+        
+        if not data:
+            print(" No data loaded - check your data files")
+            exit(1)
+        
+        print(f" Successfully loaded data for {len(data)} symbols")
+        
+        # STEP 3: AI Strategy Selection
+        if AI_AVAILABLE:
+            print(f"\n AI ANALYZING STRATEGY OPTIONS...")
+            ai_objectives = ['linear_equity', 'max_roi', 'min_drawdown', 'high_winrate']
+            
+            print(f" Testing {len(ai_objectives)} AI strategy objectives:")
+            for obj in ai_objectives:
+                print(f"   • {obj}")
+            
+            try:
+                # Run comprehensive comparison
+                print(f"\n Running comprehensive performance analysis...")
+                comparison_results = performance_comparator.comprehensive_comparison(
+                    data=data,
+                    objectives=ai_objectives
+                )
+                
+                # AI makes recommendation
+                ai_score = comparison_results.ai_recommendation_score
+                best_strategy = comparison_results.best_overall_strategy
+                recommended_allocation = comparison_results.recommended_allocation
+                
+                print(f"\n AI STRATEGY SELECTION RESULTS")
+                print("=" * 50)
+                print(f"AI Recommendation Score: {ai_score:.0f}/100")
+                print(f"Best Overall Strategy:   {best_strategy}")
+                print(f"Statistical Significance: {'YES' if comparison_results.return_difference_significant else 'NO'}")
+                
+                # Show performance comparison
+                original_performance = comparison_results.original_metrics
+                best_ai_performance = max(comparison_results.ai_metrics, key=lambda x: x.total_return_pct)
+                
+                print(f"\n PERFORMANCE COMPARISON:")
+                print(f"Original nGS:     {original_performance.total_return_pct:+7.2f}% return, {original_performance.max_drawdown_pct:7.2f}% drawdown")
+                print(f"Best AI Strategy: {best_ai_performance.total_return_pct:+7.2f}% return, {best_ai_performance.max_drawdown_pct:7.2f}% drawdown")
+                
+                # Set operating mode based on AI recommendation
+                print(f"\n AI DECISION:")
+                print(" AI RECOMMENDS: AI-Focused Strategy")
+                print(f"   Reason: Default AI analysis engaged")
+                ai_integration_manager.set_operating_mode('ai_only')
+                
+                print(f"\n RECOMMENDED ALLOCATION:")
+                for strategy_name, allocation_pct in recommended_allocation.items():
+                    print(f"   {strategy_name}: {allocation_pct:.1f}%")
+                
+                # Execute AI-selected strategy
+                print(f"\n Executing AI-selected strategy...")
+                results = ai_integration_manager.run_integrated_strategy(data)
+                
+                print(f" AI-powered strategy execution completed!")
+                print(f"Mode: AI-ONLY")
+                
+            except Exception as e:
+                print(f" AI analysis failed: {e}")
+                exit(1)  # Terminate the program if AI analysis fails
+            
+            finally:
+                print("Execution attempt completed.") 
+                print(f"\n{'='*70}")
+                print("STRATEGY BACKTEST RESULTS (Last 6 Months)")
+                print(f"{'='*70}")
+                
+                total_profit = sum(trade['profit'] for trade in strategy.trades)
+                winning_trades = sum(1 for trade in strategy.trades if trade['profit'] > 0)
+                
+                print(f"Starting capital:     ${strategy.account_size:,.2f}")
+                print(f"Ending cash:          ${strategy.cash:,.2f}")
+                print(f"Total P&L:            ${total_profit:,.2f}")
+                print(f"Return:               {((strategy.cash - strategy.account_size) / strategy.account_size * 100):+.2f}%")
+                print(f"Total trades:         {len(strategy.trades)}")
+                
+                if strategy.trades:
+                    print(f"Winning trades:       {winning_trades}/{len(strategy.trades)} ({winning_trades/len(strategy.trades)*100:.1f}%)")
+                
+                print(f" Original nGS strategy execution completed!")
+    
+    except Exception as e:
+        print(f" Execution failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+>>>>>>> c108ef4 (Bypass pre-commit for now)

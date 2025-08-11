@@ -9,3 +9,5 @@ with open("data/sp500_symbols.txt", "w") as f:
     for s in symbols:
         f.write(f"{s}\n")
 print("SP500 symbols saved to data/sp500_symbols.txt")
+
+

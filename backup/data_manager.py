@@ -10,11 +10,8 @@ from typing import Dict, List, Optional, Union, Tuple
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("data_manager.log"),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler("data_manager.log"), logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
@@ -40,25 +37,63 @@ MAX_THREADS = 8
 # Define data column structures
 PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume"]
 INDICATOR_COLUMNS = [
-    "BBAvg", "BBSDev", "UpperBB", "LowerBB", 
-    "High_Low", "High_Close", "Low_Close", "TR", "ATR", "ATRma",
-    "LongPSAR", "ShortPSAR", "PSAR_EP", "PSAR_AF", "PSAR_IsLong", 
-    "oLRSlope", "oLRAngle", "oLRIntercept", "TSF", 
-    "oLRSlope2", "oLRAngle2", "oLRIntercept2", "TSF5", 
-    "Value1", "ROC", "LRV", "LinReg", 
-    "oLRValue", "oLRValue2", "SwingLow", "SwingHigh"
+    "BBAvg",
+    "BBSDev",
+    "UpperBB",
+    "LowerBB",
+    "High_Low",
+    "High_Close",
+    "Low_Close",
+    "TR",
+    "ATR",
+    "ATRma",
+    "LongPSAR",
+    "ShortPSAR",
+    "PSAR_EP",
+    "PSAR_AF",
+    "PSAR_IsLong",
+    "oLRSlope",
+    "oLRAngle",
+    "oLRIntercept",
+    "TSF",
+    "oLRSlope2",
+    "oLRAngle2",
+    "oLRIntercept2",
+    "TSF5",
+    "Value1",
+    "ROC",
+    "LRV",
+    "LinReg",
+    "oLRValue",
+    "oLRValue2",
+    "SwingLow",
+    "SwingHigh",
 ]
 TRADE_COLUMNS = [
-    "symbol", "type", "entry_date", "exit_date", 
-    "entry_price", "exit_price", "shares", "profit", "exit_reason"
+    "symbol",
+    "type",
+    "entry_date",
+    "exit_date",
+    "entry_price",
+    "exit_price",
+    "shares",
+    "profit",
+    "exit_reason",
 ]
 POSITION_COLUMNS = [
-    "symbol", "shares", "entry_price", "entry_date", "current_price", 
-    "current_value", "profit", "profit_pct", "days_held"
+    "symbol",
+    "shares",
+    "entry_price",
+    "entry_date",
+    "current_price",
+    "current_value",
+    "profit",
+    "profit_pct",
+    "days_held",
 ]
-SIGNAL_COLUMNS = [
-    "symbol", "date", "price", "signal_type", "direction", "strength"
-]
+SIGNAL_COLUMNS = ["symbol", "date", "price", "signal_type", "direction", "strength"]
+
+
 def ensure_directories():
     """Create all necessary directories for data storage."""
     directories = [DATA_DIR, SP500_DIR, DAILY_DIR, INDICATOR_DIR, TRADES_DIR]
@@ -66,6 +101,7 @@ def ensure_directories():
         os.makedirs(directory, exist_ok=True)
         logger.debug(f"Ensured directory exists: {directory}")
     return True
+
 
 def init_metadata():
     """Initialize or load metadata tracking file."""
@@ -78,9 +114,9 @@ def init_metadata():
                 "primary_tier_symbols": 0,
                 "secondary_tier_symbols": 0,
                 "symbols_with_positions": 0,
-                "total_trades": 0
+                "total_trades": 0,
             },
-            "version": "1.0.0"
+            "version": "1.0.0",
         }
         with open(METADATA_FILE, "w") as f:
             json.dump(metadata, f, indent=4)
@@ -91,6 +127,7 @@ def init_metadata():
         logger.debug(f"Loaded existing metadata from: {METADATA_FILE}")
     return metadata
 
+
 def update_metadata(key: str, value):
     """Update a specific metadata key."""
     try:
@@ -99,7 +136,7 @@ def update_metadata(key: str, value):
                 metadata = json.load(f)
         else:
             metadata = init_metadata()
-        
+
         # Handle nested keys using dot notation
         if "." in key:
             parts = key.split(".")
@@ -111,13 +148,14 @@ def update_metadata(key: str, value):
             current[parts[-1]] = value
         else:
             metadata[key] = value
-        
+
         with open(METADATA_FILE, "w") as f:
             json.dump(metadata, f, indent=4)
         return True
     except Exception as e:
         logger.error(f"Error updating metadata key '{key}': {e}")
         return False
+
 
 def get_sp500_symbols() -> List[str]:
     """Get list of current SP500 symbols. Tries TXT first, then CSV."""
@@ -147,6 +185,8 @@ def get_sp500_symbols() -> List[str]:
     else:
         logger.warning(f"SP500 symbols file not found: {txt_file} or {csv_file}")
         return []
+
+
 def get_active_symbols() -> List[str]:
     """Get list of symbols with active positions or recent signals."""
     try:
@@ -164,6 +204,7 @@ def get_active_symbols() -> List[str]:
         logger.error(f"Error getting active symbols: {e}")
         return []
 
+
 def save_price_data(symbol: str, df: pd.DataFrame) -> bool:
     """Save price data for a symbol to CSV, maintaining the rolling window."""
     try:
@@ -178,7 +219,9 @@ def save_price_data(symbol: str, df: pd.DataFrame) -> bool:
         cutoff_date = datetime.now() - timedelta(days=RETENTION_DAYS)
         df = df[df["Date"] >= cutoff_date]
 
-        price_cols = [col for col in PRICE_COLUMNS if col != "Date" and col in df.columns]
+        price_cols = [
+            col for col in PRICE_COLUMNS if col != "Date" and col in df.columns
+        ]
         for col in price_cols:
             if col in df.columns:
                 if col == "Volume":
@@ -194,6 +237,7 @@ def save_price_data(symbol: str, df: pd.DataFrame) -> bool:
     except Exception as e:
         logger.error(f"Error saving price data for {symbol}: {e}")
         return False
+
 
 def save_indicator_data(symbol: str, df: pd.DataFrame) -> bool:
     """Save indicator data for a symbol to CSV, maintaining the rolling window."""
@@ -222,6 +266,7 @@ def save_indicator_data(symbol: str, df: pd.DataFrame) -> bool:
         logger.error(f"Error saving indicator data for {symbol}: {e}")
         return False
 
+
 def load_price_data(symbol: str) -> Optional[pd.DataFrame]:
     """Load price data for a symbol from CSV."""
     try:
@@ -238,6 +283,7 @@ def load_price_data(symbol: str) -> Optional[pd.DataFrame]:
     except Exception as e:
         logger.error(f"Error loading price data for {symbol}: {e}")
         return None
+
 
 def load_indicator_data(symbol: str) -> Optional[pd.DataFrame]:
     """Load indicator data for a symbol from CSV."""
@@ -256,6 +302,7 @@ def load_indicator_data(symbol: str) -> Optional[pd.DataFrame]:
         logger.error(f"Error loading indicator data for {symbol}: {e}")
         return None
 
+
 def load_combined_data(symbol: str) -> Optional[pd.DataFrame]:
     """Load both price and indicator data, combining them if both exist."""
     price_df = load_price_data(symbol)
@@ -270,16 +317,27 @@ def load_combined_data(symbol: str) -> Optional[pd.DataFrame]:
     # Both exist, merge them
     try:
         combined_df = price_df.merge(indicator_df, on="Date", how="outer")
-        logger.debug(f"Created combined dataframe for {symbol} with {len(combined_df)} rows")
+        logger.debug(
+            f"Created combined dataframe for {symbol} with {len(combined_df)} rows"
+        )
         return combined_df
     except Exception as e:
         logger.error(f"Error combining data for {symbol}: {e}")
         return price_df  # Fall back to just price data
+
+
 def save_trade(trade_dict: Dict) -> bool:
     """Save a trade to the permanent trade history."""
     try:
         os.makedirs(TRADES_DIR, exist_ok=True)
-        required_fields = ["symbol", "entry_date", "exit_date", "entry_price", "exit_price", "shares"]
+        required_fields = [
+            "symbol",
+            "entry_date",
+            "exit_date",
+            "entry_price",
+            "exit_price",
+            "shares",
+        ]
         for field in required_fields:
             if field not in trade_dict:
                 logger.error(f"Missing required field '{field}' in trade: {trade_dict}")
@@ -313,11 +371,14 @@ def save_trade(trade_dict: Dict) -> bool:
         except Exception as e:
             logger.error(f"Error updating metadata after saving trade: {e}")
 
-        logger.info(f"Saved trade for {trade_dict['symbol']}: {trade_dict['type'] if 'type' in trade_dict else 'trade'}")
+        logger.info(
+            f"Saved trade for {trade_dict['symbol']}: {trade_dict['type'] if 'type' in trade_dict else 'trade'}"
+        )
         return True
     except Exception as e:
         logger.error(f"Error saving trade: {e}")
         return False
+
 
 def update_positions(positions_list: List[Dict]) -> bool:
     """Update the current positions file with a list of position dictionaries."""
@@ -358,13 +419,16 @@ def update_positions(positions_list: List[Dict]) -> bool:
         logger.error(f"Error updating positions: {e}")
         return False
 
+
 def get_positions() -> List[Dict]:
     """Get current positions from positions file."""
     try:
         if os.path.exists(POSITIONS_FILE):
             positions_df = pd.read_csv(POSITIONS_FILE)
             positions_list = positions_df.to_dict("records")
-            logger.debug(f"Loaded {len(positions_list)} positions from {POSITIONS_FILE}")
+            logger.debug(
+                f"Loaded {len(positions_list)} positions from {POSITIONS_FILE}"
+            )
             return positions_list
         else:
             logger.debug(f"Positions file not found: {POSITIONS_FILE}")
@@ -373,9 +437,12 @@ def get_positions() -> List[Dict]:
         logger.error(f"Error getting positions: {e}")
         return []
 
-def get_trades_history(symbol: Optional[str] = None, 
-                      start_date: Optional[str] = None, 
-                      end_date: Optional[str] = None) -> pd.DataFrame:
+
+def get_trades_history(
+    symbol: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> pd.DataFrame:
     """Get trade history, optionally filtered by symbol and date range."""
     try:
         if os.path.exists(TRADES_HISTORY_FILE):
@@ -385,9 +452,13 @@ def get_trades_history(symbol: Optional[str] = None,
             if "exit_date" in trades_df.columns:
                 trades_df["exit_date"] = pd.to_datetime(trades_df["exit_date"])
                 if start_date:
-                    trades_df = trades_df[trades_df["exit_date"] >= pd.to_datetime(start_date)]
+                    trades_df = trades_df[
+                        trades_df["exit_date"] >= pd.to_datetime(start_date)
+                    ]
                 if end_date:
-                    trades_df = trades_df[trades_df["exit_date"] <= pd.to_datetime(end_date)]
+                    trades_df = trades_df[
+                        trades_df["exit_date"] <= pd.to_datetime(end_date)
+                    ]
             logger.debug(f"Loaded {len(trades_df)} trades from history")
             return trades_df
         else:
@@ -397,6 +468,7 @@ def get_trades_history(symbol: Optional[str] = None,
         logger.error(f"Error getting trades history: {e}")
         return pd.DataFrame(columns=TRADE_COLUMNS)
 
+
 def save_signals(signals_df: pd.DataFrame) -> bool:
     """Save recent signals to a CSV file."""
     try:
@@ -404,7 +476,9 @@ def save_signals(signals_df: pd.DataFrame) -> bool:
         if not signals_df.empty:
             signals_df = signals_df.copy()
             if "date" in signals_df.columns:
-                signals_df["date"] = pd.to_datetime(signals_df["date"]).dt.strftime("%Y-%m-%d")
+                signals_df["date"] = pd.to_datetime(signals_df["date"]).dt.strftime(
+                    "%Y-%m-%d"
+                )
             if "price" in signals_df.columns:
                 signals_df["price"] = signals_df["price"].round(2)
             signals_df.to_csv(SIGNALS_FILE, index=False)
@@ -428,6 +502,7 @@ def save_signals(signals_df: pd.DataFrame) -> bool:
         logger.error(f"Error saving signals: {e}")
         return False
 
+
 def get_signals() -> pd.DataFrame:
     """Get recent signals from signals file."""
     try:
@@ -441,6 +516,8 @@ def get_signals() -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Error getting signals: {e}")
         return pd.DataFrame(columns=SIGNAL_COLUMNS)
+
+
 def clean_old_data() -> bool:
     """Remove data older than the retention period."""
     try:
@@ -494,7 +571,9 @@ def clean_old_data() -> bool:
         metadata = init_metadata()
         metadata["last_update"] = datetime.now().strftime("%Y-%m-%d")
         metadata["data_stats"]["total_symbols"] = len(all_symbols)
-        metadata["data_stats"]["primary_tier_symbols"] = len(all_symbols) - len(active_symbols)
+        metadata["data_stats"]["primary_tier_symbols"] = len(all_symbols) - len(
+            active_symbols
+        )
         metadata["data_stats"]["secondary_tier_symbols"] = len(active_symbols)
         with open(METADATA_FILE, "w") as f:
             json.dump(metadata, f, indent=4)
@@ -505,16 +584,21 @@ def clean_old_data() -> bool:
         logger.error(f"Error cleaning old data: {e}")
         return False
 
-def batch_process_symbols(symbols: List[str],
-                         process_func,
-                         batch_size: int = 50,
-                         max_workers: int = MAX_THREADS) -> Dict[str, bool]:
+
+def batch_process_symbols(
+    symbols: List[str],
+    process_func,
+    batch_size: int = 50,
+    max_workers: int = MAX_THREADS,
+) -> Dict[str, bool]:
     """Process symbols in batches using parallel execution."""
     results = {}
     for i in range(0, len(symbols), batch_size):
-        batch = symbols[i:i+batch_size]
+        batch = symbols[i : i + batch_size]
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {symbol: executor.submit(process_func, symbol) for symbol in batch}
+            futures = {
+                symbol: executor.submit(process_func, symbol) for symbol in batch
+            }
             for symbol, future in futures.items():
                 try:
                     results[symbol] = future.result()
@@ -523,13 +607,17 @@ def batch_process_symbols(symbols: List[str],
                     results[symbol] = False
     return results
 
+
 def initialize():
     """Initialize the data manager."""
     ensure_directories()
     init_metadata()
     logger.info("Data manager initialized")
 
+
 if __name__ == "__main__":
     # Basic test to make sure everything is working
     initialize()
     logger.info("Data manager module loaded successfully")
+
+

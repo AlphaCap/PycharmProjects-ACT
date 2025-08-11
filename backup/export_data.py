@@ -13,3 +13,5 @@ with open("data/positions.json", "w") as f:
     json.dump(positions, f, indent=4)
 
 print("Position data exported to data/positions.json")
+
+

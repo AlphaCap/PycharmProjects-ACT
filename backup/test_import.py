@@ -21,6 +21,9 @@ for file in os.listdir(os.getcwd()):
 print("\nTrying import:")
 try:
     import polygon_api
+
     print("  SUCCESS! Module imported!")
 except Exception as e:
     print(f"  FAILED! Error: {e}")
+
+

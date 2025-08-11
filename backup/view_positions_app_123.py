@@ -7,18 +7,18 @@ from datetime import datetime
 # Force a unique page path with very explicit configuration
 st.set_page_config(
     page_title="Neural Grid Strategy Viewer",
-    page_icon="📊",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': "# Neural Grid Strategy Dashboard\nVersion 1.0"
-    }
+        "Get Help": None,
+        "Report a bug": None,
+        "About": "# Neural Grid Strategy Dashboard\nVersion 1.0",
+    },
 )
 
 # Custom title with no potential conflicts
-st.title("📊 Neural Grid Strategy Position Viewer")
+st.title(" Neural Grid Strategy Position Viewer")
 st.caption("Isolated App - No Module Imports")
 
 # Display current time
@@ -34,16 +34,18 @@ try:
     if os.path.exists("data/positions.json"):
         with open("data/positions.json", "r") as f:
             positions = json.load(f)
-            
+
         for symbol, pos in positions.items():
-            positions_data.append({
-                "Symbol": symbol,
-                "Shares": pos.get("shares", 0),
-                "Entry Price": f"${pos.get('entry_price', 0):.2f}",
-                "Entry Date": pos.get("entry_date", ""),
-                "Days Held": pos.get("bars_since_entry", 0)
-            })
-        
+            positions_data.append(
+                {
+                    "Symbol": symbol,
+                    "Shares": pos.get("shares", 0),
+                    "Entry Price": f"${pos.get('entry_price', 0):.2f}",
+                    "Entry Date": pos.get("entry_date", ""),
+                    "Days Held": pos.get("bars_since_entry", 0),
+                }
+            )
+
         if positions_data:
             st.subheader("Current Positions")
             st.dataframe(pd.DataFrame(positions_data))
@@ -60,3 +62,5 @@ st.caption(f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 if st.button("Refresh Data"):
     st.experimental_rerun()
+
+

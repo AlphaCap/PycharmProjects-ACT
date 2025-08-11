@@ -9,6 +9,7 @@ POLYGON_API_KEY = "yTZVrttxzFCK58_gOUGGATWxQzytgAxy"
 
 logger = logging.getLogger(__name__)
 
+
 class PolygonClient:
     """Client for interacting with the Polygon.io API (daily data only)."""
 
@@ -31,7 +32,7 @@ class PolygonClient:
     def _handle_rate_limit(self, response):
         """Handle rate limiting by waiting if needed."""
         if response.status_code == 429:
-            retry_after = int(response.headers.get('Retry-After', 60))
+            retry_after = int(response.headers.get("Retry-After", 60))
             logger.warning(f"Rate limit hit. Waiting for {retry_after} seconds.")
             time.sleep(retry_after)
             return True
@@ -51,7 +52,7 @@ class PolygonClient:
         if params is None:
             params = {}
 
-        params['apiKey'] = self.api_key
+        params["apiKey"] = self.api_key
 
         url = f"{self.BASE_URL}{endpoint}"
         max_retries = 3
@@ -98,11 +99,15 @@ class PolygonClient:
         params = {"limit": limit, "sort": "asc"}
         response_data = self._make_request(endpoint, params)
 
-        if not response_data or response_data.get('status') != 'OK' or 'results' not in response_data:
+        if (
+            not response_data
+            or response_data.get("status") != "OK"
+            or "results" not in response_data
+        ):
             logger.error(f"Error getting daily bars for {symbol}: {response_data}")
             return pd.DataFrame()
 
-        bars = response_data['results']
+        bars = response_data["results"]
         if not bars:
             logger.info(f"No bars returned for {symbol}")
             return pd.DataFrame()
@@ -110,24 +115,31 @@ class PolygonClient:
         df = pd.DataFrame(bars)
 
         column_map = {
-            'v': 'volume',
-            'o': 'open',
-            'h': 'high',
-            'l': 'low',
-            'c': 'close',
-            't': 'timestamp',
-            'vw': 'vwap',
-            'n': 'transactions'
+            "v": "volume",
+            "o": "open",
+            "h": "high",
+            "l": "low",
+            "c": "close",
+            "t": "timestamp",
+            "vw": "vwap",
+            "n": "transactions",
         }
         df = df.rename(columns={k: v for k, v in column_map.items() if k in df.columns})
 
-        if 'timestamp' in df.columns:
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
 
         # Only keep relevant columns for daily bars
-        keep_cols = [col for col in ['timestamp', 'open', 'high', 'low', 'close', 'volume'] if col in df.columns]
+        keep_cols = [
+            col
+            for col in ["timestamp", "open", "high", "low", "close", "volume"]
+            if col in df.columns
+        ]
         return df[keep_cols]
+
 
 # Example usage (in your other scripts):
 # client = PolygonClient()
 # df = client.get_daily_bars("AAPL", "2025-07-01", "2025-07-07")
+
+
