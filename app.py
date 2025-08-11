@@ -20,10 +20,7 @@ from data_manager import (
     get_portfolio_metrics,
     get_signals,
     get_positions,
-<<<<<<< HEAD
-=======
     #get_system_status,
->>>>>>> c108ef4 (Bypass pre-commit for now)
 )
 
 try:
@@ -529,5 +526,3 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
