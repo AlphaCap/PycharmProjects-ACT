@@ -49,10 +49,7 @@ from data_manager import (
     get_strategy_performance,
     get_portfolio_performance_stats,
     get_signals,
-<<<<<<< HEAD
-=======
     save_system_status,
->>>>>>> c108ef4 (Bypass pre-commit for now)
     get_trades_history,
     get_me_ratio_history,  # Added for M/E charts
 )
@@ -128,7 +125,6 @@ initial_value = st.number_input(
 )
 st.session_state.initial_value = initial_value
 
-<<<<<<< HEAD
 # ---- NEW: Display Best AI Strategy Section ----
 st.markdown("## 🏆 Best AI Strategy (AI Performance Hierarchy)")
 
@@ -210,8 +206,6 @@ else:
     st.info("No AI strategy integration results found. Run AI integration manager and save results to view hierarchy.")
 
 st.markdown("---")
-=======
->>>>>>> c108ef4 (Bypass pre-commit for now)
 
 def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> float:
     """Calculate Value at Risk from historical trades"""
@@ -652,23 +646,7 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                     alpha=0.8,
                     label="CRITICAL LIMIT (100%)",
                 )
-                ax.fill_between(
-                    clean_data["Date"],
-                    0,
-                    80,
-                    alpha=0.2,
-                    color="green",
-                    label="Safe Zone (<80%)",
-                )
-                ax.fill_between(
-                    clean_data["Date"],
-                    80,
-                    100,
-                    alpha=0.2,
-                    color="orange",
-                    label="Warning Zone (80-100%)",
-                )
-
+               
                 # Chart formatting (identical to equity curve)
                 ax.set_title(
                     "Historical M/E Ratio - Risk Management",
@@ -768,8 +746,3 @@ st.markdown(
 )
 st.markdown("---")
 st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
-<<<<<<< HEAD
-=======
-
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
