@@ -5,11 +5,8 @@ from datetime import datetime, timedelta
 import logging
 import json
 import os
-<<<<<<< HEAD
 from shared_utils import load_polygon_data
-=======
 from data_utils import load_polygon_data
->>>>>>> c108ef4 (Bypass pre-commit for now)
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
 from performance_objectives import ObjectiveManager
 from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
@@ -20,22 +17,17 @@ from ngs_integrated_ai_system import NGSIndicatorLibrary, NGSAwareStrategyGenera
 
 logger = logging.getLogger(__name__)
 
-
 class NGSAIIntegrationManager:
     def __init__(self, account_size: float = 1000000, data_dir: str = 'data'):
         self.account_size = account_size
         self.data_dir = data_dir
-<<<<<<< HEAD
-        
+      
         from nGS_Revised_Strategy import NGSStrategy
         self.original_ngs = NGSStrategy(account_size=account_size, data_dir=data_dir)
         
-=======
-
         from nGS_Revised_Strategy import NGSStrategy
         self.original_ngs = NGSStrategy(account_size=account_size, data_dir=data_dir)
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         # Initialize AI components
         self.ngs_indicator_lib = NGSIndicatorLibrary()
         self.objective_manager = ObjectiveManager()
@@ -45,11 +37,7 @@ class NGSAIIntegrationManager:
         print("Primary objective (test):", self.objective_manager.get_primary_objective())
         self.ai_generator = NGSAwareStrategyGenerator(self.ngs_indicator_lib, self.objective_manager)
         logger.info("Initialized NGSIndicatorLibrary and NGSAwareStrategyGenerator from ngs_ai_components")
-<<<<<<< HEAD
-        
-=======
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         self.active_strategies = {}
         self.strategy_performance = {}
         self.operating_mode = 'ai_only'
@@ -62,21 +50,17 @@ class NGSAIIntegrationManager:
         }
         self.results_dir = os.path.join(self.data_dir, "integration_results")
         os.makedirs(self.results_dir, exist_ok=True)
-<<<<<<< HEAD
-        
+
         print("🎯 nGS AI Integration Manager initialized")
         print(f"   AI Generator:        Ready with YOUR parameters")
         print(f"   Operating Mode:      {self.operating_mode}")
         print(f"   Integration Config:  {self.integration_config['ai_allocation_pct']:.0f}% AI")
-    
-=======
 
         print("  nGS AI Integration Manager initialized")
         print(f"   AI Generator:        Ready with YOUR parameters")
         print(f"   Operating Mode:      {self.operating_mode}")
         print(f"   Integration Config:  {self.integration_config['ai_allocation_pct']:.0f}% AI")
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
     def set_operating_mode(self, mode: str) -> None:
         """Set operating mode for the integration manager."""
         valid_modes = ['ai_only', 'comparison']
@@ -85,11 +69,7 @@ class NGSAIIntegrationManager:
         self.operating_mode = mode
         logger.info(f"Operating mode set to: {mode}")
         print(f"🔄 Operating mode updated to: {mode}")
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
     def create_ai_strategy_set(self, data: Dict[str, pd.DataFrame], objective: str) -> Dict[str, TradingStrategy]:
         """Create a set of AI-generated strategies for given data and objective."""
         strategies = {}
@@ -102,11 +82,7 @@ class NGSAIIntegrationManager:
             except Exception as e:
                 logger.error(f"Failed to generate strategy for {symbol}: {str(e)}")
         return strategies
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
     def _run_original_strategy(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
         """Run the original nGS strategy for comparison."""
         results = {}
@@ -124,26 +100,21 @@ class NGSAIIntegrationManager:
             except Exception as e:
                 logger.error(f"Error processing original strategy for {symbol}: {str(e)}")
         return results
-<<<<<<< HEAD
-    
+
    # Line ~95: Add debugging inside `_run_ai_strategies_only`
 def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
     """Run AI-generated strategies exclusively."""
     results = {}
-    
-=======
 
 def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
     """Run AI-generated strategies exclusively."""
     results = {}
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
     # Debugging before objective retrieval
     print("Debug: Checking ObjectiveManager instance...")
     print("ObjectiveManager type:", type(self.objective_manager))
     print("Available methods:", dir(self.objective_manager))
-<<<<<<< HEAD
-    
+
     # Objective retrieval
     objective = self.objective_manager.get_primary_objective()  # This is where the error occurs
     print("Primary objective retrieved:", objective)
@@ -347,7 +318,6 @@ def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Di
         plt.savefig(plot_path)
         plt.close()
         logger.info(f"Saved performance comparison plot to {plot_path}")
-=======
 
     # Objective retrieval
     objective = self.objective_manager.get_primary_objective()  # This is where the error occurs
@@ -391,7 +361,6 @@ def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Di
             logger.error(f"Error processing AI strategy for {symbol}: {str(e)}")
 
     return results
-
 
 def _calculate_positions(self, trades: List[Dict], data: pd.DataFrame) -> List[Dict]:
     """Calculate positions from trades."""
@@ -561,8 +530,6 @@ def plot_performance_comparison(self, results: Dict[str, Any]) -> None:
     plt.close()
     logger.info(f"Saved performance comparison plot to {plot_path}")
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
-
 def run_ngs_automated_reporting(comparison=None):
     import pandas as pd
     import os
@@ -600,15 +567,12 @@ def run_ngs_automated_reporting(comparison=None):
 
     # Save results
     manager.save_integration_session(results, filename="latest_results.json")
-<<<<<<< HEAD
-    print("\n✅ AI integration complete. Results saved for dashboard.")
+    print("\n AI integration complete. Results saved for dashboard.")
 
 if __name__ == "__main__":
     run_ngs_automated_reporting()
-=======
     print("\n AI integration complete. Results saved for dashboard.")
 
 
 if __name__ == "__main__":
     run_ngs_automated_reporting()
->>>>>>> c108ef4 (Bypass pre-commit for now)
