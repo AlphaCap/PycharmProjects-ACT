@@ -15,6 +15,7 @@ repos:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
+        exclude: ^\.auto_debug_state\.json$   # do not touch the repair state file
       - id: check-yaml
       - id: check-added-large-files
 
@@ -36,10 +37,11 @@ repos:
           - flake8-docstrings
           - flake8-bugbear
           - flake8-comprehensions
+        # If you want to temporarily silence package docstring errors, uncomment:
+        # args: ["--extend-ignore=D104"]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.5.1
     hooks:
       - id: mypy
-        # Avoid 'types-all' (pulls a non-existent types-pkg-resources)
         additional_dependencies: []
