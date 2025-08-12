@@ -20,15 +20,12 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 
 # Import your existing components
-<<<<<<< HEAD
 from shared_utils import load_polygon_data
 # Import your existing components (line 23 removed)
 
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary  
-=======
 from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
->>>>>>> c108ef4 (Bypass pre-commit for now)
 from performance_objectives import ObjectiveManager
 from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
 
@@ -37,7 +34,6 @@ NGSAwareStrategyGenerator = ObjectiveAwareStrategyGenerator
 NGSIndicatorLibrary = ComprehensiveIndicatorLibrary
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class BacktestResult:
@@ -171,14 +167,11 @@ class NGSAIBacktestingSystem:
         """
         Backtest your original nGS strategy for comparison
         """
-<<<<<<< HEAD
         from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
-        print(f"\n📊 Backtesting Original nGS Strategy")
-        
-=======
         print(f"\n Backtesting Original nGS Strategy")
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
+        print(f"\n Backtesting Original nGS Strategy")
+
         # Filter data by date range if specified
         if start_date or end_date:
             data = self._filter_data_by_date(data, start_date, end_date)
@@ -301,11 +294,9 @@ class NGSAIBacktestingSystem:
     # =============================================================================
     # WALK-FORWARD ANALYSIS
     # =============================================================================
-<<<<<<< HEAD
     
     def walk_forward_analysis(self, strategy: TradingStrategy, data: Dict[str, pd.DataFrame],
                             training_months: int = 8, testing_months: int = 4) -> Dict:
-=======
 
     def walk_forward_analysis(
         self,
@@ -314,7 +305,6 @@ class NGSAIBacktestingSystem:
         training_months: int = 6,
         testing_months: int = 3,
     ) -> Dict:
->>>>>>> c108ef4 (Bypass pre-commit for now)
         """
         Perform walk-forward analysis to test strategy robustness over time
         """
@@ -420,14 +410,11 @@ class NGSAIBacktestingSystem:
             adjusted_trade = trade.copy()
 
             # Apply commission (reduces profit)
-<<<<<<< HEAD
             commission = self.backtest_config['commission_per_trade']
             adjusted_trade['profit'] = trade['profit'] - commission
-=======
             commission = self.backtest_config["commission_per_trade"]
             adjusted_trade["profit"] = trade["profit"] - commission
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
             # Apply slippage (reduces profit)
             entry_price = trade["entry_price"]
             slippage_cost = entry_price * (self.backtest_config["slippage_pct"] / 100)
@@ -1076,7 +1063,6 @@ if __name__ == "__main__":
     print("   backtester.walk_forward_analysis(strategy, data)")
 # Add this class to your ngs_integrated_ai_system.py file
 
-
 class NGSProvenParameters:
     """
     Container for proven nGS parameters based on your original strategy
@@ -1206,5 +1192,3 @@ class NGSProvenParameters:
             )
 
         return base
-
-
