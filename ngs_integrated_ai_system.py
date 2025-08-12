@@ -14,20 +14,21 @@ import os
 import warnings
 from dataclasses import dataclass
 import matplotlib.pyplot as plt
-import seaborn as sns
+import seaborn as sns  # type: ignore
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
 # Import your existing components
 from shared_utils import load_polygon_data
-# Import your existing components (line 23 removed)
 
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary  
 from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
 from performance_objectives import ObjectiveManager
 from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
+
+from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 # Create aliases to match expected names
 NGSAwareStrategyGenerator = ObjectiveAwareStrategyGenerator
@@ -38,7 +39,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BacktestResult:
     """Container for individual backtest results"""
-
     strategy_id: str
     objective_name: str
     start_date: str
@@ -55,56 +55,45 @@ class BacktestResult:
     avg_duration_days: float
     fitness_score: float
     equity_curve: pd.Series
-    trades: List[Dict]
+    trades: List[Dict[str, Any]]
     daily_returns: pd.Series
-
 
 @dataclass
 class BacktestComparison:
     """Container for comparing multiple backtest results"""
-
     original_ngs_result: BacktestResult
     ai_results: List[BacktestResult]
-    comparison_metrics: Dict
+    comparison_metrics: Dict[str, Any]
     recommendation: str
-    summary_stats: Dict
-
+    summary_stats: Dict[str, Any]
 
 class NGSAIBacktestingSystem:
     """
     Comprehensive backtesting system for AI-generated strategies
     Tests strategies against historical data with YOUR proven nGS parameters
     """
-
-    def __init__(self, account_size: float = 1000000, data_dir: str = "data"):
-        self.account_size = account_size
-        self.data_dir = data_dir
-        self.results_dir = os.path.join(data_dir, "backtest_results")
+    def __init__(self, account_size: float = 1000000, data_dir: str = "data") -> None:
+        self.account_size: float = account_size
+        self.data_dir: str = data_dir
+        self.results_dir: str = os.path.join(data_dir, "backtest_results")
         os.makedirs(self.results_dir, exist_ok=True)
-
-        # Initialize components
-        self.integration_manager = NGSAIIntegrationManager(account_size, data_dir)
-        self.ngs_indicator_lib = ComprehensiveIndicatorLibrary()
-        self.objective_manager = ObjectiveManager()
-        self.ai_generator = ObjectiveAwareStrategyGenerator(
+        self.integration_manager: NGSAIIntegrationManager = NGSAIIntegrationManager(account_size, data_dir)
+        self.ngs_indicator_lib: ComprehensiveIndicatorLibrary = ComprehensiveIndicatorLibrary()
+        self.objective_manager: ObjectiveManager = ObjectiveManager()
+        self.ai_generator: ObjectiveAwareStrategyGenerator = ObjectiveAwareStrategyGenerator(
             self.ngs_indicator_lib, self.objective_manager
         )
-
-        # Backtesting configuration
-        self.backtest_config = {
-            "commission_per_trade": 1.0,  # $1 per trade
-            "slippage_pct": 0.05,  # 0.05% slippage
-            "min_trade_spacing": 1,  # Minimum days between trades
-            "max_concurrent_positions": 20,  # Maximum open positions
-            "benchmark_symbol": "SPY",  # Benchmark for comparison
-            "risk_free_rate": 0.02,  # 2% annual risk-free rate
-            "lookback_periods": [30, 60, 90, 180, 252],  # Analysis periods
+        self.backtest_config: Dict[str, Any] = {
+            "commission_per_trade": 1.0,
+            "slippage_pct": 0.05,
+            "min_trade_spacing": 1,
+            "max_concurrent_positions": 20,
+            "benchmark_symbol": "SPY",
+            "risk_free_rate": 0.02,
+            "lookback_periods": [30, 60, 90, 180, 252],
         }
-
-        # Performance tracking
-        self.backtest_history = []
-        self.strategy_rankings = {}
-
+        self.backtest_history: List[BacktestResult] = []
+        self.strategy_rankings: Dict[str, Any] = {}
         print(" nGS AI Backtesting System initialized")
         print(f"   Account Size:        ${account_size:,.0f}")
         print(f"   Results Directory:   {self.results_dir}")
@@ -112,7 +101,6 @@ class NGSAIBacktestingSystem:
             f"   Commission:          ${self.backtest_config['commission_per_trade']:.2f} per trade"
         )
         print(f"   Slippage:            {self.backtest_config['slippage_pct']:.2f}%")
-
     # =============================================================================
     # SINGLE STRATEGY BACKTESTING
     # =============================================================================
@@ -121,8 +109,8 @@ class NGSAIBacktestingSystem:
         self,
         strategy: TradingStrategy,
         data: Dict[str, pd.DataFrame],
-        start_date: str = None,
-        end_date: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> BacktestResult:
         """
         Backtest a single AI strategy against historical data
@@ -137,7 +125,14 @@ class NGSAIBacktestingSystem:
 
         # Execute strategy on historical data
         try:
-            results = strategy.execute_on_data(data, self.ngs_indicator_lib)
+            # Some implementations expect a DataFrame, others a dict; handle both
+            try:
+                # Try full dict (preferred)
+                results = strategy.execute_on_data(data, self.ngs_indicator_lib)
+            except TypeError:
+                # Try per-symbol (legacy)
+                first_df = next(iter(data.values()))
+                results = strategy.execute_on_data(first_df, self.ngs_indicator_lib)
 
             # Apply trading costs
             adjusted_trades = self._apply_trading_costs(results["trades"])
@@ -161,15 +156,13 @@ class NGSAIBacktestingSystem:
     def backtest_original_ngs(
         self,
         data: Dict[str, pd.DataFrame],
-        start_date: str = None,
-        end_date: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> BacktestResult:
         """
         Backtest your original nGS strategy for comparison
         """
         from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
-        print(f"\n Backtesting Original nGS Strategy")
-
         print(f"\n Backtesting Original nGS Strategy")
 
         # Filter data by date range if specified
@@ -224,8 +217,8 @@ class NGSAIBacktestingSystem:
         self,
         objectives: List[str],
         data: Dict[str, pd.DataFrame],
-        start_date: str = None,
-        end_date: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> List[BacktestResult]:
         """
         Backtest AI strategies for multiple objectives and compare performance
@@ -233,7 +226,7 @@ class NGSAIBacktestingSystem:
         print(f"\n Multi-Objective Backtesting: {len(objectives)} objectives")
         print(f"   Objectives: {', '.join(objectives)}")
 
-        results = []
+        results: List[BacktestResult] = []
 
         for objective in objectives:
             try:
@@ -264,8 +257,8 @@ class NGSAIBacktestingSystem:
         self,
         objectives: List[str],
         data: Dict[str, pd.DataFrame],
-        start_date: str = None,
-        end_date: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> BacktestComparison:
         """
         Comprehensive comparison between original nGS and multiple AI strategies
@@ -274,15 +267,15 @@ class NGSAIBacktestingSystem:
         print(f"   Original nGS vs {len(objectives)} AI objectives")
 
         # Backtest original nGS
-        original_result = self.backtest_original_ngs(data, start_date, end_date)
+        original_result: BacktestResult = self.backtest_original_ngs(data, start_date, end_date)
 
         # Backtest AI strategies
-        ai_results = self.backtest_multiple_objectives(
+        ai_results: List[BacktestResult] = self.backtest_multiple_objectives(
             objectives, data, start_date, end_date
         )
 
         # Generate comparison analysis
-        comparison = self._generate_comprehensive_comparison(
+        comparison: BacktestComparison = self._generate_comprehensive_comparison(
             original_result, ai_results
         )
 
@@ -290,13 +283,9 @@ class NGSAIBacktestingSystem:
         self._save_comparison_results(comparison)
 
         return comparison
-
     # =============================================================================
     # WALK-FORWARD ANALYSIS
     # =============================================================================
-    
-    def walk_forward_analysis(self, strategy: TradingStrategy, data: Dict[str, pd.DataFrame],
-                            training_months: int = 8, testing_months: int = 4) -> Dict:
 
     def walk_forward_analysis(
         self,
@@ -304,7 +293,7 @@ class NGSAIBacktestingSystem:
         data: Dict[str, pd.DataFrame],
         training_months: int = 6,
         testing_months: int = 3,
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         Perform walk-forward analysis to test strategy robustness over time
         """
@@ -313,20 +302,20 @@ class NGSAIBacktestingSystem:
         print(f"   Testing Period: {testing_months} months")
 
         # Get date range from data
-        all_dates = []
+        all_dates: List[datetime] = []
         for symbol_data in data.values():
             if not symbol_data.empty:
                 all_dates.extend(pd.to_datetime(symbol_data["Date"]).tolist())
 
-        start_date = min(all_dates)
-        end_date = max(all_dates)
+        start_date: datetime = min(all_dates)
+        end_date: datetime = max(all_dates)
 
         # Create walk-forward windows
-        windows = self._create_walk_forward_windows(
+        windows: List[Tuple[datetime, datetime, datetime, datetime]] = self._create_walk_forward_windows(
             start_date, end_date, training_months, testing_months
         )
 
-        walk_forward_results = []
+        walk_forward_results: List[Dict[str, Any]] = []
 
         for i, (train_start, train_end, test_start, test_end) in enumerate(windows):
             print(
@@ -402,9 +391,9 @@ class NGSAIBacktestingSystem:
     # PERFORMANCE ANALYSIS METHODS
     # =============================================================================
 
-    def _apply_trading_costs(self, trades: List[Dict]) -> List[Dict]:
+    def _apply_trading_costs(self, trades: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Apply commission and slippage to trades"""
-        adjusted_trades = []
+        adjusted_trades: List[Dict[str, Any]] = []
 
         for trade in trades:
             adjusted_trade = trade.copy()
@@ -412,8 +401,6 @@ class NGSAIBacktestingSystem:
             # Apply commission (reduces profit)
             commission = self.backtest_config['commission_per_trade']
             adjusted_trade['profit'] = trade['profit'] - commission
-            commission = self.backtest_config["commission_per_trade"]
-            adjusted_trade["profit"] = trade["profit"] - commission
 
             # Apply slippage (reduces profit)
             entry_price = trade["entry_price"]
@@ -432,13 +419,12 @@ class NGSAIBacktestingSystem:
     def _calculate_comprehensive_metrics(
         self,
         strategy: TradingStrategy,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        start_date: str = None,
-        end_date: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> BacktestResult:
         """Calculate comprehensive performance metrics for a strategy"""
-
         if not trades:
             # Return empty result if no trades
             return BacktestResult(
@@ -464,33 +450,33 @@ class NGSAIBacktestingSystem:
 
         # Basic trade statistics
         total_trades = len(trades)
-        profits = [trade["profit"] for trade in trades]
+        profits = [float(trade["profit"]) for trade in trades]
         winning_trades = [p for p in profits if p > 0]
-        win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0
+        win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0.0
 
         # Return calculations
-        total_profit = sum(profits)
-        total_return_pct = (total_profit / self.account_size) * 100
-        avg_trade_pct = (np.mean(profits) / self.account_size) * 100 if profits else 0
+        total_profit = float(sum(profits))
+        total_return_pct = (total_profit / float(self.account_size)) * 100
+        avg_trade_pct = (np.mean(profits) / float(self.account_size)) * 100 if profits else 0.0
 
         # Risk calculations
         daily_returns = equity_curve.pct_change().dropna()
         max_drawdown_pct = self._calculate_max_drawdown(equity_curve)
         volatility_pct = (
-            daily_returns.std() * np.sqrt(252) * 100 if len(daily_returns) > 1 else 0
+            float(daily_returns.std()) * np.sqrt(252) * 100 if len(daily_returns) > 1 else 0.0
         )
 
         # Sharpe ratio
         excess_returns = daily_returns - (self.backtest_config["risk_free_rate"] / 252)
         sharpe_ratio = (
-            (excess_returns.mean() / excess_returns.std() * np.sqrt(252))
+            (float(excess_returns.mean()) / float(excess_returns.std()) * np.sqrt(252))
             if excess_returns.std() > 0
-            else 0
+            else 0.0
         )
 
         # Trade statistics
-        best_trade = max(profits) if profits else 0
-        worst_trade = min(profits) if profits else 0
+        best_trade = max(profits) if profits else 0.0
+        worst_trade = min(profits) if profits else 0.0
 
         # Duration analysis
         durations = []
@@ -501,27 +487,31 @@ class NGSAIBacktestingSystem:
                     exit_dt = pd.to_datetime(trade["exit_date"])
                     duration = (exit_dt - entry_dt).days
                     durations.append(duration)
-                except:
+                except Exception:
                     pass
 
-        avg_duration_days = np.mean(durations) if durations else 0
+        avg_duration_days = float(np.mean(durations)) if durations else 0.0
 
         # Calculate fitness score using strategy's objective
         objective = self.objective_manager.get_objective(strategy.objective_name)
-        fitness_score = objective.calculate_fitness(trades, equity_curve)
+        fitness_score = float(objective.calculate_fitness(trades, equity_curve))
 
         return BacktestResult(
             strategy_id=strategy.strategy_id,
             objective_name=strategy.objective_name,
             start_date=(
-                start_date or equity_curve.index[0].strftime("%Y-%m-%d")
-                if not equity_curve.empty
-                else "N/A"
+                start_date or (
+                    equity_curve.index[0].strftime("%Y-%m-%d")
+                    if not equity_curve.empty and hasattr(equity_curve.index[0], "strftime")
+                    else "N/A"
+                )
             ),
             end_date=(
-                end_date or equity_curve.index[-1].strftime("%Y-%m-%d")
-                if not equity_curve.empty
-                else "N/A"
+                end_date or (
+                    equity_curve.index[-1].strftime("%Y-%m-%d")
+                    if not equity_curve.empty and hasattr(equity_curve.index[-1], "strftime")
+                    else "N/A"
+                )
             ),
             total_return_pct=total_return_pct,
             max_drawdown_pct=max_drawdown_pct,
@@ -538,15 +528,14 @@ class NGSAIBacktestingSystem:
             trades=trades,
             daily_returns=daily_returns,
         )
-
     def _calculate_comprehensive_metrics_from_trades(
         self,
         strategy_id: str,
         objective_name: str,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        start_date: str = None,
-        end_date: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> BacktestResult:
         """Calculate metrics when we only have trades and equity curve (for original nGS)"""
 
@@ -572,31 +561,30 @@ class NGSAIBacktestingSystem:
                 daily_returns=pd.Series([]),
             )
 
-        # Use same calculation logic as above
         total_trades = len(trades)
-        profits = [trade["profit"] for trade in trades]
+        profits = [float(trade["profit"]) for trade in trades]
         winning_trades = [p for p in profits if p > 0]
-        win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0
+        win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0.0
 
-        total_profit = sum(profits)
-        total_return_pct = (total_profit / self.account_size) * 100
-        avg_trade_pct = (np.mean(profits) / self.account_size) * 100 if profits else 0
+        total_profit = float(sum(profits))
+        total_return_pct = (total_profit / float(self.account_size)) * 100
+        avg_trade_pct = (np.mean(profits) / float(self.account_size)) * 100 if profits else 0.0
 
         daily_returns = equity_curve.pct_change().dropna()
         max_drawdown_pct = self._calculate_max_drawdown(equity_curve)
         volatility_pct = (
-            daily_returns.std() * np.sqrt(252) * 100 if len(daily_returns) > 1 else 0
+            float(daily_returns.std()) * np.sqrt(252) * 100 if len(daily_returns) > 1 else 0.0
         )
 
         excess_returns = daily_returns - (self.backtest_config["risk_free_rate"] / 252)
         sharpe_ratio = (
-            (excess_returns.mean() / excess_returns.std() * np.sqrt(252))
+            (float(excess_returns.mean()) / float(excess_returns.std()) * np.sqrt(252))
             if excess_returns.std() > 0
-            else 0
+            else 0.0
         )
 
-        best_trade = max(profits) if profits else 0
-        worst_trade = min(profits) if profits else 0
+        best_trade = max(profits) if profits else 0.0
+        worst_trade = min(profits) if profits else 0.0
 
         durations = []
         for trade in trades:
@@ -606,28 +594,29 @@ class NGSAIBacktestingSystem:
                     exit_dt = pd.to_datetime(trade["exit_date"])
                     duration = (exit_dt - entry_dt).days
                     durations.append(duration)
-                except:
+                except Exception:
                     pass
 
-        avg_duration_days = np.mean(durations) if durations else 0
+        avg_duration_days = float(np.mean(durations)) if durations else 0.0
 
-        # For original strategy, use a generic fitness calculation
-        fitness_score = (
-            total_return_pct - max_drawdown_pct
-        )  # Simple risk-adjusted return
+        fitness_score = total_return_pct - max_drawdown_pct
 
         return BacktestResult(
             strategy_id=strategy_id,
             objective_name=objective_name,
             start_date=(
-                start_date or equity_curve.index[0].strftime("%Y-%m-%d")
-                if not equity_curve.empty
-                else "N/A"
+                start_date or (
+                    equity_curve.index[0].strftime("%Y-%m-%d")
+                    if not equity_curve.empty and hasattr(equity_curve.index[0], "strftime")
+                    else "N/A"
+                )
             ),
             end_date=(
-                end_date or equity_curve.index[-1].strftime("%Y-%m-%d")
-                if not equity_curve.empty
-                else "N/A"
+                end_date or (
+                    equity_curve.index[-1].strftime("%Y-%m-%d")
+                    if not equity_curve.empty and hasattr(equity_curve.index[-1], "strftime")
+                    else "N/A"
+                )
             ),
             total_return_pct=total_return_pct,
             max_drawdown_pct=max_drawdown_pct,
@@ -654,10 +643,10 @@ class NGSAIBacktestingSystem:
         drawdown = (equity_curve - peak) / peak
         max_drawdown = abs(drawdown.min()) * 100
 
-        return max_drawdown
+        return float(max_drawdown)
 
     def _create_equity_curve_from_trades(
-        self, trades: List[Dict], starting_capital: float
+        self, trades: List[Dict[str, Any]], starting_capital: float
     ) -> pd.Series:
         """Create equity curve from trade list"""
         if not trades:
@@ -676,7 +665,7 @@ class NGSAIBacktestingSystem:
         current_equity = starting_capital
 
         for trade in sorted_trades:
-            current_equity += trade["profit"]
+            current_equity += float(trade["profit"])
             equity_values.append(current_equity)
             dates.append(
                 pd.to_datetime(
@@ -699,7 +688,7 @@ class NGSAIBacktestingSystem:
         all_results = [original_result] + ai_results
 
         # Performance comparison matrix
-        comparison_metrics = {
+        comparison_metrics: Dict[str, Any] = {
             "returns_comparison": {},
             "risk_comparison": {},
             "efficiency_comparison": {},
@@ -711,13 +700,13 @@ class NGSAIBacktestingSystem:
         comparison_metrics["returns_comparison"] = {
             "original_ngs": original_result.total_return_pct,
             "ai_best": (
-                max([r.total_return_pct for r in ai_results]) if ai_results else 0
+                max([r.total_return_pct for r in ai_results]) if ai_results else 0.0
             ),
             "ai_worst": (
-                min([r.total_return_pct for r in ai_results]) if ai_results else 0
+                min([r.total_return_pct for r in ai_results]) if ai_results else 0.0
             ),
             "ai_average": (
-                np.mean([r.total_return_pct for r in ai_results]) if ai_results else 0
+                float(np.mean([r.total_return_pct for r in ai_results])) if ai_results else 0.0
             ),
             "original_rank": sorted(returns, reverse=True).index(
                 original_result.total_return_pct
@@ -730,10 +719,10 @@ class NGSAIBacktestingSystem:
         comparison_metrics["risk_comparison"] = {
             "original_drawdown": original_result.max_drawdown_pct,
             "ai_best_drawdown": (
-                min([r.max_drawdown_pct for r in ai_results]) if ai_results else 0
+                min([r.max_drawdown_pct for r in ai_results]) if ai_results else 0.0
             ),
             "ai_worst_drawdown": (
-                max([r.max_drawdown_pct for r in ai_results]) if ai_results else 0
+                max([r.max_drawdown_pct for r in ai_results]) if ai_results else 0.0
             ),
             "original_risk_rank": sorted(drawdowns).index(
                 original_result.max_drawdown_pct
@@ -746,7 +735,7 @@ class NGSAIBacktestingSystem:
         comparison_metrics["efficiency_comparison"] = {
             "original_sharpe": original_result.sharpe_ratio,
             "ai_best_sharpe": (
-                max([r.sharpe_ratio for r in ai_results]) if ai_results else 0
+                max([r.sharpe_ratio for r in ai_results]) if ai_results else 0.0
             ),
             "original_sharpe_rank": sorted(sharpes, reverse=True).index(
                 original_result.sharpe_ratio
@@ -765,7 +754,7 @@ class NGSAIBacktestingSystem:
             "original_vs_ai_winner": (
                 "original"
                 if original_result.total_return_pct
-                >= np.mean([r.total_return_pct for r in ai_results])
+                >= float(np.mean([r.total_return_pct for r in ai_results])) if ai_results else 0.0
                 else "ai"
             ),
             "best_performing_strategy": max(
@@ -791,7 +780,7 @@ class NGSAIBacktestingSystem:
         self,
         original: BacktestResult,
         ai_results: List[BacktestResult],
-        comparison: Dict,
+        comparison: Dict[str, Any],
     ) -> str:
         """Generate recommendation based on backtest comparison"""
 
@@ -845,14 +834,14 @@ class NGSAIBacktestingSystem:
     def _filter_data_by_date(
         self,
         data: Dict[str, pd.DataFrame],
-        start_date: str = None,
-        end_date: str = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> Dict[str, pd.DataFrame]:
         """Filter data dictionary by date range"""
         if not start_date and not end_date:
             return data
 
-        filtered_data = {}
+        filtered_data: Dict[str, pd.DataFrame] = {}
 
         for symbol, df in data.items():
             if df.empty:
@@ -872,7 +861,7 @@ class NGSAIBacktestingSystem:
 
         return filtered_data
 
-    def _rank_strategies(self, results: List[BacktestResult]):
+    def _rank_strategies(self, results: List[BacktestResult]) -> None:
         """Rank strategies by multiple criteria"""
 
         if not results:
@@ -915,10 +904,10 @@ class NGSAIBacktestingSystem:
         end_date: datetime,
         training_months: int,
         testing_months: int,
-    ) -> List[Tuple]:
+    ) -> List[Tuple[datetime, datetime, datetime, datetime]]:
         """Create walk-forward analysis windows"""
 
-        windows = []
+        windows: List[Tuple[datetime, datetime, datetime, datetime]] = []
         current_date = start_date
 
         while current_date < end_date:
@@ -941,7 +930,7 @@ class NGSAIBacktestingSystem:
 
         return windows
 
-    def _analyze_walk_forward_results(self, wf_results: List[Dict]) -> Dict:
+    def _analyze_walk_forward_results(self, wf_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Analyze walk-forward results for consistency"""
 
         if not wf_results:
@@ -952,23 +941,23 @@ class NGSAIBacktestingSystem:
         drawdowns = [r["result"].max_drawdown_pct for r in wf_results]
 
         analysis = {
-            "avg_return": np.mean(returns),
-            "return_std": np.std(returns),
-            "avg_sharpe": np.mean(sharpes),
-            "avg_drawdown": np.mean(drawdowns),
+            "avg_return": float(np.mean(returns)),
+            "return_std": float(np.std(returns)),
+            "avg_sharpe": float(np.mean(sharpes)),
+            "avg_drawdown": float(np.mean(drawdowns)),
             "positive_windows": len([r for r in returns if r > 0]),
             "negative_windows": len([r for r in returns if r <= 0]),
             "best_window_return": max(returns),
             "worst_window_return": min(returns),
             "consistency_score": 1
             - (
-                np.std(returns) / max(abs(np.mean(returns)), 1)
+                float(np.std(returns)) / max(abs(float(np.mean(returns))), 1)
             ),  # Higher is more consistent
         }
 
         return analysis
 
-    def _save_comparison_results(self, comparison: BacktestComparison):
+    def _save_comparison_results(self, comparison: BacktestComparison) -> None:
         """Save comprehensive comparison results"""
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1010,7 +999,7 @@ class NGSAIBacktestingSystem:
         print(f" Comparison results saved: {filepath}")
 
 
-def demonstrate_backtesting_system():
+def demonstrate_backtesting_system() -> None:
     """Demonstrate the backtesting system capabilities"""
     print("\n nGS AI BACKTESTING SYSTEM DEMONSTRATION")
     print("=" * 60)
@@ -1061,7 +1050,7 @@ if __name__ == "__main__":
     )
     print("   backtester.backtest_comprehensive_comparison(objectives, data)")
     print("   backtester.walk_forward_analysis(strategy, data)")
-# Add this class to your ngs_integrated_ai_system.py file
+
 
 class NGSProvenParameters:
     """
@@ -1069,9 +1058,9 @@ class NGSProvenParameters:
     Used by AI system to generate strategy variants using your proven base parameters
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Your proven parameters from the original nGS strategy
-        self.base_parameters = {
+        self.base_parameters: Dict[str, Any] = {
             "Length": 25,
             "NumDevs": 2,
             "MinPrice": 10,
@@ -1087,7 +1076,7 @@ class NGSProvenParameters:
         }
 
         # Pattern-specific parameters that work well
-        self.pattern_parameters = {
+        self.pattern_parameters: Dict[str, Any] = {
             "engulfing_threshold": 0.05,
             "atr_multiplier": 2.0,
             "bb_tolerance": 0.02,
@@ -1097,7 +1086,7 @@ class NGSProvenParameters:
         }
 
         # Risk management parameters
-        self.risk_parameters = {
+        self.risk_parameters: Dict[str, Any] = {
             "max_position_pct": 0.05,
             "max_sector_weight": 0.20,
             "ls_ratio_adjustment": True,
@@ -1106,39 +1095,39 @@ class NGSProvenParameters:
         }
 
         # Market conditions parameters
-        self.market_parameters = {
+        self.market_parameters: Dict[str, Any] = {
             "min_volume": 100000,
             "min_market_cap": 1000000000,  # $1B
             "excluded_sectors": [],
             "trading_hours_only": True,
         }
 
-    def get_base_parameters(self):
+    def get_base_parameters(self) -> Dict[str, Any]:
         """Get base trading parameters"""
         return self.base_parameters.copy()
 
-    def get_pattern_parameters(self):
+    def get_pattern_parameters(self) -> Dict[str, Any]:
         """Get pattern recognition parameters"""
         return self.pattern_parameters.copy()
 
-    def get_risk_parameters(self):
+    def get_risk_parameters(self) -> Dict[str, Any]:
         """Get risk management parameters"""
         return self.risk_parameters.copy()
 
-    def get_market_parameters(self):
+    def get_market_parameters(self) -> Dict[str, Any]:
         """Get market condition parameters"""
         return self.market_parameters.copy()
 
-    def get_all_parameters(self):
+    def get_all_parameters(self) -> Dict[str, Any]:
         """Get all parameters combined"""
-        all_params = {}
+        all_params: Dict[str, Any] = {}
         all_params.update(self.base_parameters)
         all_params.update(self.pattern_parameters)
         all_params.update(self.risk_parameters)
         all_params.update(self.market_parameters)
         return all_params
 
-    def get_parameter_ranges_for_optimization(self):
+    def get_parameter_ranges_for_optimization(self) -> Dict[str, List[Any]]:
         """Get parameter ranges for optimization testing"""
         return {
             "PositionSize": [3000, 4000, 5000, 6000, 7000],
@@ -1150,7 +1139,7 @@ class NGSProvenParameters:
             "stop_loss_pct": [0.88, 0.90, 0.92, 0.95, 0.97],
         }
 
-    def create_variant_parameters(self, variant_name: str):
+    def create_variant_parameters(self, variant_name: str) -> Dict[str, Any]:
         """Create parameter variants for different strategies"""
         base = self.get_base_parameters()
 
