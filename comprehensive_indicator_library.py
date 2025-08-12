@@ -751,14 +751,7 @@ if __name__ == "__main__":
 
     # Run test
     test_indicator_library()
-<<<<<<< HEAD
-    
-    print(f"\n✅ READY FOR AI STRATEGY GENERATION!")
-    print("Next: Test with your nGS data format")
-=======
-
     print(f"\n READY FOR AI STRATEGY GENERATION!")
     print("Next: Test with your nGS data format")
-
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
+    print(f"\n READY FOR AI STRATEGY GENERATION!")
+    print("Next: Test with your nGS data format")
