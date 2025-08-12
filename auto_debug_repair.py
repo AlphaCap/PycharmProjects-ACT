@@ -1,19 +1,17 @@
 # Python
 """
 Auto Debug and Repair System (Hands-Free, Commit-Enabled)
-- Triggers automatically via Git hooks (commit/push), not on file save
+- Triggers automatically via Git hooks (commit/push)
 - Detects newly created or modified Python files
-- Auto-fixes common issues:
+- Auto-fixes:
   • Ensures package structure (__init__.py)
+  • Inserts package docstrings in __init__.py to satisfy D104
   • Resolves import errors by installing missing packages and updating requirements.txt
+  • Removes simple Git merge conflict markers (keeps first side)
   • Formats code via Black/Isort (if available)
-  • Runs tests via pytest (if available) and optionally stubs missing names to unblock CI
+  • Runs mypy (if available) and retries basic fixes on invalid syntax
+  • Runs pytest (if available) and optionally stubs missing names to unblock CI
 - Automatically stages and commits changes when possible
-
-Notes:
-- In pre-commit, hooks run before the commit is created. We stage changes and
-  attempt to commit; if the environment blocks commit inside the hook, we still
-  stage the changes so the next commit includes them. We also avoid infinite loops.
 """
 
 from __future__ import annotations
@@ -26,7 +24,6 @@ import re
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -124,12 +121,11 @@ def is_git_repo() -> bool:
 
 
 def in_pre_commit_env() -> bool:
-    # Common env markers pre-commit sets
     return any(os.getenv(k) for k in ("PRE_COMMIT", "PRE_COMMIT_HOME", "PRE_COMMIT_COLOR"))
 
 
 def git_status_porcelain() -> str:
-    code, out, err = run_cmd(["git", "status", "--porcelain"])
+    code, out, _ = run_cmd(["git", "status", "--porcelain"])
     return out if code == 0 else ""
 
 
@@ -146,7 +142,6 @@ def git_stage_all() -> bool:
 
 
 def ensure_git_identity() -> None:
-    # Ensure user.name and user.email exist for local repo
     code_name, out_name, _ = run_cmd(["git", "config", "--get", "user.name"])
     code_email, out_email, _ = run_cmd(["git", "config", "--get", "user.email"])
     if code_name != 0 or not out_name.strip():
@@ -156,40 +151,24 @@ def ensure_git_identity() -> None:
 
 
 def git_commit_auto(message: Optional[str] = None) -> bool:
-    """
-    Try to create a commit for staged changes.
-    If running inside pre-commit and the environment blocks commit, we still consider staging a success.
-    """
     if not git_has_changes():
         return False
-
     ensure_git_identity()
     msg = message or f"[auto-repair] Apply fixes {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    # Prevent infinite hook loops by setting a one-off env var for this commit subprocess
     env = os.environ.copy()
     env["AUTOREPAIR_MADE_COMMIT"] = "true"
-
     code, out, err = run_cmd(["git", "commit", "-m", msg], env=env)
     if code == 0:
         logger.info("Auto-commit created.")
         return True
-
-    # If commit not allowed in this context (pre-commit), we keep changes staged
     if in_pre_commit_env():
         logger.info("Commit blocked in hook environment. Staged changes will be included in the next commit.")
         return False
-
-    # Other commit errors
     logger.warning(f"git commit failed: {err or out}")
     return False
 
 
 def get_changed_files_since_last_run() -> Set[Path]:
-    """
-    Determine changed .py files:
-    - If git available: use staged + unstaged + untracked
-    - Else: use mtime > last_run_ts (from state), plus any new .py
-    """
     changed: Set[Path] = set()
     last_ts = read_state().get("last_run_ts", 0)
 
@@ -207,7 +186,6 @@ def get_changed_files_since_last_run() -> Set[Path]:
                 if p.exists() and p.suffix == ".py":
                     changed.add(p)
     else:
-        # Timestamp-based detection
         for p in PROJECT_ROOT.rglob("*.py"):
             try:
                 if p.is_file() and p.stat().st_mtime > last_ts:
@@ -218,17 +196,15 @@ def get_changed_files_since_last_run() -> Set[Path]:
     return changed
 
 
+# ------------- Fixers -------------
 def ensure_init_files() -> List[Path]:
-    """
-    Ensure __init__.py exists in any directory that contains .py files.
-    """
     created: List[Path] = []
     dirs: Set[Path] = set(p.parent for p in PROJECT_ROOT.rglob("*.py") if p.is_file())
     for d in sorted(dirs):
         init_path = d / "__init__.py"
         if not init_path.exists():
             try:
-                init_path.write_text("# Auto-created to ensure package imports\n", encoding="utf-8")
+                init_path.write_text('# Auto-created to ensure package imports\n', encoding="utf-8")
                 created.append(init_path)
                 logger.info(f"Created {init_path}")
             except Exception as e:
@@ -236,28 +212,54 @@ def ensure_init_files() -> List[Path]:
     return created
 
 
+def ensure_package_docstrings() -> List[Path]:
+    """
+    Insert a simple module docstring at the top of __init__.py files that lack one (fixes D104).
+    """
+    updated: List[Path] = []
+    for init_file in PROJECT_ROOT.rglob("__init__.py"):
+        try:
+            text = init_file.read_text(encoding="utf-8")
+        except Exception:
+            continue
+
+        # Determine if a module docstring exists at top
+        has_doc = False
+        try:
+            tree = ast.parse(text or "")
+            if isinstance(tree, ast.Module) and tree.body:
+                first = tree.body[0]
+                if isinstance(first, ast.Expr) and isinstance(getattr(first, "value", None), ast.Str):
+                    has_doc = True
+        except Exception:
+            # If can't parse, do a heuristic check
+            stripped = text.lstrip()
+            has_doc = stripped.startswith('"""') or stripped.startswith("'''")
+
+        if not has_doc:
+            try:
+                new_text = '"""Package initializer."""\n' + ("" if text.startswith("\n") else "\n") + text
+                init_file.write_text(new_text, encoding="utf-8")
+                updated.append(init_file)
+                logger.info(f"Inserted package docstring into {init_file}")
+            except Exception as e:
+                logger.warning(f"Failed to insert docstring into {init_file}: {e}")
+    return updated
+
+
 def run_formatter_for_files(files: Set[Path]) -> None:
-    """
-    Run black and isort if available.
-    """
     if not files:
         return
     paths = [str(f) for f in files]
-    # isort
     code, _, _ = run_cmd(["isort", "--profile", "black", *paths])
     if code != 0:
         logger.info("isort not available or failed. Skipping import sort.")
-    # black
     code, _, _ = run_cmd(["black", *paths])
     if code != 0:
         logger.info("black not available or failed. Skipping code formatting.")
 
 
 def parse_imports_from_file(pyfile: Path) -> Set[str]:
-    """
-    Parse import module names from a Python file.
-    Returns top-level module names (e.g., 'numpy' from 'numpy as np', or 'pkg_resources').
-    """
     try:
         src = pyfile.read_text(encoding="utf-8")
         tree = ast.parse(src)
@@ -271,12 +273,10 @@ def parse_imports_from_file(pyfile: Path) -> Set[str]:
                 root = (n.name or "").split(".")[0]
                 if root:
                     modules.add(root)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                root = node.module.split(".")[0]
-                if root:
-                    modules.add(root)
-    # Ignore relative or local same-project modules
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            root = node.module.split(".")[0]
+            if root:
+                modules.add(root)
     return {m for m in modules if not m.startswith("_") and m not in {"."}}
 
 
@@ -289,13 +289,8 @@ def try_import(module: str) -> bool:
 
 
 def ensure_requirements_entry(pkg_name: str) -> None:
-    """
-    Append a package to requirements.txt if not present.
-    """
     try:
-        existing = ""
-        if REQUIREMENTS_FILE.exists():
-            existing = REQUIREMENTS_FILE.read_text(encoding="utf-8")
+        existing = REQUIREMENTS_FILE.read_text(encoding="utf-8") if REQUIREMENTS_FILE.exists() else ""
         pattern = re.compile(rf"^\s*{re.escape(pkg_name)}([<>=].*)?$", re.IGNORECASE | re.MULTILINE)
         if not pattern.search(existing):
             with REQUIREMENTS_FILE.open("a", encoding="utf-8") as f:
@@ -315,15 +310,9 @@ def pip_install(pkg_name: str) -> bool:
 
 
 def resolve_and_install_missing_packages(files: Set[Path]) -> List[str]:
-    """
-    For imports in the given files, attempt to import; if missing, install.
-    Returns list of packages installed.
-    """
     all_modules: Set[str] = set()
     for f in files:
         all_modules |= parse_imports_from_file(f)
-
-    # Filter out local modules (present in project)
     local_roots = {p.name for p in PROJECT_ROOT.glob("*") if p.is_dir()}
     missing: Set[str] = set()
     for mod in sorted(all_modules):
@@ -331,7 +320,6 @@ def resolve_and_install_missing_packages(files: Set[Path]) -> List[str]:
             continue
         if not try_import(mod):
             missing.add(mod)
-
     installed: List[str] = []
     for mod in sorted(missing):
         pkg = IMPORT_TO_PACKAGE_MAP.get(mod, mod)
@@ -341,18 +329,82 @@ def resolve_and_install_missing_packages(files: Set[Path]) -> List[str]:
     return installed
 
 
+def run_mypy_collect_output() -> Tuple[bool, str]:
+    code, _, _ = run_cmd(["mypy", "--version"])
+    if code != 0:
+        logger.info("mypy not available. Skipping type check.")
+        return True, "mypy not available"
+    code, out, err = run_cmd(["mypy"])
+    ok = code == 0
+    output = (out or "") + ("\n" + err if err else "")
+    if ok:
+        logger.info("mypy passed")
+    else:
+        logger.warning("mypy failed")
+    return ok, output
+
+
+MERGE_START = re.compile(r"^<{7} .*", re.MULTILINE)
+MERGE_MID = re.compile(r"^={7}\n", re.MULTILINE)
+MERGE_END = re.compile(r"^>{7} .*", re.MULTILINE)
+
+
+def fix_merge_conflicts_in_text(text: str) -> Tuple[str, bool]:
+    """
+    Simple conflict resolver: for each conflict block, keep the first section (HEAD) and drop the rest.
+    """
+    if "<<<" not in text or ">>>" not in text:
+        return text, False
+
+    lines = text.splitlines(keepends=True)
+    out: List[str] = []
+    i = 0
+    changed = False
+    while i < len(lines):
+        if lines[i].startswith("<<<<<<<"):
+            changed = True
+            # consume until =======
+            i += 1
+            head_block: List[str] = []
+            while i < len(lines) and not lines[i].startswith("======="):
+                head_block.append(lines[i])
+                i += 1
+            # skip the "======="
+            while i < len(lines) and not lines[i].startswith(">>>>>>>"):
+                i += 1
+            # skip the ">>>>>>> ..."
+            i += 1
+            out.extend(head_block)
+        else:
+            out.append(lines[i])
+            i += 1
+    return "".join(out), changed
+
+
+def fix_merge_conflict_markers(pyfile: Path) -> bool:
+    try:
+        text = pyfile.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    new_text, changed = fix_merge_conflicts_in_text(text)
+    if changed:
+        try:
+            pyfile.write_text(new_text, encoding="utf-8")
+            logger.info(f"Removed merge conflict markers in {pyfile}")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to write merge conflict fix into {pyfile}: {e}")
+    return False
+
+
 def run_pytest_and_collect_failures() -> Tuple[bool, str]:
-    """
-    Run pytest if available; return (success, output).
-    """
     code, _, _ = run_cmd(["pytest", "--version"])
     if code != 0:
         logger.info("pytest not available. Skipping tests.")
         return True, "pytest not available"
-
     code, out, err = run_cmd(["pytest", "-q"])
     success = code == 0
-    output = (out or "") + "\n" + (err or "")
+    output = (out or "") + ("\n" + err if err else "")
     if success:
         logger.info("pytest passed")
     else:
@@ -361,10 +413,6 @@ def run_pytest_and_collect_failures() -> Tuple[bool, str]:
 
 
 def extract_missing_names_from_pytest_output(output: str) -> List[Tuple[Path, str]]:
-    """
-    Very basic extraction: look for NameError: name 'X' is not defined in a file.
-    Returns list of (file_path, missing_name).
-    """
     results: List[Tuple[Path, str]] = []
     file_re = re.compile(r'File "(.+?\.py)", line \d+, in .+')
     name_re = re.compile(r"NameError:\s+name '([A-Za-z_][A-Za-z0-9_]*)' is not defined")
@@ -383,16 +431,10 @@ def extract_missing_names_from_pytest_output(output: str) -> List[Tuple[Path, st
 
 
 def insert_stub_if_missing(pyfile: Path, name: str) -> bool:
-    """
-    Insert a simple stub for a missing name into the module if it does not already exist.
-    Stub raises NotImplementedError to make failure explicit but unblock imports/tests.
-    """
     try:
         src = pyfile.read_text(encoding="utf-8")
     except Exception:
         return False
-
-    # If name already defined, skip
     try:
         tree = ast.parse(src)
         for node in ast.iter_child_nodes(tree):
@@ -401,9 +443,7 @@ def insert_stub_if_missing(pyfile: Path, name: str) -> bool:
             if isinstance(node, ast.ClassDef) and node.name == name:
                 return False
     except Exception:
-        # If parse fails, still try to append at EOF
         pass
-
     stub = f"\n\ndef {name}(*args, **kwargs):\n    raise NotImplementedError('Auto-stubbed by auto_debug_repair')\n"
     try:
         pyfile.write_text(src + stub, encoding="utf-8")
@@ -414,45 +454,66 @@ def insert_stub_if_missing(pyfile: Path, name: str) -> bool:
         return False
 
 
+# ------------- Orchestration -------------
 def auto_repair_cycle(changed_files: Set[Path]) -> bool:
     """
     Full repair cycle:
       1) Ensure package structure (__init__.py)
-      2) Resolve imports -> install missing packages -> update requirements
-      3) Format code (isort/black)
-      4) Run tests (pytest). If failing with NameError, optionally stub missing names, re-run tests once.
-    Returns True if any file changes were made (to working tree).
+      2) Insert package docstrings in __init__.py (fix flake8 D104)
+      3) Resolve imports -> install missing packages -> update requirements
+      4) Attempt to fix merge conflict markers in changed files
+      5) Format code (isort/black)
+      6) Run mypy (if available) and try one-pass conflict fix on invalid syntax
+      7) Run pytest (if available); if NameError, optionally stub and re-run once
+    Returns True if any working tree changes were made.
     """
-    if not changed_files:
-        logger.info("No new or modified Python files detected.")
-    else:
-        logger.info(f"Changed files: {', '.join(str(p.relative_to(PROJECT_ROOT)) for p in sorted(changed_files))}")
-
     before = git_status_porcelain()
 
-    # 1) Ensure __init__.py
+    # 1) Ensure __init__.py in all package dirs
     ensure_init_files()
 
-    # 2) Resolve and install missing packages (based on changed files, but might fix broader env)
-    installed = resolve_and_install_missing_packages(changed_files or set(PROJECT_ROOT.rglob("*.py")))
-    if installed:
-        logger.info(f"Installed packages: {installed}")
+    # 2) Ensure docstrings in package initializers (__init__.py)
+    ensure_package_docstrings()
 
-    # 3) Format changed files (or whole tree if unknown)
-    run_formatter_for_files(changed_files or set(PROJECT_ROOT.rglob("*.py")))
+    # 3) Missing packages based on changed files (fallback to all .py when unknown)
+    target_files = changed_files or set(PROJECT_ROOT.rglob("*.py"))
+    resolve_and_install_missing_packages(target_files)
 
-    # 4) Run tests
-    success, output = run_pytest_and_collect_failures()
-    if not success and ALLOW_STUBS:
+    # 4) Fix obvious merge conflict markers in changed files
+    any_merge_fix = False
+    for f in target_files:
+        any_merge_fix |= fix_merge_conflict_markers(f)
+
+    # 5) Format code
+    run_formatter_for_files(target_files)
+
+    # 6) Type-check; try one repair pass on "invalid syntax" by re-running conflict cleanup
+    ok, mypy_out = run_mypy_collect_output()
+    if not ok and "invalid syntax" in mypy_out:
+        suspect_files: Set[Path] = set()
+        for line in mypy_out.splitlines():
+            m = re.search(r"^(.+?\.py):\d+: error: invalid syntax", line)
+            if m:
+                p = Path(m.group(1)).resolve()
+                if p.exists():
+                    suspect_files.add(p)
+        if suspect_files:
+            fixed_any = False
+            for f in suspect_files:
+                fixed_any |= fix_merge_conflict_markers(f)
+            if fixed_any:
+                run_formatter_for_files(suspect_files)
+                ok, mypy_out = run_mypy_collect_output()
+
+    # 7) Tests
+    test_ok, test_out = run_pytest_and_collect_failures()
+    if not test_ok and ALLOW_STUBS:
         stubs_added = False
-        for fpath, missing_name in extract_missing_names_from_pytest_output(output):
-            if insert_stub_if_missing(fpath, missing_name):
-                stubs_added = True
+        for fpath, missing_name in extract_missing_names_from_pytest_output(test_out):
+            stubs_added |= insert_stub_if_missing(fpath, missing_name)
         if stubs_added:
-            run_formatter_for_files({f for f, _ in extract_missing_names_from_pytest_output(output)})
-            success2, _ = run_pytest_and_collect_failures()
-            if success2:
-                logger.info("pytest passed after stubbing.")
+            run_formatter_for_files({f for f, _ in extract_missing_names_from_pytest_output(test_out)})
+            test_ok, _ = run_pytest_and_collect_failures()
 
     after = git_status_porcelain()
     return before != after
@@ -467,14 +528,11 @@ def main():
 
     # Stage and commit automatically if there are changes
     if is_git_repo() and changed:
-        # Always stage everything the tool changed
         if git_stage_all():
-            # Try to commit, unless we already committed in this tool invocation
             if not AUTO_REPAIR_COMMIT_FLAG:
                 committed = git_commit_auto()
                 if not committed and in_pre_commit_env():
-                    # If commit blocked in hook, keep changes staged;
-                    # pre-commit may require re-running commit, but staged changes are ready.
+                    # Keep staged; next commit will include fixes
                     pass
 
     # Update last run timestamp
