@@ -288,22 +288,27 @@ class TradingStrategy:
         except Exception:
             return False
 
+    # Python
     def _evaluate_exit_conditions(
-        self, i: int, df: pd.DataFrame, indicators: Dict, exit_logic: Dict
+            self, i: int, df: pd.DataFrame, indicators: Dict, exit_logic: Dict
     ) -> bool:
-        """Evaluate if exit conditions are met - ENHANCED error handling"""
+        """Evaluate if exit conditions are met with robust error handling."""
         try:
-            if len(exit_logic["conditions"]) == 0:
+            conditions = exit_logic.get("conditions", [])
+            if not conditions:
                 return False
 
-            for condition in exit_logic["conditions"]:
+            for condition in conditions:
                 try:
                     if self._check_condition(i, df, indicators, condition):
                         return True
-                except:
-                    continue  # Skip failed condition checks
+                except Exception:
+                    # Skip failed condition checks but do not use bare except
+                    continue
+
             return False
         except Exception:
+            # Fail-safe: if anything unexpected occurs, do not exit
             return False
 
     def _check_condition(
