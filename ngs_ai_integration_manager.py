@@ -12,7 +12,13 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 
 from performance_objectives import ObjectiveManager
-from ngs_integrated_ai_system import NGSIndicatorLibrary, NGSAwareStrategyGenerator
+
+# Safe import: prefer ngs_integrated_ai_system, fallback to base modules
+try:
+    from ngs_integrated_ai_system import NGSIndicatorLibrary, NGSAwareStrategyGenerator
+except Exception:
+    from comprehensive_indicator_library import ComprehensiveIndicatorLibrary as NGSIndicatorLibrary
+    from strategy_generator_ai import ObjectiveAwareStrategyGenerator as NGSAwareStrategyGenerator
 
 # Persist using data_manager (consistent with your repository)
 from data_manager import save_trades as dm_save_trades, save_positions as dm_save_positions
