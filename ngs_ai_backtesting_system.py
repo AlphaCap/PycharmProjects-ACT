@@ -264,10 +264,6 @@ class NGSAIBacktestingSystem:
 
             if not df_copy.empty:
                 filtered_data[symbol] = df_copy
-<<<<<<< HEAD
-=======
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
         return filtered_data
 
 
