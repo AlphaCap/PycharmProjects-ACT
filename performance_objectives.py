@@ -6,7 +6,7 @@ Each objective generates completely different trading logic
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable, Any
 from abc import ABC, abstractmethod
 
 
@@ -16,9 +16,9 @@ class PerformanceObjective(ABC):
     @abstractmethod
     def calculate_fitness(
         self,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        additional_metrics: Dict = None,
+        additional_metrics: Optional[Dict[str, Any]] = None,
     ) -> float:
         """Calculate how well results meet this objective"""
         pass
@@ -29,7 +29,7 @@ class PerformanceObjective(ABC):
         pass
 
     @abstractmethod
-    def get_strategy_preferences(self) -> Dict:
+    def get_strategy_preferences(self) -> Dict[str, Any]:
         """Return strategy preferences for this objective"""
         pass
 
@@ -40,15 +40,15 @@ class LinearEquityObjective(PerformanceObjective):
     Prioritizes consistency and steady growth over maximum returns
     """
 
-    def __init__(self, smoothness_weight: float = 0.7, growth_weight: float = 0.3):
+    def __init__(self, smoothness_weight: float = 0.7, growth_weight: float = 0.3) -> None:
         self.smoothness_weight = smoothness_weight
         self.growth_weight = growth_weight
 
     def calculate_fitness(
         self,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        additional_metrics: Dict = None,
+        additional_metrics: Optional[Dict[str, Any]] = None,
     ) -> float:
         """
         Fitness based on how linear and smooth the equity curve is
@@ -67,8 +67,8 @@ class LinearEquityObjective(PerformanceObjective):
             predicted = np.polyval(coeffs, x)
 
             # Calculate R-squared (linearity measure)
-            ss_res = np.sum((y - predicted) ** 2)
-            ss_tot = np.sum((y - np.mean(y)) ** 2)
+            ss_res: float = float(np.sum((y - predicted) ** 2))
+            ss_tot: float = float(np.sum((y - np.mean(y)) ** 2))
             r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
             r_squared = max(0, r_squared)
 
@@ -91,15 +91,15 @@ class LinearEquityObjective(PerformanceObjective):
                 + smoothness_score * self.growth_weight
             )
 
-            return max(0, fitness)
+            return max(0, float(fitness))
 
-        except Exception as e:
+        except Exception:
             return 0.0
 
     def get_objective_description(self) -> str:
         return "Linear Equity: Optimize for smooth, consistent equity curve growth"
 
-    def get_strategy_preferences(self) -> Dict:
+    def get_strategy_preferences(self) -> Dict[str, Any]:
         """Strategy characteristics preferred for linear equity"""
         return {
             "entry_selectivity": "very_high",  # Be very selective
@@ -119,14 +119,14 @@ class MaxROIObjective(PerformanceObjective):
     Prioritizes total returns over consistency
     """
 
-    def __init__(self, drawdown_penalty: float = 0.1):
+    def __init__(self, drawdown_penalty: float = 0.1) -> None:
         self.drawdown_penalty = drawdown_penalty
 
     def calculate_fitness(
         self,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        additional_metrics: Dict = None,
+        additional_metrics: Optional[Dict[str, Any]] = None,
     ) -> float:
         """
         Fitness based on total return with slight drawdown penalty
@@ -141,7 +141,7 @@ class MaxROIObjective(PerformanceObjective):
             # Calculate maximum drawdown
             peak = equity_curve.expanding().max()
             drawdown = (equity_curve - peak) / peak
-            max_drawdown = abs(drawdown.min()) * 100
+            max_drawdown = abs(float(drawdown.min())) * 100
 
             # Apply drawdown penalty (reduce fitness for excessive drawdowns)
             drawdown_factor = 1 - min(self.drawdown_penalty * max_drawdown / 100, 0.5)
@@ -149,9 +149,9 @@ class MaxROIObjective(PerformanceObjective):
             # Raw ROI with drawdown adjustment
             fitness = total_return * drawdown_factor
 
-            return max(0, fitness)
+            return max(0, float(fitness))
 
-        except Exception as e:
+        except Exception:
             return 0.0
 
     def get_objective_description(self) -> str:
@@ -159,7 +159,7 @@ class MaxROIObjective(PerformanceObjective):
             "Maximum ROI: Optimize for highest total returns, accept higher volatility"
         )
 
-    def get_strategy_preferences(self) -> Dict:
+    def get_strategy_preferences(self) -> Dict[str, Any]:
         """Strategy characteristics preferred for maximum ROI"""
         return {
             "entry_selectivity": "moderate",  # Balance opportunity vs selectivity
@@ -179,14 +179,14 @@ class MinDrawdownObjective(PerformanceObjective):
     Prioritizes capital preservation over returns
     """
 
-    def __init__(self, return_bonus: float = 0.2):
+    def __init__(self, return_bonus: float = 0.2) -> None:
         self.return_bonus = return_bonus
 
     def calculate_fitness(
         self,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        additional_metrics: Dict = None,
+        additional_metrics: Optional[Dict[str, Any]] = None,
     ) -> float:
         """
         Fitness based on minimizing maximum drawdown
@@ -198,26 +198,26 @@ class MinDrawdownObjective(PerformanceObjective):
             # Calculate maximum drawdown
             peak = equity_curve.expanding().max()
             drawdown = (equity_curve - peak) / peak
-            max_drawdown = abs(drawdown.min())
+            max_drawdown = abs(float(drawdown.min()))
 
             # Fitness is inverse of drawdown (lower drawdown = higher fitness)
             drawdown_fitness = 1 / (1 + max_drawdown)
 
             # Small bonus for positive returns (but drawdown is priority)
             total_return = equity_curve.iloc[-1] / equity_curve.iloc[0] - 1
-            return_factor = 1 + max(0, total_return * self.return_bonus)
+            return_factor = 1 + max(0, float(total_return) * self.return_bonus)
 
             fitness = drawdown_fitness * return_factor
 
-            return fitness
+            return float(fitness)
 
-        except Exception as e:
+        except Exception:
             return 0.0
 
     def get_objective_description(self) -> str:
         return "Minimum Drawdown: Prioritize capital preservation and minimal losses"
 
-    def get_strategy_preferences(self) -> Dict:
+    def get_strategy_preferences(self) -> Dict[str, Any]:
         """Strategy characteristics preferred for minimal drawdown"""
         return {
             "entry_selectivity": "extremely_high",  # Only perfect setups
@@ -237,14 +237,14 @@ class HighWinRateObjective(PerformanceObjective):
     Prioritizes being right often over profit size
     """
 
-    def __init__(self, min_trade_threshold: int = 20):
+    def __init__(self, min_trade_threshold: int = 20) -> None:
         self.min_trade_threshold = min_trade_threshold
 
     def calculate_fitness(
         self,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        additional_metrics: Dict = None,
+        additional_metrics: Optional[Dict[str, Any]] = None,
     ) -> float:
         """
         Fitness based on win rate percentage
@@ -262,15 +262,15 @@ class HighWinRateObjective(PerformanceObjective):
 
             fitness = win_rate * trade_volume_factor
 
-            return fitness
+            return float(fitness)
 
-        except Exception as e:
+        except Exception:
             return 0.0
 
     def get_objective_description(self) -> str:
         return "High Win Rate: Optimize for maximum percentage of winning trades"
 
-    def get_strategy_preferences(self) -> Dict:
+    def get_strategy_preferences(self) -> Dict[str, Any]:
         """Strategy characteristics preferred for high win rate"""
         return {
             "entry_selectivity": "very_high",  # Only high-probability setups
@@ -290,14 +290,14 @@ class SharpeRatioObjective(PerformanceObjective):
     Balances returns against volatility (risk-adjusted returns)
     """
 
-    def __init__(self, risk_free_rate: float = 0.02):
+    def __init__(self, risk_free_rate: float = 0.02) -> None:
         self.risk_free_rate = risk_free_rate / 252  # Daily risk-free rate
 
     def calculate_fitness(
         self,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        additional_metrics: Dict = None,
+        additional_metrics: Optional[Dict[str, Any]] = None,
     ) -> float:
         """
         Fitness based on Sharpe ratio of returns
@@ -321,18 +321,18 @@ class SharpeRatioObjective(PerformanceObjective):
                 # Annualize the Sharpe ratio
                 annualized_sharpe = sharpe_ratio * np.sqrt(252)
             else:
-                annualized_sharpe = 0
+                annualized_sharpe = 0.0
 
             # Only return positive Sharpe ratios
-            return max(0, annualized_sharpe)
+            return max(0, float(annualized_sharpe))
 
-        except Exception as e:
+        except Exception:
             return 0.0
 
     def get_objective_description(self) -> str:
         return "Sharpe Ratio: Optimize risk-adjusted returns (return per unit of risk)"
 
-    def get_strategy_preferences(self) -> Dict:
+    def get_strategy_preferences(self) -> Dict[str, Any]:
         """Strategy characteristics preferred for good Sharpe ratio"""
         return {
             "entry_selectivity": "high",  # Good selectivity
@@ -355,10 +355,10 @@ class CustomObjective(PerformanceObjective):
     def __init__(
         self,
         name: str,
-        fitness_function: callable,
-        strategy_preferences: Dict,
+        fitness_function: Callable[[List[Dict[str, Any]], pd.Series, Optional[Dict[str, Any]]], float],
+        strategy_preferences: Dict[str, Any],
         description: str,
-    ):
+    ) -> None:
         self.name = name
         self.fitness_function = fitness_function
         self.strategy_prefs = strategy_preferences
@@ -366,20 +366,20 @@ class CustomObjective(PerformanceObjective):
 
     def calculate_fitness(
         self,
-        trades: List[Dict],
+        trades: List[Dict[str, Any]],
         equity_curve: pd.Series,
-        additional_metrics: Dict = None,
+        additional_metrics: Optional[Dict[str, Any]] = None,
     ) -> float:
         """Use custom fitness function"""
         try:
-            return self.fitness_function(trades, equity_curve, additional_metrics)
-        except Exception as e:
+            return float(self.fitness_function(trades, equity_curve, additional_metrics))
+        except Exception:
             return 0.0
 
     def get_objective_description(self) -> str:
         return f"Custom Objective: {self.description}"
 
-    def get_strategy_preferences(self) -> Dict:
+    def get_strategy_preferences(self) -> Dict[str, Any]:
         return self.strategy_prefs
 
 
@@ -389,11 +389,11 @@ class ObjectiveManager:
     Provides easy access and comparison capabilities
     """
 
-    def __init__(self):
-        self.objectives = {}
+    def __init__(self) -> None:
+        self.objectives: Dict[str, PerformanceObjective] = {}
         self._initialize_default_objectives()
 
-    def _initialize_default_objectives(self):
+    def _initialize_default_objectives(self) -> None:
         """Initialize all default objectives"""
         self.objectives = {
             "linear_equity": LinearEquityObjective(),
@@ -417,29 +417,22 @@ class ObjectiveManager:
 
     def list_objectives(self) -> Dict[str, str]:
         """List all available objectives with descriptions"""
-        return {name: obj.get_objective_description() 
+        return {name: obj.get_objective_description()
                 for name, obj in self.objectives.items()}
-    
+
     def get_primary_objective(self) -> str:
         """Return the name of the first objective as the primary objective."""
         if not hasattr(self, 'objectives') or not self.objectives:
             raise ValueError("No objectives available in ObjectiveManager")
-        return next(iter(self.objectives))  # Return the first objective key
-    
-    def add_custom_objective(self, name: str, fitness_function: callable,
-                           strategy_preferences: Dict, description: str):
-        return {
-            name: obj.get_objective_description()
-            for name, obj in self.objectives.items()
-        }
+        return next(iter(self.objectives))
 
     def add_custom_objective(
         self,
         name: str,
-        fitness_function: callable,
-        strategy_preferences: Dict,
+        fitness_function: Callable[[List[Dict[str, Any]], pd.Series, Optional[Dict[str, Any]]], float],
+        strategy_preferences: Dict[str, Any],
         description: str,
-    ):
+    ) -> None:
         """Add a custom objective"""
         self.objectives[name] = CustomObjective(
             name, fitness_function, strategy_preferences, description
@@ -447,10 +440,10 @@ class ObjectiveManager:
         print(f" Added custom objective: {name}")
 
     def compare_objectives(
-        self, trades: List[Dict], equity_curve: pd.Series
+        self, trades: List[Dict[str, Any]], equity_curve: pd.Series
     ) -> pd.DataFrame:
         """Compare how all objectives rate the same results"""
-        results = []
+        results: List[Dict[str, Any]] = []
 
         for name, objective in self.objectives.items():
             fitness = objective.calculate_fitness(trades, equity_curve)
@@ -463,7 +456,9 @@ class ObjectiveManager:
             )
 
         return pd.DataFrame(results)
-def demo_objectives():
+
+
+def demo_objectives() -> None:
     """Demonstrate how objectives work with sample data"""
     print("\n OBJECTIVES DEMONSTRATION")
     print("=" * 50)
