@@ -1690,7 +1690,6 @@ def load_data(path, data_format):
             return data_dict
         return {"default": df}
     else:
-<<<<<<< HEAD
         raise ValueError("Unsupported data format")
 
 if __name__ == "__main__":
@@ -1709,7 +1708,7 @@ if __name__ == "__main__":
     # 4. Save results for dashboard
     manager.save_integration_session(results, filename="latest_results.json")
     print("\n✅ AI integration complete. Results saved for dashboard.")
-=======
+
         symbols = ["AAPL", "MSFT", "GOOGL"]
 
     data = load_polygon_data(symbols)
@@ -1857,6 +1856,3 @@ if __name__ == "__main__":
         print(f" Execution failed: {e}")
         import traceback
         traceback.print_exc()
-
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
