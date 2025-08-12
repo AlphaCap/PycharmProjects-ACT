@@ -16,7 +16,7 @@ Loaded data for 2 symbols
 2025-07-23 07:31:10,339 - data_manager - INFO - Sample symbols: ['MMM', 'AOS', 'ABT', 'ABBV', 'ACN']...
 2025-07-23 07:31:10,339 - data_manager - INFO - S&P 500 symbols loaded: 502
 2025-07-23 07:31:10,340 - data_manager - INFO - ✔ No duplicate symbols found
-2025-07-23 07:31:10,340 - data_manager - INFO - ✅ S&P 500 symbol validation passed
+2025-07-23 07:31:10,340 - data_manager - INFO - S&P 500 symbol validation passed
 2025-07-23 07:31:10,340 - data_manager - INFO - Loaded 502 S&P 500 symbols from data\sp500_symbols.txt
 2025-07-23 07:31:10,340 - data_manager - INFO - Sample symbols: ['MMM', 'AOS', 'ABT', 'ABBV', 'ACN']...
 2025-07-23 07:31:10,340 - data_manager - INFO - S&P 500 Symbol Statistics:
@@ -30,7 +30,7 @@ Loaded data for 2 symbols
 2025-07-23 07:31:10,356 - data_manager - INFO - Sample symbols: ['MMM', 'AOS', 'ABT', 'ABBV', 'ACN']...
 2025-07-23 07:38:54,862 - data_manager - INFO - Wikipedia: Found 503 symbols in 129 sectors
 2025-07-23 07:38:54,872 - data_manager - INFO - Cached sector data for 503 symbols
-2025-07-23 07:38:54,872 - data_manager - INFO - ✅ Loaded 503 symbols across 129 sectors
+2025-07-23 07:38:54,872 - data_manager - INFO - Loaded 503 symbols across 129 sectors
 2025-07-23 07:38:54,874 - data_manager - INFO -   Industrial Conglomerates: 2 symbols (0.4%)
 2025-07-23 07:38:54,874 - data_manager - INFO -   Building Products: 8 symbols (1.6%)
 2025-07-23 07:38:54,874 - data_manager - INFO -   Health Care Equipment: 17 symbols (3.4%)
@@ -167,9 +167,9 @@ Loaded data for 2 symbols
 2025-07-23 07:38:55,073 - nGS_Revised_Strategy - INFO - Loaded 73 positions within 180-day retention period
 2025-07-23 07:38:55,073 - nGS_Revised_Strategy - INFO - nGS Strategy initialized with 180-day data retention
 2025-07-23 07:38:55,075 - nGS_Revised_Strategy - INFO - Data cutoff date: 2025-01-24
-2025-07-23 07:38:55,077 - nGS_Revised_Strategy - INFO - 🎯 M/E rebalancing: ENABLED
-2025-07-23 07:38:55,078 - nGS_Revised_Strategy - INFO - 🎯 M/E target range: 50.0-80.0%
-2025-07-23 07:38:55,079 - nGS_Revised_Strategy - INFO - 🎯 Min positions for scale-up: 5
+2025-07-23 07:38:55,077 - nGS_Revised_Strategy - INFO -  M/E rebalancing: ENABLED
+2025-07-23 07:38:55,078 - nGS_Revised_Strategy - INFO -  M/E target range: 50.0-80.0%
+2025-07-23 07:38:55,079 - nGS_Revised_Strategy - INFO -  Min positions for scale-up: 5
 2025-07-23 07:38:55,080 - nGS_Revised_Strategy - INFO - L/S ratio adjustments: ENABLED
 2025-07-23 07:38:55,081 - nGS_Revised_Strategy - INFO - Note: Sector management DISABLED - using M/E ratio control instead
 2025-07-23 07:38:55,082 - nGS_Revised_Strategy - INFO - Initial M/E ratio with 73 existing positions: 0.00%
@@ -192,13 +192,13 @@ Loaded data for 2 symbols
 2025-07-23 07:39:00,116 - nGS_Revised_Strategy - INFO - Before: M/E 0.5%, 73 positions
 2025-07-23 07:39:00,117 - nGS_Revised_Strategy - INFO - After: M/E 89.9%, cash change: $-159,349.21
 2025-07-23 07:39:00,117 - nGS_Revised_Strategy - INFO - M/E Rebalancing completed: 73 positions scaled
-2025-07-23 07:39:00,118 - nGS_Revised_Strategy - INFO - ✅ M/E rebalancing completed: scale_up
+2025-07-23 07:39:00,118 - nGS_Revised_Strategy - INFO - M/E rebalancing completed: scale_up
 2025-07-23 07:39:00,119 - nGS_Revised_Strategy - INFO - EOD Status: M/E 89.9%, 73 positions, L/S -2.65
 2025-07-23 07:39:00,120 - nGS_Revised_Strategy - INFO - === END OF DAY REBALANCING COMPLETE ===
 2025-07-23 07:39:00,121 - nGS_Revised_Strategy - INFO - Strategy run complete. Processed 2 symbols, currently have 73 positions
 2025-07-23 07:39:00,121 - nGS_Revised_Strategy - INFO - Data retention: 180 days, cutoff: 2025-01-24
-2025-07-23 07:39:00,122 - nGS_Revised_Strategy - INFO - 🎯 M/E rebalancing: ENABLED
-2025-07-23 07:39:00,122 - nGS_Revised_Strategy - INFO - 🎯 Final M/E ratio: 89.88%
+2025-07-23 07:39:00,122 - nGS_Revised_Strategy - INFO - M/E rebalancing: ENABLED
+2025-07-23 07:39:00,122 - nGS_Revised_Strategy - INFO - Final M/E ratio: 89.88%
 2025-07-23 07:39:00,123 - nGS_Revised_Strategy - INFO - L/S ratio adjustments: ENABLED
 2025-07-23 07:39:00,124 - nGS_Revised_Strategy - INFO - Note: Sector management DISABLED - using M/E ratio control instead
 Traceback (most recent call last):
@@ -225,38 +225,36 @@ KeyError: 'Close'
 ======================================================================
 🎯 M/E REBALANCING SYSTEM STATUS
 ======================================================================
-✅ M/E Rebalancing:      ENABLED
-✅ M/E Target Range:     50.0% - 80.0%
-✅ Min Positions Scale:  5
-✅ L/S Ratio Adjust:     ENABLED
-❌ Sector Management:    DISABLED
+M/E Rebalancing:      ENABLED
+M/E Target Range:     50.0% - 80.0%
+Min Positions Scale:  5
+L/S Ratio Adjust:     ENABLED
+Sector Management:    DISABLED
 ======================================================================
 
 ======================================================================
-🚀 STARTING STRATEGY RUN - M/E VERIFICATION
+ STARTING STRATEGY RUN - M/E VERIFICATION
 ======================================================================
-🎯 M/E Rebalancing:      ENABLED
-🎯 M/E Target Range:     50.0% - 80.0%
-🎯 Min Positions Scale:  5
-🎯 Initial Positions:    73
-🎯 Initial M/E:          0.00%
+M/E Rebalancing:      ENABLED
+M/E Target Range:     50.0% - 80.0%
+Min Positions Scale:  5
+Initial Positions:    73
+Initial M/E:          0.00%
 ======================================================================
-
-🎯 CALLING END-OF-DAY M/E REBALANCING...
-
+CALLING END-OF-DAY M/E REBALANCING...
 ======================================================================
-🎯 END OF DAY M/E REBALANCING CHECK
+END OF DAY M/E REBALANCING CHECK
 ======================================================================
 M/E Rebalancing Status: ENABLED
 
-🎯 M/E REBALANCING CHECK:
+M/E REBALANCING CHECK:
    Current M/E:        0.5%
    Target Range:       50.0% - 80.0%
    Position Count:     73
    Min for Scale-Up:   5
-🚀 SCALE UP NEEDED: 0.5% < 50.0% with 73 positions
+SCALE UP NEEDED: 0.5% < 50.0% with 73 positions
 
-🎯 PERFORMING M/E REBALANCING:
+PERFORMING M/E REBALANCING:
    Action:             SCALE_UP
    Scaling Factor:     2.000x
    Before M/E:         0.5%
@@ -346,7 +344,7 @@ EOD STATUS:
 ======================================================================
 
 ======================================================================
-🎯 FINAL M/E STATUS
+FINAL M/E STATUS
 ======================================================================
 Final M/E Ratio:      89.88%
 Target Range:         50.0% - 80.0%
@@ -361,12 +359,11 @@ M/E Risk Status:        HIGH
 M/E Realized P&L:       $907.35
 M/E Active Positions:   73
 ======================================================================
-🧪 Backtesting AI strategy: linear_equity
+Backtesting AI strategy: linear_equity
 
-🎯 Generating strategy for objective: LINEAR_EQUITY
-✅ Generated strategy 'linear_equity_20250723_073900' with 5 indicators
-📊 Entry conditions: 2
-🎯 Exit conditions: 2
->>>
->>> print(f"\n�� BACKTEST RESULTS:")print(f"\n�� BACKTEST RESULTS:")
+Generating strategy for objective: LINEAR_EQUITY
+Generated strategy 'linear_equity_20250723_073900' with 5 indicators
+Entry conditions: 2
+Exit conditions: 2
+print(f"\n�� BACKTEST RESULTS:")print(f"\n BACKTEST RESULTS:")
   File "<stdin>", line 1
