@@ -13,14 +13,14 @@ from sklearn.linear_model import LinearRegression
 
 from performance_objectives import ObjectiveManager
 
-# Safe import: prefer ngs_integrated_ai_system, fallback to base modules
+# Safe import: prefer combined module, fallback to underlying modules if needed
 try:
     from ngs_integrated_ai_system import NGSIndicatorLibrary, NGSAwareStrategyGenerator
 except Exception:
     from comprehensive_indicator_library import ComprehensiveIndicatorLibrary as NGSIndicatorLibrary
     from strategy_generator_ai import ObjectiveAwareStrategyGenerator as NGSAwareStrategyGenerator
 
-# Persist using data_manager (consistent with your repository)
+# Persist using data_manager
 from data_manager import save_trades as dm_save_trades, save_positions as dm_save_positions
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class NGSAIIntegrationManager:
 
     def set_operating_mode(self, mode: str) -> None:
         """
-        Remains for compatibility; AI-only enforced.
+        Retained for compatibility. AI-only enforced.
         """
         valid_modes = ["ai_only"]
         if mode not in valid_modes:
