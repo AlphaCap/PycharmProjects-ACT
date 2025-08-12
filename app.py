@@ -82,7 +82,6 @@ account_size = st.number_input(
 )
 st.session_state.account_size = account_size
 
-
 # Calculate L/S Ratio from current positions - CORRECTED FORMAT
 def calculate_ls_ratio():
     try:
@@ -150,7 +149,6 @@ def calculate_ls_ratio():
 
     except Exception as e:
         return f"Error"
-
 
 # Enhanced portfolio metrics calculation - CORRECTED
 def get_enhanced_portfolio_metrics(account_size: int) -> dict:
@@ -224,7 +222,6 @@ def get_enhanced_portfolio_metrics(account_size: int) -> dict:
             "realized_pnl": "$0.00",
             "win_rate": "0.0%",
         }
-
 
 # Load enhanced metrics
 metrics = get_enhanced_portfolio_metrics(account_size)
