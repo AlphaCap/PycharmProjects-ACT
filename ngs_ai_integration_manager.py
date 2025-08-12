@@ -5,11 +5,11 @@ import os
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression  # type: ignore
 
 from performance_objectives import ObjectiveManager
 
@@ -36,7 +36,7 @@ class NGSAIIntegrationManager:
     - Provides evaluate_linear_equity (used by Streamlit page)
     """
 
-    def __init__(self, account_size: float = 1_000_000, data_dir: str = "data"):
+    def __init__(self, account_size: float = 1_000_000, data_dir: str = "data") -> None:
         self.account_size = float(account_size)
         self.data_dir = data_dir
 
@@ -85,7 +85,7 @@ class NGSAIIntegrationManager:
         self.operating_mode = mode
         logger.info(f"Operating mode set to: {mode}")
 
-    def evaluate_linear_equity(self, equity_curve: pd.Series | list | None) -> float:
+    def evaluate_linear_equity(self, equity_curve: Optional[pd.Series] | Optional[list]) -> float:
         """
         R² of a linear fit to the equity curve (0..1). Returns 0 if not enough data.
         """
@@ -115,7 +115,8 @@ class NGSAIIntegrationManager:
         for symbol, df in data.items():
             try:
                 strat = self.ai_generator.generate_strategy_for_objective(objective)
-                strat.data = df
+                # Ensure the strategy object has a 'data' attribute; otherwise, skip or raise
+                setattr(strat, "data", df)
                 strategies[symbol] = strat
                 logger.debug(f"Generated AI strategy for {symbol}")
             except Exception as e:
@@ -201,7 +202,7 @@ class NGSAIIntegrationManager:
         Execute an AI strategy on the symbol's data. Builds closed trades and positions,
         computes performance, and saves via data_manager.
         """
-        df = strategy.data
+        df = getattr(strategy, "data", None)
         if df is None or df.empty:
             return {
                 "trades": [],
@@ -219,7 +220,7 @@ class NGSAIIntegrationManager:
         # Execution state
         open_shares = 0
         entry_price = 0.0
-        entry_time = None
+        entry_time: Optional[datetime] = None
 
         closed_trades: List[Dict] = []
         equity_vals: List[float] = []
@@ -256,11 +257,15 @@ class NGSAIIntegrationManager:
                 gross = (sell_px - entry_price) * open_shares
                 pnl = gross - self.execution_config["commission_per_trade"]
 
+                # Handle entry_time None for strftime
+                entry_date_str = entry_time.strftime("%Y-%m-%d") if entry_time is not None else ""
+                exit_date_str = ts.strftime("%Y-%m-%d") if ts is not None else ""
+
                 closed_trades.append({
                     "symbol": symbol,
                     "type": "long",
-                    "entry_date": entry_time.strftime("%Y-%m-%d"),
-                    "exit_date": ts.strftime("%Y-%m-%d"),
+                    "entry_date": entry_date_str,
+                    "exit_date": exit_date_str,
                     "entry_price": round(entry_price, 6),
                     "exit_price": round(sell_px, 6),
                     "shares": int(open_shares),
