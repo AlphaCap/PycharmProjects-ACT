@@ -23,11 +23,13 @@ repos:
     rev: 23.7.0
     hooks:
       - id: black
+        exclude: ^(backup|old|archive|tmp|\.?venv|\.mypy_cache|\.pytest_cache|dist|build)(/|\\)
 
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
+        exclude: ^(backup|old|archive|tmp|\.?venv|\.mypy_cache|\.pytest_cache|dist|build)(/|\\)
 
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
@@ -37,6 +39,7 @@ repos:
           - flake8-docstrings
           - flake8-bugbear
           - flake8-comprehensions
+        exclude: ^(backup|old|archive|tmp|\.?venv|\.mypy_cache|\.pytest_cache|dist|build)(/|\\)
         # If you want to temporarily silence package docstring errors, uncomment:
         # args: ["--extend-ignore=D104"]
 
@@ -45,3 +48,4 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: []
+        exclude: ^(backup|old|archive|tmp|\.?venv|\.mypy_cache|\.pytest_cache|dist|build)(/|\\)
