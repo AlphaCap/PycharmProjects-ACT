@@ -7,7 +7,7 @@ FIXED: Better error handling and data format compatibility
 
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Union
 import random
 from datetime import datetime
 import warnings
@@ -30,20 +30,20 @@ class TradingStrategy:
         self,
         strategy_id: str,
         objective_name: str,
-        strategy_config: Dict,
+        strategy_config: Dict[str, Any],
         fitness_score: float = 0.0,
-    ):
-        self.strategy_id = strategy_id
-        self.objective_name = objective_name
-        self.config = strategy_config
-        self.fitness_score = fitness_score
-        self.trades = []
-        self.equity_curve = pd.Series()
-        self.performance_metrics = {}
+    ) -> None:
+        self.strategy_id: str = strategy_id
+        self.objective_name: str = objective_name
+        self.config: Dict[str, Any] = strategy_config
+        self.fitness_score: float = fitness_score
+        self.trades: List[Dict[str, Any]] = []  # FIXED: explicit annotation
+        self.equity_curve: pd.Series = pd.Series()
+        self.performance_metrics: Dict[str, Any] = {}  # FIXED: explicit annotation
 
     def execute_on_data(
         self, df: pd.DataFrame, indicator_lib: ComprehensiveIndicatorLibrary
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """
         Execute this strategy on historical data - ENHANCED with error handling
         """
@@ -62,8 +62,8 @@ class TradingStrategy:
 
             # Calculate all required indicators with robust error handling
             indicators_needed = self.config["indicators"]
-            indicator_data = {}
-            successful_indicators = []
+            indicator_data: Dict[str, pd.Series] = {}
+            successful_indicators: List[str] = []
 
             print(f" Calculating {len(indicators_needed)} indicators...")
 
@@ -141,7 +141,6 @@ class TradingStrategy:
 
             traceback.print_exc()
             return self._return_empty_results()
-
     def _validate_data_format(self, df: pd.DataFrame) -> bool:
         """Validate that data has required columns"""
         required_cols = ["Close", "High", "Low", "Open"]  # After standardization
@@ -159,7 +158,7 @@ class TradingStrategy:
 
         return True
 
-    def _return_empty_results(self) -> Dict:
+    def _return_empty_results(self) -> Dict[str, Any]:
         """Return empty results when strategy execution fails"""
         return {
             "trades": [],
@@ -171,7 +170,7 @@ class TradingStrategy:
 
     def _update_conditions_for_available_indicators(
         self, available_indicators: List[str]
-    ):
+    ) -> None:
         """Update entry/exit conditions to only use available indicators"""
         try:
             # Update entry logic
@@ -228,7 +227,7 @@ class TradingStrategy:
         except Exception as e:
             print(f"  Error updating conditions: {e}")
 
-    def _generate_signals(self, df: pd.DataFrame, indicators: Dict) -> pd.Series:
+    def _generate_signals(self, df: pd.DataFrame, indicators: Dict[str, pd.Series]) -> pd.Series:
         """Generate buy/sell signals based on strategy logic - ENHANCED error handling"""
         signals = pd.Series(0, index=df.index)  # 0=hold, 1=buy, -1=sell
 
@@ -254,7 +253,7 @@ class TradingStrategy:
                         ):
                             signals.iloc[i] = -1
                             in_position = False
-                except Exception as e:
+                except Exception:
                     # Skip this bar if there's an error
                     continue
 
@@ -264,7 +263,7 @@ class TradingStrategy:
         return signals
 
     def _evaluate_entry_conditions(
-        self, i: int, df: pd.DataFrame, indicators: Dict, entry_logic: Dict
+        self, i: int, df: pd.DataFrame, indicators: Dict[str, pd.Series], entry_logic: Dict[str, Any]
     ) -> bool:
         """Evaluate if entry conditions are met - ENHANCED error handling"""
         try:
@@ -278,7 +277,7 @@ class TradingStrategy:
                 try:
                     if self._check_condition(i, df, indicators, condition):
                         conditions_met += 1
-                except:
+                except Exception:
                     continue  # Skip failed condition checks
 
             # Check if enough conditions are met
@@ -288,9 +287,8 @@ class TradingStrategy:
         except Exception:
             return False
 
-    # Python
     def _evaluate_exit_conditions(
-            self, i: int, df: pd.DataFrame, indicators: Dict, exit_logic: Dict
+        self, i: int, df: pd.DataFrame, indicators: Dict[str, pd.Series], exit_logic: Dict[str, Any]
     ) -> bool:
         """Evaluate if exit conditions are met with robust error handling."""
         try:
@@ -303,16 +301,14 @@ class TradingStrategy:
                     if self._check_condition(i, df, indicators, condition):
                         return True
                 except Exception:
-                    # Skip failed condition checks but do not use bare except
                     continue
 
             return False
         except Exception:
-            # Fail-safe: if anything unexpected occurs, do not exit
             return False
 
     def _check_condition(
-        self, i: int, df: pd.DataFrame, indicators: Dict, condition: Dict
+        self, i: int, df: pd.DataFrame, indicators: Dict[str, pd.Series], condition: Dict[str, Any]
     ) -> bool:
         """Check individual condition - ENHANCED error handling"""
         try:
@@ -350,7 +346,6 @@ class TradingStrategy:
                     )
                 return False
             elif operator == "crossover":
-                # Check if indicator crossed above threshold
                 if i > 0 and i < len(indicators[indicator_name]):
                     prev_value = indicators[indicator_name].iloc[i - 1]
                     if not pd.isna(prev_value):
@@ -359,7 +354,6 @@ class TradingStrategy:
                         )
                 return False
             elif operator == "crossunder":
-                # Check if indicator crossed below threshold
                 if i > 0 and i < len(indicators[indicator_name]):
                     prev_value = indicators[indicator_name].iloc[i - 1]
                     if not pd.isna(prev_value):
@@ -370,21 +364,20 @@ class TradingStrategy:
 
             return False
 
-        except Exception as e:
+        except Exception:
             return False
-
     def _execute_trades(
         self, df: pd.DataFrame, signals: pd.Series
-    ) -> Tuple[List[Dict], pd.Series]:
+    ) -> Tuple[List[Dict[str, Any]], pd.Series]:
         """Execute trades based on signals - ENHANCED error handling"""
-        trades = []
-        equity = [10000]  # Starting capital
-        position = None
-        entry_price = 0
-        entry_date = None
+        trades: List[Dict[str, Any]] = []
+        equity: List[float] = [10000.0]  # Starting capital
+        position: Optional[str] = None
+        entry_price: float = 0.0
+        entry_date: Any = None
 
         try:
-            position_size_config = self.config.get(
+            position_size_config: Dict[str, Any] = self.config.get(
                 "position_sizing", {"method": "fixed", "size": 0.1}
             )
 
@@ -416,7 +409,7 @@ class TradingStrategy:
                         pnl_dollars = current_equity * position_size * pnl_pct
 
                         # Record trade
-                        trade = {
+                        trade: Dict[str, Any] = {
                             "entry_date": entry_date,
                             "exit_date": exit_date,
                             "entry_price": entry_price,
@@ -429,20 +422,20 @@ class TradingStrategy:
                                 if hasattr(exit_date - entry_date, "days")
                                 else 1
                             ),
-                            "profit": pnl_dollars,  # Add for compatibility
+                            "profit": pnl_dollars,
                         }
                         trades.append(trade)
 
                         # Update equity
                         new_equity = current_equity + pnl_dollars
-                        equity.append(max(new_equity, 1000))  # Prevent bankruptcy
+                        equity.append(max(new_equity, 1000.0))  # Prevent bankruptcy
                         position = None
                     else:
                         equity.append(current_equity)
 
-                except Exception as e:
+                except Exception:
                     # If there's an error processing this bar, just carry forward equity
-                    equity.append(equity[-1] if equity else 10000)
+                    equity.append(equity[-1] if equity else 10000.0)
                     continue
 
         except Exception as e:
@@ -450,68 +443,64 @@ class TradingStrategy:
 
         # Ensure equity curve has same length as df
         while len(equity) < len(df):
-            equity.append(equity[-1] if equity else 10000)
+            equity.append(equity[-1] if equity else 10000.0)
 
         return trades, pd.Series(equity[: len(df)], index=df.index[: len(equity)])
 
-    def _calculate_position_size(self, equity: float, config: Dict) -> float:
+    def _calculate_position_size(self, equity: float, config: Dict[str, Any]) -> float:
         """Calculate position size based on configuration - ENHANCED"""
         try:
             method = config.get("method", "fixed")
 
             if method == "fixed":
-                return min(config.get("size", 0.1), 0.2)  # Cap at 20%
+                return min(float(config.get("size", 0.1)), 0.2)  # Cap at 20%
             elif method == "volatility_adjusted":
                 # Simple volatility adjustment
-                base_size = config.get("base_size", 0.1)
-                volatility_factor = max(config.get("volatility_factor", 1.0), 0.5)
+                base_size = float(config.get("base_size", 0.1))
+                volatility_factor = max(float(config.get("volatility_factor", 1.0)), 0.5)
                 return min(base_size / volatility_factor, 0.2)
             else:
                 return 0.1
-        except:
+        except Exception:
             return 0.05  # Conservative fallback
 
-    def _calculate_performance_metrics(self) -> Dict:
+    def _calculate_performance_metrics(self) -> Dict[str, Any]:
         """Calculate performance metrics for this strategy - ENHANCED"""
         if not self.trades or len(self.equity_curve) < 2:
             return {
                 "total_trades": 0,
-                "win_rate": 0,
-                "total_return_pct": 0,
-                "max_drawdown_pct": 0,
-                "volatility_pct": 0,
-                "avg_trade_pct": 0,
-                "avg_duration_days": 0,
-                "sharpe_ratio": 0,
+                "win_rate": 0.0,
+                "total_return_pct": 0.0,
+                "max_drawdown_pct": 0.0,
+                "volatility_pct": 0.0,
+                "avg_trade_pct": 0.0,
+                "avg_duration_days": 0.0,
+                "sharpe_ratio": 0.0,
             }
 
         try:
-            # Basic metrics
             total_trades = len(self.trades)
-            winning_trades = sum(1 for t in self.trades if t["pnl_pct"] > 0)
-            win_rate = winning_trades / total_trades if total_trades > 0 else 0
+            winning_trades = sum(1 for t in self.trades if t.get("pnl_pct", 0) > 0)
+            win_rate = winning_trades / total_trades if total_trades > 0 else 0.0
 
-            # Return metrics
-            start_equity = self.equity_curve.iloc[0]
-            end_equity = self.equity_curve.iloc[-1]
+            start_equity = float(self.equity_curve.iloc[0])
+            end_equity = float(self.equity_curve.iloc[-1])
             total_return = (
-                (end_equity / start_equity - 1) * 100 if start_equity > 0 else 0
+                (end_equity / start_equity - 1) * 100 if start_equity > 0 else 0.0
             )
 
-            # Drawdown
             peak = self.equity_curve.expanding().max()
             drawdown = (self.equity_curve - peak) / peak
-            max_drawdown = abs(drawdown.min()) * 100 if len(drawdown) > 0 else 0
+            max_drawdown = abs(drawdown.min()) * 100 if len(drawdown) > 0 else 0.0
 
-            # Risk metrics
             daily_returns = self.equity_curve.pct_change().dropna()
             if len(daily_returns) > 1:
-                volatility = daily_returns.std() * np.sqrt(252) * 100
-                avg_return = daily_returns.mean() * 252
-                sharpe_ratio = avg_return / (volatility / 100) if volatility > 0 else 0
+                volatility = float(daily_returns.std()) * np.sqrt(252) * 100
+                avg_return = float(daily_returns.mean()) * 252
+                sharpe_ratio = avg_return / (volatility / 100) if volatility > 0 else 0.0
             else:
-                volatility = 0
-                sharpe_ratio = 0
+                volatility = 0.0
+                sharpe_ratio = 0.0
 
             return {
                 "total_trades": total_trades,
@@ -520,10 +509,10 @@ class TradingStrategy:
                 "max_drawdown_pct": max_drawdown,
                 "volatility_pct": volatility,
                 "avg_trade_pct": (
-                    np.mean([t["pnl_pct"] for t in self.trades]) if self.trades else 0
+                    float(np.mean([t.get("pnl_pct", 0.0) for t in self.trades])) if self.trades else 0.0
                 ),
                 "avg_duration_days": (
-                    np.mean([t["duration"] for t in self.trades]) if self.trades else 0
+                    float(np.mean([t.get("duration", 0.0) for t in self.trades])) if self.trades else 0.0
                 ),
                 "sharpe_ratio": sharpe_ratio,
             }
@@ -531,13 +520,13 @@ class TradingStrategy:
             print(f"  Error calculating metrics: {e}")
             return {
                 "total_trades": len(self.trades),
-                "win_rate": 0,
-                "total_return_pct": 0,
-                "max_drawdown_pct": 0,
-                "volatility_pct": 0,
-                "avg_trade_pct": 0,
-                "avg_duration_days": 0,
-                "sharpe_ratio": 0,
+                "win_rate": 0.0,
+                "total_return_pct": 0.0,
+                "max_drawdown_pct": 0.0,
+                "volatility_pct": 0.0,
+                "avg_trade_pct": 0.0,
+                "avg_duration_days": 0.0,
+                "sharpe_ratio": 0.0,
             }
 
 
@@ -552,18 +541,17 @@ class ObjectiveAwareStrategyGenerator:
         self,
         indicator_library: ComprehensiveIndicatorLibrary,
         objective_manager: ObjectiveManager,
-    ):
-        self.indicator_lib = indicator_library
-        self.objective_manager = objective_manager
-        self.strategy_templates = self._create_strategy_templates()
-        self.generated_strategies = {}
+    ) -> None:
+        self.indicator_lib: ComprehensiveIndicatorLibrary = indicator_library
+        self.objective_manager: ObjectiveManager = objective_manager
+        self.strategy_templates: Dict[str, Dict[str, Any]] = self._create_strategy_templates()
+        self.generated_strategies: Dict[str, TradingStrategy] = {}
 
         print(" Objective-Aware Strategy Generator AI initialized")
         print(
             f" Ready to generate infinite strategies from {len(self.indicator_lib.indicators_catalog)} indicators"
         )
-
-    def _create_strategy_templates(self) -> Dict:
+    def _create_strategy_templates(self) -> Dict[str, Dict[str, Any]]:
         """Create strategy templates for different objectives"""
         return {
             "linear_equity": {
@@ -679,7 +667,7 @@ class ObjectiveAwareStrategyGenerator:
         strategy_id = f"fallback_{objective_name}_{datetime.now().strftime('%H%M%S')}"
 
         # Simple strategy using only basic indicators
-        config = {
+        config: Dict[str, Any] = {
             "indicators": ["bb_position", "rsi"],
             "entry_logic": {
                 "conditions": [
@@ -717,8 +705,8 @@ class ObjectiveAwareStrategyGenerator:
         return TradingStrategy(strategy_id, objective_name, config)
 
     def _generate_adaptive_logic(
-        self, objective_prefs: Dict, template: Dict, complexity_level: str
-    ) -> Dict:
+        self, objective_prefs: Dict[str, Any], template: Dict[str, Any], complexity_level: str
+    ) -> Dict[str, Any]:
         """
         THE CORE AI LOGIC GENERATOR
         Creates completely different trading logic based on objectives
@@ -766,150 +754,130 @@ class ObjectiveAwareStrategyGenerator:
             "objective_focus": template["focus"],
             "indicator_params": self._generate_indicator_params(selected_indicators),
         }
-
     def _generate_entry_logic(
-        self, objective_prefs: Dict, template: Dict, indicators: List[str]
-    ) -> Dict:
+        self, objective_prefs: Dict[str, Any], template: Dict[str, Any], indicators: List[str]
+    ) -> Dict[str, Any]:
         """Generate entry conditions based on objective preferences"""
 
-        conditions = []
-        entry_style = template["entry_style"]
+        conditions: List[Dict[str, Any]] = []
+        entry_style: str = template["entry_style"]
 
-        # OBJECTIVE-SPECIFIC LOGIC GENERATION
         if entry_style == "ultra_selective":
-            # For linear equity - need MANY confirmations
-            confirmation_ratio = 0.8  # 80% of conditions must be met
-
-            # Mean-reversion focused entries
+            confirmation_ratio = 0.8
             if "bb_position" in indicators:
                 conditions.append(
                     {
                         "indicator": "bb_position",
                         "operator": "<",
-                        "threshold": 25,  # Oversold
-                        "weight": 2,  # High importance
+                        "threshold": 25,
+                        "weight": 2,
                     }
                 )
-
             if "rsi" in indicators:
                 conditions.append(
                     {
                         "indicator": "rsi",
                         "operator": "<",
-                        "threshold": 35,  # Oversold
+                        "threshold": 35,
                         "weight": 2,
                     }
                 )
-
             if "market_efficiency" in indicators:
                 conditions.append(
                     {
                         "indicator": "market_efficiency",
                         "operator": ">",
-                        "threshold": 60,  # Reasonable efficiency
+                        "threshold": 60,
                         "weight": 1,
                     }
                 )
 
         elif entry_style == "trend_following":
-            # For max ROI - trend-following entries
-            confirmation_ratio = 0.6  # Only 60% need to agree (more opportunities)
-
+            confirmation_ratio = 0.6
             if "tsf" in indicators:
                 conditions.append(
                     {
                         "indicator": "tsf",
                         "operator": "crossover",
-                        "threshold": 0,  # Price crossing above forecast
+                        "threshold": 0,
                         "weight": 3,
                     }
                 )
-
             if "linreg_slope" in indicators:
                 conditions.append(
                     {
                         "indicator": "linreg_slope",
                         "operator": ">",
-                        "threshold": 0.1,  # Positive trend
+                        "threshold": 0.1,
                         "weight": 2,
                     }
                 )
-
             if "volume_profile" in indicators:
                 conditions.append(
                     {
                         "indicator": "volume_profile",
                         "operator": ">=",
-                        "threshold": 1,  # High volume confirmation
+                        "threshold": 1,
                         "weight": 1,
                     }
                 )
 
         elif entry_style == "extremely_selective":
-            # For min drawdown - ultra-conservative
-            confirmation_ratio = 0.9  # 90% must agree
-
+            confirmation_ratio = 0.9
             if "bb_position" in indicators:
                 conditions.append(
                     {
                         "indicator": "bb_position",
                         "operator": "between",
-                        "threshold": [20, 30],  # Very specific range
+                        "threshold": [20, 30],
                         "weight": 3,
                     }
                 )
-
             if "support_resistance" in indicators:
                 conditions.append(
                     {
                         "indicator": "support_resistance",
                         "operator": ">=",
-                        "threshold": 1,  # Near support
+                        "threshold": 1,
                         "weight": 2,
                     }
                 )
 
         elif entry_style == "mean_reversion":
-            # For high win rate - mean reversion focus
             confirmation_ratio = 0.7
-
             if "bb_position" in indicators:
                 conditions.append(
                     {
                         "indicator": "bb_position",
                         "operator": "<",
-                        "threshold": 20,  # Oversold
+                        "threshold": 20,
                         "weight": 2,
                     }
                 )
-
             if "stochastic" in indicators:
                 conditions.append(
                     {
                         "indicator": "stochastic",
                         "operator": "<",
-                        "threshold": 25,  # Oversold
+                        "threshold": 25,
                         "weight": 2,
                     }
                 )
 
-        else:  # volatility_aware for Sharpe ratio
+        else:
             confirmation_ratio = 0.6
-
             if "volatility_ratio" in indicators:
                 conditions.append(
                     {
                         "indicator": "volatility_ratio",
                         "operator": "<",
-                        "threshold": 1.2,  # Not too volatile
+                        "threshold": 1.2,
                         "weight": 2,
                     }
                 )
 
-        # Add additional conditions for other indicators
         self._add_supplementary_conditions(conditions, indicators, entry_style)
 
-        # Ensure we have at least one condition
         if not conditions:
             conditions.append(
                 {
@@ -927,72 +895,65 @@ class ObjectiveAwareStrategyGenerator:
         }
 
     def _generate_exit_logic(
-        self, objective_prefs: Dict, template: Dict, indicators: List[str]
-    ) -> Dict:
+        self, objective_prefs: Dict[str, Any], template: Dict[str, Any], indicators: List[str]
+    ) -> Dict[str, Any]:
         """Generate exit conditions based on objective preferences"""
 
-        conditions = []
-        exit_style = template["exit_style"]
+        conditions: List[Dict[str, Any]] = []
+        exit_style: str = template["exit_style"]
 
-        # OBJECTIVE-SPECIFIC EXIT LOGIC
         if exit_style == "quick_profits":
-            # Take profits quickly for consistent growth
             if "bb_position" in indicators:
                 conditions.append(
                     {
                         "indicator": "bb_position",
                         "operator": ">",
-                        "threshold": 60,  # Take profit at 60% of BB range
+                        "threshold": 60,
                         "weight": 2,
                     }
                 )
 
         elif exit_style == "let_winners_run":
-            # Hold for bigger moves
             if "bb_position" in indicators:
                 conditions.append(
                     {
                         "indicator": "bb_position",
                         "operator": ">",
-                        "threshold": 80,  # Hold until near upper BB
+                        "threshold": 80,
                         "weight": 2,
                     }
                 )
-
             if "linreg_slope" in indicators:
                 conditions.append(
                     {
                         "indicator": "linreg_slope",
                         "operator": "<",
-                        "threshold": 0,  # Exit when trend turns
+                        "threshold": 0,
                         "weight": 1,
                     }
                 )
 
         elif exit_style == "immediate_profits":
-            # Ultra-fast profit taking for drawdown protection
             if "bb_position" in indicators:
                 conditions.append(
                     {
                         "indicator": "bb_position",
                         "operator": ">",
-                        "threshold": 55,  # Very quick profit taking
+                        "threshold": 55,
                         "weight": 3,
                     }
                 )
 
-        # Always add RSI overbought exit if available
         if "rsi" in indicators:
             conditions.append(
                 {
                     "indicator": "rsi",
                     "operator": ">",
-                    "threshold": 70,  # Overbought exit
+                    "threshold": 70,
                     "weight": 1,
                 }
             )
 
-        # Ensure we have at least one exit condition
         if not conditions:
             indicator_to_use = indicators[0] if indicators else "bb_position"
             conditions.append(
@@ -1007,11 +968,10 @@ class ObjectiveAwareStrategyGenerator:
         return {"conditions": conditions, "style": exit_style}
 
     def _add_supplementary_conditions(
-        self, conditions: List[Dict], indicators: List[str], entry_style: str
-    ):
+        self, conditions: List[Dict[str, Any]], indicators: List[str], entry_style: str
+    ) -> None:
         """Add additional conditions for unused indicators"""
 
-        # Add volume confirmation if available
         if "volume_profile" in indicators and not any(
             c["indicator"] == "volume_profile" for c in conditions
         ):
@@ -1024,7 +984,6 @@ class ObjectiveAwareStrategyGenerator:
                 }
             )
 
-        # Add efficiency filter if available
         if "market_efficiency" in indicators and not any(
             c["indicator"] == "market_efficiency" for c in conditions
         ):
@@ -1040,19 +999,19 @@ class ObjectiveAwareStrategyGenerator:
                 }
             )
 
-    def _generate_position_sizing(self, objective_prefs: Dict) -> Dict:
+    def _generate_position_sizing(self, objective_prefs: Dict[str, Any]) -> Dict[str, Any]:
         """Generate position sizing rules based on objective"""
 
         risk_tolerance = objective_prefs.get("risk_tolerance", "moderate")
 
         if risk_tolerance == "minimal":
-            return {"method": "fixed", "size": 0.02}  # 2% per trade
+            return {"method": "fixed", "size": 0.02}
         elif risk_tolerance == "low":
-            return {"method": "fixed", "size": 0.05}  # 5% per trade
+            return {"method": "fixed", "size": 0.05}
         elif risk_tolerance == "moderate":
-            return {"method": "fixed", "size": 0.08}  # 8% per trade
+            return {"method": "fixed", "size": 0.08}
         elif risk_tolerance == "high":
-            return {"method": "fixed", "size": 0.12}  # 12% per trade
+            return {"method": "fixed", "size": 0.12}
         else:
             return {
                 "method": "volatility_adjusted",
@@ -1060,16 +1019,15 @@ class ObjectiveAwareStrategyGenerator:
                 "volatility_factor": 1.0,
             }
 
-    def _generate_indicator_params(self, indicators: List[str]) -> Dict:
+    def _generate_indicator_params(self, indicators: List[str]) -> Dict[str, Any]:
         """Generate parameters for indicators based on strategy needs"""
-        params = {}
+        params: Dict[str, Any] = {}
 
         for indicator in indicators:
             if indicator in self.indicator_lib.indicators_catalog:
                 default_params = self.indicator_lib.indicators_catalog[indicator][
                     "params"
                 ]
-                # Could add parameter optimization here
                 params[indicator] = default_params.copy()
 
         return params
@@ -1079,7 +1037,7 @@ class ObjectiveAwareStrategyGenerator:
     ) -> List[TradingStrategy]:
         """Generate multiple different strategies for the same objective"""
 
-        strategies = []
+        strategies: List[TradingStrategy] = []
         complexity_levels = ["simple", "moderate", "complex"]
 
         for i in range(count):
@@ -1095,7 +1053,7 @@ class ObjectiveAwareStrategyGenerator:
     ) -> pd.DataFrame:
         """Test multiple strategies on the same data and compare results"""
 
-        results = []
+        results: List[Dict[str, Any]] = []
 
         for strategy in strategies:
             print(f" Testing strategy: {strategy.strategy_id}")
@@ -1131,7 +1089,6 @@ class ObjectiveAwareStrategyGenerator:
 
             except Exception as e:
                 print(f" Strategy {strategy.strategy_id} failed: {e}")
-                # Add failed result
                 results.append(
                     {
                         "Strategy ID": strategy.strategy_id,
@@ -1147,9 +1104,7 @@ class ObjectiveAwareStrategyGenerator:
                 )
 
         return pd.DataFrame(results)
-
-
-def demonstrate_objective_aware_ai():
+def demonstrate_objective_aware_ai() -> None:
     """Demonstrate the AI generating different strategies for different objectives"""
     print("\n OBJECTIVE-AWARE AI DEMONSTRATION")
     print("=" * 60)
@@ -1215,5 +1170,3 @@ if __name__ == "__main__":
     print("- Test on real market data")
     print("- Add strategy evolution/learning")
     print("- Connect to live trading system")
-
-
