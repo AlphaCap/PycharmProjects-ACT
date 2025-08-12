@@ -84,7 +84,7 @@ hide_streamlit_style = """
     [data-testid="stHeader"] {display: none;}
     .stApp > header {display: none;}
     [data-testid="stSidebarNav"] {display: none;}
-    
+
     .stAppViewContainer > .main .block-container {
         padding-top: 1rem;
     }
@@ -95,9 +95,9 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 with st.sidebar:
     st.title("Trading Systems")
     if st.button(
-        "← Back to Main Dashboard",
-        use_container_width=True,
-        key="main_dashboard_button",
+            "← Back to Main Dashboard",
+            use_container_width=True,
+            key="main_dashboard_button",
     ):
         try:
             st.switch_page("app.py")
@@ -128,6 +128,7 @@ st.session_state.initial_value = initial_value
 # ---- NEW: Display Best AI Strategy Section ----
 st.markdown("## 🏆 Best AI Strategy (AI Performance Hierarchy)")
 
+
 def load_latest_ai_integration_results(data_dir="data/integration_sessions"):
     """
     Loads the most recent integration session results (expects JSON files).
@@ -147,6 +148,7 @@ def load_latest_ai_integration_results(data_dir="data/integration_sessions"):
         st.warning(f"Could not load AI integration session: {e}")
         return None
 
+
 def get_best_ai_strategy(results, manager):
     """
     Returns (strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe)
@@ -163,7 +165,8 @@ def get_best_ai_strategy(results, manager):
             eq_curve = pd.Series(eq_curve)
         elif isinstance(eq_curve, dict):
             eq_curve = pd.Series(eq_curve)
-        r2 = manager.evaluate_linear_equity(eq_curve) if eq_curve is not None and not getattr(eq_curve, "empty", True) else 0
+        r2 = manager.evaluate_linear_equity(eq_curve) if eq_curve is not None and not getattr(eq_curve, "empty",
+                                                                                              True) else 0
         roi = perf.get('total_return_pct', 0)
         drawdown = perf.get('max_drawdown_pct', 0)
         sharpe = perf.get('sharpe_ratio', 0)
@@ -172,6 +175,7 @@ def get_best_ai_strategy(results, manager):
             best = (strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe)
             best_tuple = tup
     return best
+
 
 # Load latest AI integration results
 results = load_latest_ai_integration_results()
@@ -206,6 +210,7 @@ else:
     st.info("No AI strategy integration results found. Run AI integration manager and save results to view hierarchy.")
 
 st.markdown("---")
+
 
 def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> float:
     """Calculate Value at Risk from historical trades"""
@@ -273,7 +278,7 @@ def get_barclay_ls_index() -> str:
                             ).lower()
                             # Look for equity long/short row
                             if (
-                                "equity" in row_text and "long" in row_text
+                                    "equity" in row_text and "long" in row_text
                             ) or "long/short" in row_text:
                                 ytd_cell = cells[ytd_col_index].get_text().strip()
                                 if "%" in ytd_cell:
@@ -291,7 +296,7 @@ def get_barclay_ls_index() -> str:
                             [cell.get_text().strip() for cell in cells]
                         ).lower()
                         if (
-                            "equity" in row_text and "long" in row_text
+                                "equity" in row_text and "long" in row_text
                         ) or "long/short" in row_text:
                             # Get the last cell (should be YTD)
                             last_cell = cells[-1].get_text().strip()
@@ -646,7 +651,7 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                     alpha=0.8,
                     label="CRITICAL LIMIT (100%)",
                 )
-               
+
                 # Chart formatting (identical to equity curve)
                 ax.set_title(
                     "Historical M/E Ratio - Risk Management",
@@ -746,3 +751,20 @@ st.markdown(
 )
 st.markdown("---")
 st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
+
+# Streamlit section: "Advanced Performance Metrics"
+st.subheader("Advanced Performance Analytics")
+
+# Placeholder values (to be dynamically fetched)
+advanced_metrics = {
+    "CAGR": "12.3%",
+    "Calmar Ratio": "5.4",
+    "Sortino Ratio": "2.2",
+    "Omega Ratio": "1.55",
+    "Jensen's Alpha": "0.35",
+}
+
+# Display columns for each metric
+col1, col2, col3, col4, col5 = st.columns(5)
+for col, (metric_name, value) in zip([col1, col2, col3, col4, col5], advanced_metrics.items()):
+    col.metric(label=metric_name, value=value)
