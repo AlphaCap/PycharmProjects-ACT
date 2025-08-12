@@ -417,7 +417,6 @@ class ObjectiveManager:
 
     def list_objectives(self) -> Dict[str, str]:
         """List all available objectives with descriptions"""
-<<<<<<< HEAD
         return {name: obj.get_objective_description() 
                 for name, obj in self.objectives.items()}
     
@@ -429,7 +428,6 @@ class ObjectiveManager:
     
     def add_custom_objective(self, name: str, fitness_function: callable,
                            strategy_preferences: Dict, description: str):
-=======
         return {
             name: obj.get_objective_description()
             for name, obj in self.objectives.items()
@@ -442,7 +440,6 @@ class ObjectiveManager:
         strategy_preferences: Dict,
         description: str,
     ):
->>>>>>> c108ef4 (Bypass pre-commit for now)
         """Add a custom objective"""
         self.objectives[name] = CustomObjective(
             name, fitness_function, strategy_preferences, description
@@ -466,10 +463,6 @@ class ObjectiveManager:
             )
 
         return pd.DataFrame(results)
-<<<<<<< HEAD
-=======
-
-
 def demo_objectives():
     """Demonstrate how objectives work with sample data"""
     print("\n OBJECTIVES DEMONSTRATION")
@@ -536,6 +529,3 @@ if __name__ == "__main__":
 
     print(f"\n STEP 2 COMPLETE!")
     print("Next: Objective-Aware AI that generates strategy logic")
-
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
