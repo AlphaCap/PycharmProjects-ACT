@@ -143,7 +143,6 @@ def parse_date_flexibly(date_str):
             logger.warning(f"Could not parse date: {date_str}")
             return pd.NaT
 
-
 def filter_by_retention_period(
     df: pd.DataFrame, date_column: str = "Date"
 ) -> pd.DataFrame:
@@ -176,13 +175,11 @@ def filter_by_retention_period(
 
     return df
 
-
 # --- FILE UTILS ---
 def ensure_dir(path):
     dir_path = os.path.dirname(path)
     if dir_path and not os.path.exists(dir_path):
         os.makedirs(dir_path, exist_ok=True)
-
 
 # --- FORMATTING UTILS ---
 def format_dollars(value):
@@ -194,7 +191,6 @@ def format_dollars(value):
         return f"${float(value):,.0f}"
     except:
         return "$0"
-
 
 # --- S&P 500 SYMBOLS ---
 def get_sp500_symbols() -> list:
@@ -222,7 +218,6 @@ def get_sp500_symbols() -> list:
     else:
         logger.warning(f"S&P 500 symbols file not found: {SP500_SYMBOLS_FILE}")
         return []
-
 
 def filter_to_sp500(symbols: list) -> list:
     """
@@ -287,7 +282,6 @@ def get_sp500_symbol_stats():
 
     return stats
 
-
 # --- SECTOR MANAGEMENT ---
 def get_sp500_sector_data(force_refresh: bool = False) -> Dict[str, Dict]:
     """
@@ -331,7 +325,6 @@ def get_sp500_sector_data(force_refresh: bool = False) -> Dict[str, Dict]:
     )
     return sector_data
 
-
 def fetch_sp500_sectors() -> Dict[str, Dict]:
     """
     Fetch S&P 500 sector data from multiple sources with fallbacks.
@@ -350,7 +343,6 @@ def fetch_sp500_sectors() -> Dict[str, Dict]:
     # Method 3: Use built-in static mapping (fallback)
     logger.warning("Using static sector mapping - may be outdated")
     return get_static_sector_mapping()
-
 
 def fetch_sectors_from_polygon() -> Dict[str, Dict]:
     """Fetch sector data using Polygon API"""
@@ -394,7 +386,6 @@ def fetch_sectors_from_polygon() -> Dict[str, Dict]:
         logger.warning(f"Polygon sector fetch failed: {e}")
 
     return None
-
 
 def fetch_sectors_from_wikipedia() -> Dict[str, Dict]:
     """Fetch sector data from Wikipedia S&P 500 page"""
@@ -443,7 +434,6 @@ def fetch_sectors_from_wikipedia() -> Dict[str, Dict]:
         logger.warning(f"Wikipedia sector fetch failed: {e}")
 
     return None
-
 
 def get_static_sector_mapping() -> Dict[str, Dict]:
     """Static sector mapping as fallback"""
@@ -689,7 +679,6 @@ def get_static_sector_mapping() -> Dict[str, Dict]:
 
     return format_sector_data(static_sectors, symbol_to_sector)
 
-
 def format_sector_data(
     sectors: Dict[str, List], symbol_to_sector: Dict[str, str]
 ) -> Dict:
@@ -712,7 +701,6 @@ def format_sector_data(
         "sector_count": len(sectors),
     }
 
-
 # --- SECTOR ACCESS FUNCTIONS ---
 def get_sector_symbols(sector_name: str) -> List[str]:
     """Get all symbols in a specific sector"""
@@ -731,7 +719,6 @@ def get_all_sectors() -> List[str]:
     sector_data = get_sp500_sector_data()
     return list(sector_data.get("sectors", {}).keys())
 
-
 def get_sector_weights() -> Dict[str, float]:
     """Get sector weights (percentage of S&P 500)"""
     sector_data = get_sp500_sector_data()
@@ -739,7 +726,6 @@ def get_sector_weights() -> Dict[str, float]:
         sector: info.get("weight", 0)
         for sector, info in sector_data.get("sector_info", {}).items()
     }
-
 
 def get_portfolio_sector_exposure(positions_df: pd.DataFrame) -> Dict[str, Dict]:
     """
@@ -784,7 +770,6 @@ def get_portfolio_sector_exposure(positions_df: pd.DataFrame) -> Dict[str, Dict]
 
     return sector_exposure
 
-
 def get_sector_rebalance_targets(
     target_weights: Dict[str, float] = None,
 ) -> Dict[str, float]:
@@ -800,7 +785,6 @@ def get_sector_rebalance_targets(
         return get_sector_weights()
 
     return target_weights
-
 
 def calculate_sector_rebalance_needs(
     positions_df: pd.DataFrame, target_weights: Dict[str, float] = None
@@ -828,7 +812,6 @@ def calculate_sector_rebalance_needs(
         }
 
     return rebalance_needs
-
 
 # --- PRICE + INDICATOR DATA ---
 def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_DAYS):
@@ -867,7 +850,6 @@ def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_D
     else:
         logger.warning(f"No data to save for {symbol}")
 
-
 def load_price_data(symbol: str) -> pd.DataFrame:
     filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
     if os.path.exists(filename):
@@ -876,7 +858,6 @@ def load_price_data(symbol: str) -> pd.DataFrame:
         return filter_by_retention_period(df, "Date")
     else:
         return pd.DataFrame(columns=ALL_COLUMNS)
-
 
 # --- TRADES, POSITIONS, SIGNALS, METADATA, INITIALIZATION ---
 
@@ -908,7 +889,6 @@ POSITION_COLUMNS = [
 ]
 SIGNAL_COLUMNS = ["date", "symbol", "signal_type", "direction", "price", "strategy"]
 SYSTEM_STATUS_COLUMNS = ["timestamp", "system", "message"]
-
 
 # --- TRADE HISTORY ---
 def get_trades_history():
@@ -1065,7 +1045,6 @@ def get_trades_history_formatted() -> pd.DataFrame:
             columns=["Date", "Symbol", "Type", "Shares", "Entry", "Exit", "P&L", "Days"]
         )
 
-
 def get_me_ratio_history() -> pd.DataFrame:
     """
     Get M/E ratio history from dedicated portfolio ME file.
@@ -1098,7 +1077,6 @@ def get_me_ratio_history() -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Error loading M/E ratio history: {e}")
         return pd.DataFrame(columns=["Date", "ME_Ratio"])
-
 
 def save_trades(trades_list: List[Dict]):
     ensure_dir(TRADES_HISTORY_FILE)
@@ -1168,7 +1146,6 @@ def save_trades(trades_list: List[Dict]):
         df.to_csv(TRADES_HISTORY_FILE, index=False)
         logger.info(f"Created new trade history with {len(filtered_trades)} trades")
 
-
 # --- POSITIONS ---
 def get_positions_df():
     if os.path.exists(POSITIONS_FILE):
@@ -1214,7 +1191,6 @@ def get_positions():
     df = get_positions_df()
     return df.to_dict(orient="records") if not df.empty else []
 
-
 # --- SIGNALS ---
 def get_signals():
     if os.path.exists(SIGNALS_FILE):
@@ -1224,7 +1200,6 @@ def get_signals():
             df = filter_by_retention_period(df, "date")
         return df
     return pd.DataFrame(columns=SIGNAL_COLUMNS)
-
 
 def save_signals(signals: List[Dict]):
     ensure_dir(SIGNALS_FILE)
@@ -1247,7 +1222,6 @@ def save_signals(signals: List[Dict]):
     df = pd.DataFrame(filtered_signals)
     df.to_csv(SIGNALS_FILE, index=False)
     logger.info(f"Saved {len(filtered_signals)} signals within retention period")
-
 
 # --- SYSTEM STATUS ---
 def save_system_status(message: str, system: str = "nGS"):
@@ -1279,7 +1253,6 @@ def save_system_status(message: str, system: str = "nGS"):
             df = new_row
         df.to_csv(SYSTEM_STATUS_FILE, index=False)
 
-
 # --- METADATA ---
 def init_metadata():
     if not os.path.exists(METADATA_FILE):
@@ -1301,7 +1274,6 @@ def init_metadata():
                 json.dump(metadata, f, indent=2)
     return metadata
 
-
 def update_metadata(key: str, value):
     metadata = init_metadata()
     if "." in key:
@@ -1316,7 +1288,6 @@ def update_metadata(key: str, value):
         metadata[key] = value
     with open(METADATA_FILE, "w") as f:
         json.dump(metadata, f, indent=2)
-
 
 # --- M/E RATIO CALCULATIONS ---
 def calculate_current_me_ratio(
@@ -1412,7 +1383,6 @@ def calculate_historical_me_ratio(
     # Fallback to reasonable estimate (slightly higher than current)
     return 18.5  # Reasonable historical average
 
-
 def calculate_ytd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple:
     """
     Calculate Year-to-Date return from closed trades (6-month filtered).
@@ -1447,7 +1417,6 @@ def calculate_ytd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
         logger.error(f"Error calculating YTD return: {e}")
         return "$0", "0.00%"
 
-
 def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple:
     """Calculate Month-to-Date return from closed trades (6-month filtered)"""
     if trades_df.empty:
@@ -1467,7 +1436,6 @@ def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> tuple
     mtd_pct = (mtd_profit / initial_value * 100) if initial_value > 0 else 0
 
     return format_dollars(mtd_profit), f"{mtd_pct:.2f}%"
-
 
 # --- DASHBOARD FUNCTIONS FOR LONG/SHORT SYSTEM ---
 def get_portfolio_metrics(
@@ -1581,7 +1549,6 @@ def get_portfolio_metrics(
             "short_exposure": "$0",
             "net_exposure": "$0",
         }
-
 
 def get_strategy_performance(initial_portfolio_value: float = 1000000) -> pd.DataFrame:
     """
@@ -1786,7 +1753,6 @@ def get_long_positions_formatted() -> pd.DataFrame:
             ]
         )
 
-
 def get_short_positions_formatted() -> pd.DataFrame:
     """
     Get formatted short positions for dashboard display (6-month filtered).
@@ -1883,7 +1849,6 @@ def get_long_positions() -> List[Dict]:
         logger.error(f"Error getting long positions: {e}")
         return []
 
-
 def get_short_positions() -> List[Dict]:
     """
     Get current short positions (6-month filtered).
@@ -1906,7 +1871,6 @@ def get_short_positions() -> List[Dict]:
     except Exception as e:
         logger.error(f"Error getting short positions: {e}")
         return []
-
 
 # --- INITIALIZE ---
 def initialize():
@@ -1956,13 +1920,11 @@ def initialize():
 
     logger.info("Data manager initialized with 6-month retention and sector support")
 
-
 if __name__ == "__main__":
     initialize()
     logger.info(
         "data_manager.py loaded successfully with 6-month data retention and sector management"
     )
-
 
 # --- HISTORICAL DATA WITH POLYGON (FIXED COLUMN CASE) ---
 def get_historical_data(
@@ -2036,5 +1998,3 @@ def get_historical_data(
     except Exception as e:
         logger.error(f"Error fetching data for {symbol}: {e}")
         return pd.DataFrame()
-
-
