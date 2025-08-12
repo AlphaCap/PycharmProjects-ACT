@@ -370,10 +370,6 @@ if __name__ == "__main__":
     if result is not None:
         print("\n M/E ratio calculation completed successfully!")
     else:
-<<<<<<< HEAD
         print("\n✗ M/E ratio calculation failed. Check error messages above.")
-=======
         print("\n M/E ratio calculation failed. Check error messages above.")
 
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
