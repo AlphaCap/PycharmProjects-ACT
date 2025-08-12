@@ -102,7 +102,7 @@ class DailyMERatioCalculator:
         self.realized_pnl += profit
 
     def calculate_daily_me_ratio(
-        self, date: str = None, current_prices: dict = None
+        self, date: Optional[str] = None, current_prices: Optional[dict] = None
     ) -> Dict:
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
