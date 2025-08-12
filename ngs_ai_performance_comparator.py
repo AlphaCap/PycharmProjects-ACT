@@ -45,7 +45,6 @@ from strategy_generator_ai import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class PerformanceMetrics:
 
@@ -55,7 +54,6 @@ class PerformanceMetrics:
     objective: str
     
     # Return Metrics
-
     """Comprehensive performance metrics container for AI strategies"""
 
     strategy_name: str
@@ -168,7 +166,6 @@ class NGSAIPerformanceAnalyzer:
     def __init__(self, account_size: float = 1000000, data_dir: str = "data"):
         self.account_size = account_size
         self.data_dir = data_dir
-<<<<<<< HEAD
         self.reports_dir = os.path.join(data_dir, 'performance_reports')
         self.charts_dir = os.path.join(data_dir, 'performance_charts')
         
@@ -185,15 +182,13 @@ class NGSAIPerformanceAnalyzer:
         # Analysis configuration
 	os.makedirs(self.reports_dir, exist_ok=True)
         os.makedirs(self.charts_dir, exist_ok=True)
-        
-=======
+       
         self.reports_dir = os.path.join(data_dir, "performance_reports")
         self.charts_dir = os.path.join(data_dir, "performance_charts")
 
         os.makedirs(self.reports_dir, exist_ok=True)
         os.makedirs(self.charts_dir, exist_ok=True)
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         self.backtester = NGSAIBacktestingSystem(account_size, data_dir)
 
         self.analysis_config = {
@@ -205,15 +200,12 @@ class NGSAIPerformanceAnalyzer:
             "color_palette": "Set2",
             "significance_threshold": 0.05,
         }
-<<<<<<< HEAD
         
         # Performance tracking
         self.comparison_history = []
         self.strategy_database = {}
         
         print("📊 nGS AI Performance Comparator initialized")
-=======
->>>>>>> c108ef4 (Bypass pre-commit for now)
 
         self.analysis_history = []
 
@@ -222,8 +214,7 @@ class NGSAIPerformanceAnalyzer:
         print(f"   Charts Directory:    {self.charts_dir}")
         print(f"   Benchmark:           {self.analysis_config['benchmark_symbol']}")
         print(f"   Confidence Level:    {self.analysis_config['confidence_level']:.0%}")
-<<<<<<< HEAD
-    
+
     # =============================================================================
     # CORE COMPARISON METHODS
     # =============================================================================
@@ -287,7 +278,7 @@ class NGSAIPerformanceAnalyzer:
         self._generate_comparison_report(comparison)
         self._create_performance_visualizations(comparison)
         
-        print(f"\n✅ Comprehensive comparison completed")
+        print(f"\n Comprehensive comparison completed")
         print(f"   Recommendation Score: {comparison.ai_recommendation_score:.0f}/100")
         print(f"   Best Overall: {comparison.best_overall_strategy}")
         
@@ -307,7 +298,6 @@ class NGSAIPerformanceAnalyzer:
 
     def analyze_ai_strategies(self, strategies: List[TradingStrategy], data: Dict[str, pd.DataFrame], 
                              start_date: str = None, end_date: str = None) -> AIAnalysis:
-=======
 
     def analyze_ai_strategies(
         self,
@@ -316,7 +306,7 @@ class NGSAIPerformanceAnalyzer:
         start_date: str = None,
         end_date: str = None,
     ) -> AIAnalysis:
->>>>>>> c108ef4 (Bypass pre-commit for now)
+
         """
         Analyze performance of AI strategies
         """
@@ -373,8 +363,7 @@ class NGSAIPerformanceAnalyzer:
 
         start_date = min(all_dates)
         end_date = max(all_dates)
-<<<<<<< HEAD
-        
+
         # Create rolling windows
 
         windows = self._create_rolling_windows(start_date, end_date, window_months, step_months)
@@ -389,7 +378,6 @@ class NGSAIPerformanceAnalyzer:
 
             'consistency_metrics': {},
             'trend_analysis': {}
-=======
 
         windows = self._create_rolling_windows(
             start_date, end_date, window_months, step_months
@@ -400,7 +388,6 @@ class NGSAIPerformanceAnalyzer:
             "ai_performance": {strategy.strategy_id: [] for strategy in strategies},
             "consistency_metrics": {},
             "trend_analysis": {},
->>>>>>> c108ef4 (Bypass pre-commit for now)
         }
 
         print(f"   Processing {len(windows)} rolling windows...")
@@ -411,38 +398,31 @@ class NGSAIPerformanceAnalyzer:
             )
 
             try:
-<<<<<<< HEAD
-
             window_data = self.backtester._filter_data_by_date(
                     data, window_start.strftime('%Y-%m-%d'), window_end.strftime('%Y-%m-%d')
-=======
+
                 window_data = self.backtester._filter_data_by_date(
                     data,
                     window_start.strftime("%Y-%m-%d"),
                     window_end.strftime("%Y-%m-%d"),
->>>>>>> c108ef4 (Bypass pre-commit for now)
                 )
 
                 if not window_data:
                     continue
-<<<<<<< HEAD
-                
+ 
                 # Run comparison for window
                 window_comparison = self.backtester.backtest_comprehensive_comparison(
                     objectives, window_data, 
                     window_start.strftime('%Y-%m-%d'), window_end.strftime('%Y-%m-%d')
                 )
-                
+               
                 # Store window results
-=======
->>>>>>> c108ef4 (Bypass pre-commit for now)
 
                 window_info = {
                     "start_date": window_start,
                     "end_date": window_end,
                     "period": f"{window_start.strftime('%Y-%m')} to {window_end.strftime('%Y-%m')}",
                 }
-<<<<<<< HEAD
                 
                 rolling_results['windows'].append(window_info)
                 rolling_results['original_performance'].append(
@@ -458,13 +438,8 @@ class NGSAIPerformanceAnalyzer:
                         # Calculate relative performance
                         relative_perf = ai_result.total_return_pct - window_comparison.original_ngs_result.total_return_pct
                         rolling_results['relative_performance'][objective].append(relative_perf)
+                 		rolling_results["windows"].append(window_info)
 
-                
-=======
-
-                rolling_results["windows"].append(window_info)
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
                 for strategy in strategies:
                     try:
                         backtest_result = self.backtester.backtest_ai_strategy(
@@ -477,22 +452,18 @@ class NGSAIPerformanceAnalyzer:
                             backtest_result.total_return_pct
                         )
                     except Exception as e:
-<<<<<<< HEAD
+
                         print(f"     ❌ Error for {strategy.strategy_id}: {e}")
                         rolling_results['ai_performance'][strategy.strategy_id].append(0.0)
-
                 
-=======
                         print(f"      Error for {strategy.strategy_id}: {e}")
                         rolling_results["ai_performance"][strategy.strategy_id].append(
                             0.0
                         )
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
             except Exception as e:
                 print(f"      Error in window {i+1}: {e}")
                 continue
-<<<<<<< HEAD
         
         # Analyze consistency and trends
         rolling_results['consistency_metrics'] = self._analyze_rolling_consistency(rolling_results)
@@ -503,8 +474,6 @@ class NGSAIPerformanceAnalyzer:
         rolling_results['consistency_metrics'] = self._analyze_rolling_consistency(rolling_results)
         rolling_results['trend_analysis'] = self._analyze_performance_trends(rolling_results)
         
-=======
-
         rolling_results["consistency_metrics"] = self._analyze_rolling_consistency(
             rolling_results
         )
@@ -512,7 +481,6 @@ class NGSAIPerformanceAnalyzer:
             rolling_results
         )
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         self._create_rolling_performance_charts(rolling_results)
 
         print(
@@ -520,22 +488,18 @@ class NGSAIPerformanceAnalyzer:
         )
 
         return rolling_results
-<<<<<<< HEAD
     
     def monte_carlo_analysis(self, comparison: ComparisonAnalysis, 
                            simulations: int = 1000) -> Dict[str, Any]:
         """
         Perform Monte Carlo analysis to assess strategy robustness
         """
-        print(f"\n🎲 MONTE CARLO ROBUSTNESS ANALYSIS")
+        print(f"\n MONTE CARLO ROBUSTNESS ANALYSIS")
 
     def monte_carlo_analysis(self, analysis: AIAnalysis, simulations: int = 1000) -> Dict[str, Any]:
-=======
-
     def monte_carlo_analysis(
         self, analysis: AIAnalysis, simulations: int = 1000
     ) -> Dict[str, Any]:
->>>>>>> c108ef4 (Bypass pre-commit for now)
         """
         Perform Monte Carlo analysis for AI strategies
         """
@@ -543,7 +507,6 @@ class NGSAIPerformanceAnalyzer:
         print(f"   Running {simulations:,} simulations")
 
         monte_carlo_results = {
-<<<<<<< HEAD
             'simulations': simulations,
             'original_outcomes': [],
             'ai_outcomes': {ai.strategy_name: [] for ai in comparison.ai_metrics},
@@ -572,7 +535,6 @@ class NGSAIPerformanceAnalyzer:
         
         # Simulate AI strategies
         for ai_metric in comparison.ai_metrics:
-=======
             "simulations": simulations,
             "ai_outcomes": {ai.strategy_name: [] for ai in analysis.ai_metrics},
             "probability_analysis": {},
@@ -580,7 +542,6 @@ class NGSAIPerformanceAnalyzer:
             "confidence_intervals": {},
         }
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         for ai_metric in analysis.ai_metrics:
 >
             print(f"   Simulating {ai_metric.strategy_name}...")
@@ -590,7 +551,6 @@ class NGSAIPerformanceAnalyzer:
             for sim in range(simulations):
                 if sim % 200 == 0:
                     print(f"     Progress: {sim:,}/{simulations:,} simulations")
-<<<<<<< HEAD
 
                 simulated_returns = np.random.choice(ai_returns, len(ai_returns), replace=True)
                 final_return = (np.prod(1 + simulated_returns) - 1) * 100
@@ -605,7 +565,6 @@ class NGSAIPerformanceAnalyzer:
         monte_carlo_results['confidence_intervals'] = self._calculate_confidence_intervals(monte_carlo_results)
         
         # Create Monte Carlo visualizations
-=======
                 simulated_returns = np.random.choice(
                     ai_returns, len(ai_returns), replace=True
                 )
@@ -623,14 +582,10 @@ class NGSAIPerformanceAnalyzer:
         monte_carlo_results["confidence_intervals"] = (
             self._calculate_confidence_intervals(monte_carlo_results)
         )
->>>>>>> c108ef4 (Bypass pre-commit for now)
-
         self._create_monte_carlo_charts(monte_carlo_results)
 
         print(f" Monte Carlo analysis completed")
-
         return monte_carlo_results
-<<<<<<< HEAD
     
     # =============================================================================
     # DETAILED METRICS CALCULATION
@@ -649,12 +604,11 @@ class NGSAIPerformanceAnalyzer:
 
     def _calculate_detailed_metrics(self, backtest_result: BacktestResult, 
                                   strategy_name: str, objective: str) -> PerformanceMetrics:
-=======
 
     def _calculate_detailed_metrics(
         self, backtest_result: BacktestResult, strategy_name: str, objective: str
     ) -> PerformanceMetrics:
->>>>>>> c108ef4 (Bypass pre-commit for now)
+
         """Calculate comprehensive performance metrics for AI strategy"""
 
         if not backtest_result.trades or backtest_result.equity_curve.empty:
@@ -708,7 +662,6 @@ class NGSAIPerformanceAnalyzer:
         total_return_pct = backtest_result.total_return_pct
         days = len(equity_curve)
         years = days / 252.0 if days > 0 else 1
-<<<<<<< HEAD
         annualized_return_pct = ((equity_curve.iloc[-1] / equity_curve.iloc[0]) ** (1/years) - 1) * 100 if years > 0 else 0
         
         # Monthly returns
@@ -730,7 +683,6 @@ class NGSAIPerformanceAnalyzer:
         volatility_annual_pct = daily_returns.std() * np.sqrt(252) * 100 if len(daily_returns) > 1 else 0
         downside_deviation_pct = self._calculate_downside_deviation(daily_returns) * np.sqrt(252) * 100
         
-=======
         annualized_return_pct = (
             ((equity_curve.iloc[-1] / equity_curve.iloc[0]) ** (1 / years) - 1) * 100
             if years > 0
@@ -752,21 +704,17 @@ class NGSAIPerformanceAnalyzer:
             self._calculate_downside_deviation(daily_returns) * np.sqrt(252) * 100
         )
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         sharpe_ratio = backtest_result.sharpe_ratio
         sortino_ratio = self._calculate_sortino_ratio(daily_returns)
         calmar_ratio = (
             annualized_return_pct / max_drawdown_pct if max_drawdown_pct > 0 else 0
         )
         information_ratio = self._calculate_information_ratio(daily_returns)
-<<<<<<< HEAD
         
         # Trading metrics
         profits = [trade['profit'] for trade in trades]
-=======
-
         profits = [trade["profit"] for trade in trades]
->>>>>>> c108ef4 (Bypass pre-commit for now)
+
         wins = [p for p in profits if p > 0]
         losses = [p for p in profits if p < 0]
 
@@ -778,7 +726,6 @@ class NGSAIPerformanceAnalyzer:
         avg_loss_pct = (np.mean(losses) / self.account_size * 100) if losses else 0
         largest_win = max(profits) if profits else 0
         largest_loss = min(profits) if profits else 0
-<<<<<<< HEAD
         
         # Trade duration
         durations = self._calculate_trade_durations(trades)
@@ -798,8 +745,6 @@ class NGSAIPerformanceAnalyzer:
         alpha_annualized = 0.0  # Placeholder
         
         # Custom nGS metrics
-=======
-
         durations = self._calculate_trade_durations(trades)
         avg_trade_duration_days = np.mean(durations) if durations else 0
 
@@ -815,7 +760,6 @@ class NGSAIPerformanceAnalyzer:
             total_return_pct / max_drawdown_pct if max_drawdown_pct > 0 else 0
         )
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         market_correlation = 0.0
         beta = 0.0
         alpha_annualized = 0.0
@@ -862,8 +806,7 @@ class NGSAIPerformanceAnalyzer:
             me_ratio_efficiency=me_ratio_efficiency,
             pattern_success_rate=pattern_success_rate,
         )
-<<<<<<< HEAD
-    
+   
     # =============================================================================
     # ANALYSIS METHODS
     # =============================================================================
@@ -992,12 +935,10 @@ class NGSAIPerformanceAnalyzer:
         all_strategies = [original] + ai_metrics
 
     def _generate_ai_recommendations(self, ai_metrics: List[PerformanceMetrics]) -> Dict[str, Any]:
-=======
-
     def _generate_ai_recommendations(
         self, ai_metrics: List[PerformanceMetrics]
     ) -> Dict[str, Any]:
->>>>>>> c108ef4 (Bypass pre-commit for now)
+
         """Generate recommendations for AI strategies"""
         if not ai_metrics:
             return {
@@ -1033,13 +974,11 @@ class NGSAIPerformanceAnalyzer:
             reasons.append(f"High win rate achieved ({best_win_rate:.1%})")
 
         all_strategies = ai_metrics
-<<<<<<< HEAD
         best_return_strategy = max(all_strategies, key=lambda x: x.total_return_pct).strategy_name
         best_risk_strategy = min(all_strategies, key=lambda x: x.max_drawdown_pct).strategy_name
         best_efficiency_strategy = max(all_strategies, key=lambda x: x.sharpe_ratio).strategy_name
         
         # Overall best (composite score)
-=======
         best_return_strategy = max(
             all_strategies, key=lambda x: x.total_return_pct
         ).strategy_name
@@ -1050,7 +989,6 @@ class NGSAIPerformanceAnalyzer:
             all_strategies, key=lambda x: x.sharpe_ratio
         ).strategy_name
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         def composite_score(metric):
             return (
                 metric.total_return_pct / 100 * 0.4
@@ -1059,7 +997,6 @@ class NGSAIPerformanceAnalyzer:
             )
 
         best_overall_strategy = max(all_strategies, key=composite_score).strategy_name
-<<<<<<< HEAD
         
         # Generate allocation recommendations
         recommended_allocation = self._calculate_optimal_allocation(original, ai_metrics, score)
@@ -1127,9 +1064,9 @@ class NGSAIPerformanceAnalyzer:
         
         # Generate HTML report
         html_content = self._create_html_report(comparison)
-=======
+
             'best_efficiency_strategy': best_efficiency_strategy
-=======
+
 
         return {
             "recommendation_score": min(score, 100.0),
@@ -1138,7 +1075,6 @@ class NGSAIPerformanceAnalyzer:
             "best_return_strategy": best_return_strategy,
             "best_risk_strategy": best_risk_strategy,
             "best_efficiency_strategy": best_efficiency_strategy,
->>>>>>> c108ef4 (Bypass pre-commit for now)
         }
 
     def _generate_analysis_report(self, analysis: AIAnalysis):
@@ -1147,7 +1083,6 @@ class NGSAIPerformanceAnalyzer:
         report_file = os.path.join(self.reports_dir, f"ai_performance_{timestamp}.html")
 
         html_content = self._create_html_report(analysis)
-<<<<<<< HEAD
     
         with open(report_file, 'w') as f:
             f.write(html_content)
@@ -1161,8 +1096,8 @@ class NGSAIPerformanceAnalyzer:
         with open(json_file, 'w') as f:
             json.dump(self._serialize_analysis(analysis), f, indent=2)
         
-        print(f"✅ Performance report saved: {report_file}")
-        print(f"✅ Performance data saved: {json_file}")
+        print(f" Performance report saved: {report_file}")
+        print(f" Performance data saved: {json_file}")
     
     def _create_performance_visualizations(self, comparison: ComparisonAnalysis):
         """Create comprehensive performance visualizations"""
@@ -1199,7 +1134,6 @@ class NGSAIPerformanceAnalyzer:
         
         # Save chart
         chart_file = os.path.join(self.charts_dir, f"performance_comparison_{timestamp}.png")
-=======
 
         with open(report_file, "w") as f:
             f.write(html_content)
@@ -1212,7 +1146,6 @@ class NGSAIPerformanceAnalyzer:
 
         print(f" Performance report saved: {report_file}")
         print(f" Performance data saved: {json_file}")
->>>>>>> c108ef4 (Bypass pre-commit for now)
 
     def _create_performance_visualizations(self, analysis: AIAnalysis):
         """Create performance visualizations for AI strategies"""
@@ -1236,19 +1169,15 @@ class NGSAIPerformanceAnalyzer:
         chart_file = os.path.join(self.charts_dir, f"ai_performance_{timestamp}.png")
         plt.savefig(chart_file, dpi=300, bbox_inches="tight")
         plt.close()
-<<<<<<< HEAD
-        
-        print(f"✅ Performance charts saved: {chart_file}")
+    
+        print(f" Performance charts saved: {chart_file}")
     
     # =============================================================================
     # UTILITY METHODS
     # =============================================================================
-=======
-=======
 
-        print(f" Performance charts saved: {chart_file}")
+		print(f" Performance charts saved: {chart_file}")
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
     def _plot_returns(self, ax, analysis: AIAnalysis):
         """Plot AI strategy returns"""
         strategies = [ai.strategy_name for ai in analysis.ai_metrics]
@@ -1302,14 +1231,10 @@ class NGSAIPerformanceAnalyzer:
         """Calculate monthly returns from equity curve"""
         if equity_curve.empty:
             return pd.Series([])
-<<<<<<< HEAD
         
         # Resample to monthly and calculate returns
         monthly_equity = equity_curve.resample('M').last()
-=======
-
         monthly_equity = equity_curve.resample("M").last()
->>>>>>> c108ef4 (Bypass pre-commit for now)
         monthly_returns = monthly_equity.pct_change().dropna()
 
         return monthly_returns
@@ -1408,15 +1333,11 @@ class NGSAIPerformanceAnalyzer:
             for trade in trades
         ]
         avg_trade_size = np.mean(trade_sizes) if trade_sizes else 0
-<<<<<<< HEAD
-        
+       
         # Efficiency = profit per dollar invested
 
         total_profit = sum(trade['profit'] for trade in trades)
-=======
-
         total_profit = sum(trade["profit"] for trade in trades)
->>>>>>> c108ef4 (Bypass pre-commit for now)
         total_invested = sum(trade_sizes)
 
         return (total_profit / total_invested * 100) if total_invested > 0 else 0
@@ -1425,25 +1346,18 @@ class NGSAIPerformanceAnalyzer:
         """Calculate pattern-specific success rate"""
         if not trades:
             return 0.0
-<<<<<<< HEAD
         
         # Group trades by pattern type if available
-=======
->>>>>>> c108ef4 (Bypass pre-commit for now)
-
         pattern_performance = defaultdict(list)
 
         for trade in trades:
-<<<<<<< HEAD
             pattern = trade.get('pattern', 'unknown')
             pattern_performance[pattern].append(trade['profit'])
         
         # Calculate overall pattern success
-=======
             pattern = trade.get("pattern", "unknown")
             pattern_performance[pattern].append(trade["profit"])
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
         total_patterns = len(pattern_performance)
         successful_patterns = 0
 
@@ -1467,18 +1381,14 @@ class NGSAIPerformanceAnalyzer:
 
         daily_return_mean = annual_return / 252
         daily_return_std = annual_vol / np.sqrt(252)
-<<<<<<< HEAD
         
         # Generate synthetic daily returns
-        days = max(252, metrics.total_trades * 5)  # Estimate trading days
-=======
->>>>>>> c108ef4 (Bypass pre-commit for now)
-
+        days = max(252, metrics.total_trades * 5) 
+		# Estimate trading days
         days = max(252, metrics.total_trades * 5)
         daily_returns = np.random.normal(daily_return_mean, daily_return_std, days)
 
         return daily_returns
-<<<<<<< HEAD
     # =============================================================================
     # PLACEHOLDER VISUALIZATION METHODS
     # =============================================================================
@@ -1558,10 +1468,8 @@ class NGSAIPerformanceAnalyzer:
     # ADDITIONAL PLACEHOLDER METHODS
     # =============================================================================
     
-=======
     def _create_rolling_windows(self, start_date: datetime, end_date: datetime,
                               window_months: int, step_months: int) -> List[Tuple]:
-=======
 
     def _create_rolling_windows(
         self,
@@ -1570,7 +1478,7 @@ class NGSAIPerformanceAnalyzer:
         window_months: int,
         step_months: int,
     ) -> List[Tuple]:
->>>>>>> c108ef4 (Bypass pre-commit for now)
+
         """Create rolling windows for analysis"""
         windows = []
         current_start = start_date
@@ -1606,18 +1514,16 @@ class NGSAIPerformanceAnalyzer:
 
         for strategy_id, ai_returns in rolling_results["ai_performance"].items():
             if ai_returns:
-<<<<<<< HEAD
                 consistency_metrics[f'{strategy_id}_consistency'] = {
 
                     'return_std': np.std(ai_returns),
                     'positive_windows': len([r for r in ai_returns if r > 0]),
                     'total_windows': len(ai_returns)
-=======
+
                 consistency_metrics[f"{strategy_id}_consistency"] = {
                     "return_std": np.std(ai_returns),
                     "positive_windows": len([r for r in ai_returns if r > 0]),
                     "total_windows": len(ai_returns),
->>>>>>> c108ef4 (Bypass pre-commit for now)
                 }
 
         return consistency_metrics
@@ -1631,10 +1537,9 @@ class NGSAIPerformanceAnalyzer:
 
     def _create_rolling_performance_charts(self, rolling_results: Dict):
         """Create rolling performance visualization"""
-<<<<<<< HEAD
         # Placeholder for rolling performance charts
 
-        print("   📊 Rolling performance charts created")
+        print("  Rolling performance charts created")
     
     def _analyze_monte_carlo_probabilities(self, monte_carlo_results: Dict) -> Dict:
         """Analyze Monte Carlo simulation probabilities"""
@@ -1644,14 +1549,13 @@ class NGSAIPerformanceAnalyzer:
             'probability_positive_returns': 'Placeholder'
         }
     
-=======
+
         print("    Rolling performance charts created")
 
     def _analyze_monte_carlo_probabilities(self, monte_carlo_results: Dict) -> Dict:
         """Analyze Monte Carlo simulation probabilities"""
         return {"probability_positive_returns": "Placeholder"}
 
->>>>>>> c108ef4 (Bypass pre-commit for now)
     def _assess_monte_carlo_risks(self, monte_carlo_results: Dict) -> Dict:
         """Assess risks from Monte Carlo analysis"""
         return {
@@ -1665,8 +1569,7 @@ class NGSAIPerformanceAnalyzer:
 
     def _create_monte_carlo_charts(self, monte_carlo_results: Dict):
         """Create Monte Carlo visualization"""
-<<<<<<< HEAD
-        print("   🎲 Monte Carlo charts created")
+        print("  Monte Carlo charts created")
     
     def _create_html_report(self, comparison: ComparisonAnalysis) -> str:
         """Create HTML performance report"""
@@ -1688,23 +1591,21 @@ class NGSAIPerformanceAnalyzer:
 
 def demonstrate_performance_comparator():
     """Demonstrate the performance comparator capabilities"""
-    print("\n📊 nGS AI PERFORMANCE COMPARATOR DEMONSTRATION")
+    print("\n nGS AI PERFORMANCE COMPARATOR DEMONSTRATION")
     print("=" * 60)
     
     # Initialize performance comparator
     comparator = NGSAIPerformanceComparator(account_size=1000000)
     
-    print(f"\n🎯 Advanced Performance Analysis Features:")
-    print(f"   ✅ Comprehensive Strategy Comparison")
-    print(f"   ✅ Statistical Significance Testing")
-    print(f"   ✅ Rolling Performance Analysis")
-    print(f"   ✅ Monte Carlo Robustness Testing")
-    print(f"   ✅ Detailed Performance Metrics (40+ metrics)")
-    print(f"   ✅ Automated Strategy Recommendations")
-    print(f"   ✅ Optimal Allocation Calculations")
-=======
+    print(f"\n Advanced Performance Analysis Features:")
+    print(f"   Comprehensive Strategy Comparison")
+    print(f"   Statistical Significance Testing")
+    print(f"   Rolling Performance Analysis")
+    print(f"   Monte Carlo Robustness Testing")
+    print(f"   Detailed Performance Metrics (40+ metrics)")
+    print(f"   Automated Strategy Recommendations")
+    print(f"   Optimal Allocation Calculations")
         print("    Monte Carlo charts created")
->>>>>>> c108ef4 (Bypass pre-commit for now)
 
     def _create_html_report(self, analysis: AIAnalysis) -> str:
         """Create HTML performance report"""
@@ -1730,47 +1631,44 @@ def demonstrate_performance_analyzer():
     print("=" * 60)
 
     comparator = NGSAIPerformanceAnalyzer(account_size=1000000)
-<<<<<<< HEAD
     
-    print(f"\n🎯 AI Performance Analysis Features:")
-    print(f"   ✅ Detailed AI Strategy Analysis")
-    print(f"   ✅ Rolling Performance Analysis")
-    print(f"   ✅ Monte Carlo Robustness Testing")
-    print(f"   ✅ Detailed Performance Metrics (30+ metrics)")
-    print(f"   ✅ Automated Strategy Recommendations")
-    print(f"   ✅ Professional Reporting & Visualization")
+    print(f"\n AI Performance Analysis Features:")
+    print(f"   Detailed AI Strategy Analysis")
+    print(f"   Rolling Performance Analysis")
+    print(f"   Monte Carlo Robustness Testing")
+    print(f"   Detailed Performance Metrics (30+ metrics)")
+    print(f"   Automated Strategy Recommendations")
+    print(f"   Professional Reporting & Visualization")
     
-    print(f"\n📈 Performance Metrics Included:")
-    print(f"   📊 Return Metrics: Total, annualized, monthly statistics")
-    print(f"   📉 Risk Metrics: Drawdown, volatility, downside deviation")
-    print(f"   ⚖️ Risk-Adjusted: Sharpe, Sortino, Calmar, Information ratios")
-    print(f"   🎯 Trading Stats: Win rate, profit factor, trade duration")
-    print(f"   📋 Consistency: Monthly win rate, streak analysis")
-    print(f"   🎯 nGS-Specific: M/E efficiency, pattern success rate")
+    print(f"\n Performance Metrics Included:")
+    print(f"   Return Metrics: Total, annualized, monthly statistics")
+    print(f"   Risk Metrics: Drawdown, volatility, downside deviation")
+    print(f"   Risk-Adjusted: Sharpe, Sortino, Calmar, Information ratios")
+    print(f"   Trading Stats: Win rate, profit factor, trade duration")
+    print(f"   Consistency: Monthly win rate, streak analysis")
+    print(f"   nGS-Specific: M/E efficiency, pattern success rate")
     
-    print(f"\n🔬 Analysis Capabilities:")
-    print(f"   🧪 Statistical Tests: T-tests for significance")
-    print(f"   📈 Rolling Analysis: Performance over time windows")
-    print(f"   🎲 Monte Carlo: Robustness simulation testing")
-    print(f"   📊 Superiority Analysis: Multi-dimensional comparison")
-    print(f"   💰 Allocation Optimization: Capital allocation recommendations")
+    print(f"\n Analysis Capabilities:")
+    print(f"   Statistical Tests: T-tests for significance")
+    print(f"   Rolling Analysis: Performance over time windows")
+    print(f"   Monte Carlo: Robustness simulation testing")
+    print(f"   Superiority Analysis: Multi-dimensional comparison")
+    print(f"   Allocation Optimization: Capital allocation recommendations")
 
 if __name__ == "__main__":
-    print("📊 nGS AI PERFORMANCE COMPARATOR")
+    print(" nGS AI PERFORMANCE COMPARATOR")
     print("=" * 60)
-    print("🔬 Advanced performance analysis and comparison system")
-    print("📈 Compare original nGS vs AI strategies with statistical rigor")
+    print(" Advanced performance analysis and comparison system")
+    print(" Compare original nGS vs AI strategies with statistical rigor")
     
     # Run demonstration
     demonstrate_performance_comparator()
     
-    print(f"\n✅ PERFORMANCE COMPARATOR READY!")
-    print("\n🚀 Usage Examples:")
+    print(f"\n PERFORMANCE COMPARATOR READY!")
+    print("\n Usage Examples:")
     print("   comparator.comprehensive_comparison(data, objectives)")
     print("   comparator.rolling_performance_analysis(data, objectives)")
     print("   comparator.monte_carlo_analysis(comparison_result)")
-=======
-
     print(f"\n AI Performance Analysis Features:")
     print(f"    Detailed AI Strategy Analysis")
     print(f"    Rolling Performance Analysis")
@@ -1778,7 +1676,6 @@ if __name__ == "__main__":
     print(f"    Detailed Performance Metrics (30+ metrics)")
     print(f"    Automated Strategy Recommendations")
     print(f"    Professional Reporting & Visualization")
-
     print(f"\n Performance Metrics Included:")
     print(f"    Return Metrics: Total, annualized, monthly statistics")
     print(f"    Risk Metrics: Drawdown, volatility, downside deviation")
@@ -1786,8 +1683,6 @@ if __name__ == "__main__":
     print(f"    Trading Stats: Win rate, profit factor, trade duration")
     print(f"    Consistency: Monthly win rate, streak analysis")
     print(f"    nGS-Specific: M/E efficiency, pattern success rate")
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
 
 if __name__ == "__main__":
     print(" nGS AI PERFORMANCE ANALYZER")
@@ -1801,8 +1696,3 @@ if __name__ == "__main__":
     print("   analyzer.analyze_ai_strategies(strategies, data)")
     print("   analyzer.rolling_performance_analysis(data, strategies)")
     print("   analyzer.monte_carlo_analysis(analysis_result)")
-
-<<<<<<< HEAD
-=======
-
->>>>>>> c108ef4 (Bypass pre-commit for now)
