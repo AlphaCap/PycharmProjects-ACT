@@ -1,578 +1,358 @@
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any, Union
-from datetime import datetime, timedelta
-import logging
-import json
+# Python
+from __future__ import annotations
+
 import os
-from shared_utils import load_polygon_data
-from data_utils import load_polygon_data
-from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
-from performance_objectives import ObjectiveManager
-from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
-from data_manager import save_trades, save_positions, load_price_data
+import json
+import logging
+from datetime import datetime
+from typing import Dict, Any, List
+
+import numpy as np
+import pandas as pd
 from sklearn.linear_model import LinearRegression
-import matplotlib.pyplot as plt
+
+from performance_objectives import ObjectiveManager
 from ngs_integrated_ai_system import NGSIndicatorLibrary, NGSAwareStrategyGenerator
 
+# Persist using data_manager (consistent with your repository)
+from data_manager import save_trades as dm_save_trades, save_positions as dm_save_positions
+
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 class NGSAIIntegrationManager:
-    def __init__(self, account_size: float = 1000000, data_dir: str = 'data'):
-        self.account_size = account_size
-        self.data_dir = data_dir
-      
-        from nGS_Revised_Strategy import NGSStrategy
-        self.original_ngs = NGSStrategy(account_size=account_size, data_dir=data_dir)
-        
-        from nGS_Revised_Strategy import NGSStrategy
-        self.original_ngs = NGSStrategy(account_size=account_size, data_dir=data_dir)
+    """
+    AI-only integration manager.
+    - Uses ObjectiveManager + NGSAwareStrategyGenerator to create symbol strategies
+    - Executes per-symbol strategies, generating closed trades and positions
+    - Saves trades and positions via data_manager
+    - Provides evaluate_linear_equity (used by Streamlit page)
+    """
 
-        # Initialize AI components
+    def __init__(self, account_size: float = 1_000_000, data_dir: str = "data"):
+        self.account_size = float(account_size)
+        self.data_dir = data_dir
+
+        # AI components
         self.ngs_indicator_lib = NGSIndicatorLibrary()
         self.objective_manager = ObjectiveManager()
-        # Debugging statements
-        print("ObjectiveManager initialized:", isinstance(self.objective_manager, ObjectiveManager))
-        print("Available methods in ObjectiveManager:", dir(self.objective_manager))
-        print("Primary objective (test):", self.objective_manager.get_primary_objective())
         self.ai_generator = NGSAwareStrategyGenerator(self.ngs_indicator_lib, self.objective_manager)
-        logger.info("Initialized NGSIndicatorLibrary and NGSAwareStrategyGenerator from ngs_ai_components")
 
-        self.active_strategies = {}
-        self.strategy_performance = {}
-        self.operating_mode = 'ai_only'
+        # State
+        self.active_strategies: Dict[str, Any] = {}
+        self.strategy_performance: Dict[str, Any] = {}
+
+        # AI-only configuration
+        self.operating_mode = "ai_only"
         self.integration_config = {
-            'ai_allocation_pct': 100.0,
-            'max_ai_strategies': 3,
-            'rebalance_frequency': 'weekly',
-            'performance_tracking': True,
-            'risk_sync': False,
+            "ai_allocation_pct": 100.0,
+            "max_ai_strategies": 3,
+            "rebalance_frequency": "weekly",
+            "performance_tracking": True,
+            "risk_sync": False,
         }
+
+        # Execution config
+        self.execution_config = {
+            "commission_per_trade": 1.0,  # $1 commission per closed trade
+            "slippage_pct": 0.05,         # 0.05% slippage
+        }
+
+        # Output
         self.results_dir = os.path.join(self.data_dir, "integration_results")
         os.makedirs(self.results_dir, exist_ok=True)
 
-        print("🎯 nGS AI Integration Manager initialized")
-        print(f"   AI Generator:        Ready with YOUR parameters")
-        print(f"   Operating Mode:      {self.operating_mode}")
-        print(f"   Integration Config:  {self.integration_config['ai_allocation_pct']:.0f}% AI")
+        logger.info("NGS AI Integration Manager initialized (AI-only)")
 
-        print("  nGS AI Integration Manager initialized")
-        print(f"   AI Generator:        Ready with YOUR parameters")
-        print(f"   Operating Mode:      {self.operating_mode}")
-        print(f"   Integration Config:  {self.integration_config['ai_allocation_pct']:.0f}% AI")
+    # --------------------------------------------------------------------------------
+    # Public API
+    # --------------------------------------------------------------------------------
 
     def set_operating_mode(self, mode: str) -> None:
-        """Set operating mode for the integration manager."""
-        valid_modes = ['ai_only', 'comparison']
+        """
+        Remains for compatibility; AI-only enforced.
+        """
+        valid_modes = ["ai_only"]
         if mode not in valid_modes:
             raise ValueError(f"Mode must be one of {valid_modes}")
         self.operating_mode = mode
         logger.info(f"Operating mode set to: {mode}")
-        print(f"🔄 Operating mode updated to: {mode}")
 
-    def create_ai_strategy_set(self, data: Dict[str, pd.DataFrame], objective: str) -> Dict[str, TradingStrategy]:
-        """Create a set of AI-generated strategies for given data and objective."""
-        strategies = {}
+    def evaluate_linear_equity(self, equity_curve: pd.Series | list | None) -> float:
+        """
+        R² of a linear fit to the equity curve (0..1). Returns 0 if not enough data.
+        """
+        try:
+            if equity_curve is None:
+                return 0.0
+            y = pd.Series(equity_curve).dropna().astype(float)
+            if y.empty or len(y) < 3:
+                return 0.0
+            x = np.arange(len(y)).reshape(-1, 1)
+            model = LinearRegression()
+            model.fit(x, y.values)
+            y_hat = model.predict(x)
+            ss_res = float(np.sum((y.values - y_hat) ** 2))
+            ss_tot = float(np.sum((y.values - np.mean(y.values)) ** 2))
+            r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
+            return max(0.0, min(1.0, float(r2)))
+        except Exception as e:
+            logger.warning(f"evaluate_linear_equity failed: {e}")
+            return 0.0
+
+    def create_ai_strategy_set(self, data: Dict[str, pd.DataFrame], objective: str) -> Dict[str, Any]:
+        """
+        Create per-symbol AI strategies for the selected objective.
+        """
+        strategies: Dict[str, Any] = {}
         for symbol, df in data.items():
             try:
-                strategy = self.ai_generator.generate_strategy_for_objective(objective)
-                strategy.data = df
-                strategies[symbol] = strategy
+                strat = self.ai_generator.generate_strategy_for_objective(objective)
+                strat.data = df
+                strategies[symbol] = strat
                 logger.debug(f"Generated AI strategy for {symbol}")
             except Exception as e:
-                logger.error(f"Failed to generate strategy for {symbol}: {str(e)}")
+                logger.error(f"Failed to generate strategy for {symbol}: {e}")
         return strategies
 
-    def _run_original_strategy(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
-        """Run the original nGS strategy for comparison."""
-        results = {}
-        for symbol, df in data.items():
-            try:
-                self.original_ngs.process_symbol(df, symbol)
-                trades = load_trades(symbol, self.data_dir)
-                positions = load_positions(symbol, self.data_dir)
-                results[symbol] = {
-                    'trades': trades,
-                    'positions': positions,
-                    'performance': self.original_ngs.calculate_performance(symbol)
-                }
-                logger.debug(f"Processed original nGS strategy for {symbol}")
-            except Exception as e:
-                logger.error(f"Error processing original strategy for {symbol}: {str(e)}")
-        return results
-
-   # Line ~95: Add debugging inside `_run_ai_strategies_only`
-def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
-    """Run AI-generated strategies exclusively."""
-    results = {}
-
-def _run_ai_strategies_only(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
-    """Run AI-generated strategies exclusively."""
-    results = {}
-
-    # Debugging before objective retrieval
-    print("Debug: Checking ObjectiveManager instance...")
-    print("ObjectiveManager type:", type(self.objective_manager))
-    print("Available methods:", dir(self.objective_manager))
-
-    # Objective retrieval
-    objective = self.objective_manager.get_primary_objective()  # This is where the error occurs
-    print("Primary objective retrieved:", objective)
+    def run_integrated_strategy(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
+        """
+        Executes AI strategies only, per symbol.
+        Returns:
+            {
+              "<SYMBOL>": {
+                 "trades": [closed-trade dicts],
+                 "positions": [closed position dicts],
+                 "performance": {"sharpe": float, "total_return": float},
+                 "equity_curve": pd.Series
+              },
+              ...
+            }
+        """
+        logger.info("Running integrated AI strategy (AI-only)")
+        objective = self._get_primary_objective_safe()
         self.active_strategies = self.create_ai_strategy_set(data, objective)
-        
+
+        results: Dict[str, Dict[str, Any]] = {}
         for symbol, strategy in self.active_strategies.items():
             try:
-                trades = []
-                positions = []
-                for i in range(len(strategy.data)):
-                    signal = strategy.generate_signal(strategy.data.iloc[i])
-                    if signal == 1:
-                        trades.append({
-                            'symbol': symbol,
-                            'timestamp': strategy.data.index[i],
-                            'price': strategy.data['Close'].iloc[i],
-                            'type': 'buy',
-                            'shares': int(self.account_size / strategy.data['Close'].iloc[i] / len(data))
-                        })
-                    elif signal == -1:
-                        trades.append({
-                            'symbol': symbol,
-                            'timestamp': strategy.data.index[i],
-                            'price': strategy.data['Close'].iloc[i],
-                            'type': 'sell',
-                            'shares': int(self.account_size / strategy.data['Close'].iloc[i] / len(data))
-                        })
-                
-                save_trades(symbol, trades, self.data_dir)
-                positions = self._calculate_positions(trades, strategy.data)
-                save_positions(symbol, positions, self.data_dir)
-                
+                sym_res = self._execute_symbol_ai(symbol, strategy, data)
+                results[symbol] = sym_res
+            except Exception as e:
+                logger.error(f"Execution failed for {symbol}: {e}")
                 results[symbol] = {
-                    'trades': trades,
-                    'positions': positions,
-                    'performance': self._calculate_performance(trades, strategy.data)
+                    "trades": [],
+                    "positions": [],
+                    "performance": {"sharpe": 0.0, "total_return": 0.0},
+                    "equity_curve": pd.Series(dtype=float),
                 }
-                logger.debug(f"Processed AI strategy for {symbol}")
-            except Exception as e:
-                logger.error(f"Error processing AI strategy for {symbol}: {str(e)}")
-        
+
+        self.strategy_performance = results
         return results
-    
-    def _calculate_positions(self, trades: List[Dict], data: pd.DataFrame) -> List[Dict]:
-        """Calculate positions from trades."""
-        positions = []
-        current_position = 0
-        entry_price = 0
-        entry_time = None
-        
-        for trade in trades:
-            if trade['type'] == 'buy':
-                if current_position == 0:
-                    current_position = trade['shares']
-                    entry_price = trade['price']
-                    entry_time = trade['timestamp']
-            elif trade['type'] == 'sell' and current_position > 0:
-                positions.append({
-                    'symbol': trade['symbol'],
-                    'entry_time': entry_time,
-                    'exit_time': trade['timestamp'],
-                    'entry_price': entry_price,
-                    'exit_price': trade['price'],
-                    'shares': current_position
-                })
-                current_position = 0
-                entry_price = 0
-                entry_time = None
-        
-        return positions
-    
-    def _calculate_performance(self, trades: List[Dict], data: pd.DataFrame) -> Dict[str, float]:
-        """Calculate performance metrics for a set of trades."""
-        returns = []
-        for trade in trades:
-            if trade['type'] == 'sell':
-                entry_price = next((t['price'] for t in trades[::-1] if t['type'] == 'buy' and t['timestamp'] < trade['timestamp']), None)
-                if entry_price:
-                    returns.append((trade['price'] - entry_price) / entry_price)
-        
-        if not returns:
-            return {'sharpe': 0.0, 'total_return': 0.0}
-        
-        returns = np.array(returns)
-        mean_return = np.mean(returns)
-        std_return = np.std(returns) if len(returns) > 1 else 1.0
-        sharpe = mean_return / std_return * np.sqrt(252) if std_return != 0 else 0.0
-        total_return = np.prod(1 + returns) - 1
-        
-        return {
-            'sharpe': sharpe,
-            'total_return': total_return
-        }
-    
-    def run_integrated_strategy(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
-        """Run integrated AI and nGS strategy based on operating mode."""
-        logger.info(f"Running integrated strategy in {self.operating_mode} mode")
-        
-        if self.operating_mode == 'ai_only':
-            results = self._run_ai_strategies_only(data)
-        else:  # comparison mode
-            ai_results = self._run_ai_strategies_only(data)
-            original_results = self._run_original_strategy(data)
-            results = {
-                'ai': ai_results,
-                'original': original_results,
-                'comparison': self._compare_strategies(ai_results, original_results)
-            }
-        
-        self.strategy_performance.update(results)
-        return results
-    
-    def _compare_strategies(self, ai_results: Dict, original_results: Dict) -> Dict[str, Any]:
-        """Compare AI and original strategy performance."""
-        comparison = {}
-        for symbol in ai_results.keys():
-            try:
-                ai_perf = ai_results[symbol]['performance']
-                orig_perf = original_results.get(symbol, {}).get('performance', {'sharpe': 0.0, 'total_return': 0.0})
-                
-                comparison[symbol] = {
-                    'ai_sharpe': ai_perf['sharpe'],
-                    'original_sharpe': orig_perf['sharpe'],
-                    'ai_total_return': ai_perf['total_return'],
-                    'original_total_return': orig_perf['total_return'],
-                    'sharpe_diff': ai_perf['sharpe'] - orig_perf['sharpe'],
-                    'return_diff': ai_perf['total_return'] - orig_perf['total_return']
-                }
-            except Exception as e:
-                logger.error(f"Error comparing strategies for {symbol}: {str(e)}")
-                comparison[symbol] = {}
-        
-        return comparison
-    
+
     def rebalance_portfolio(self, data: Dict[str, pd.DataFrame]) -> None:
-        """Rebalance portfolio based on AI strategy performance."""
-        if self.integration_config['rebalance_frequency'] == 'weekly':
-            current_time = datetime.now()
-            if current_time.weekday() != 0:  # Not Monday
-                logger.debug("Skipping rebalance: not a Monday")
+        """
+        Retained for compatibility. Uses current strategy_performance to refresh strategies.
+        """
+        if self.integration_config.get("rebalance_frequency") == "weekly":
+            now = datetime.now()
+            if now.weekday() != 0:  # Monday
+                logger.debug("Skipping rebalance (not Monday)")
                 return
-        
-        performance = self.strategy_performance
-        allocations = {}
-        total_weight = 0
-        
-        for symbol, result in performance.items():
-            if isinstance(result, dict) and 'performance' in result:
-                weight = result['performance']['sharpe'] if result['performance']['sharpe'] > 0 else 0
-                allocations[symbol] = weight
-                total_weight += weight
-        
-        if total_weight == 0:
-            logger.warning("No positive Sharpe ratios found for rebalancing")
-            return
-        
-        for symbol in allocations:
-            allocations[symbol] = (allocations[symbol] / total_weight) * self.integration_config['ai_allocation_pct']
-            logger.debug(f"Rebalanced allocation for {symbol}: {allocations[symbol]:.2f}%")
-        
-        # Update active strategies based on new allocations
-        objective = self.objective_manager.get_primary_objective()
+
+        # Refresh strategies using the same primary objective
+        objective = self._get_primary_objective_safe()
         self.active_strategies = self.create_ai_strategy_set(data, objective)
-        logger.info("Portfolio rebalanced based on performance")
-    
+        logger.info("Portfolio rebalanced based on AI strategy configuration")
+
     def save_integration_session(self, results: Dict[str, Any], filename: str = "integration_results.json") -> None:
-        """Save integration results to a file."""
+        """
+        Save results JSON under data/integration_results/
+        """
         try:
             output_path = os.path.join(self.results_dir, filename)
-            with open(output_path, 'w') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=2, default=str)
             logger.info(f"Saved integration results to {output_path}")
         except Exception as e:
-            logger.error(f"Failed to save integration results: {str(e)}")
-    
-    def plot_performance_comparison(self, results: Dict[str, Any]) -> None:
-        """Plot performance comparison between AI and original strategies."""
-        if 'comparison' not in results:
-            logger.warning("No comparison data available for plotting")
-            return
-        
-        plt.figure(figsize=(12, 6))
-        symbols = list(results['comparison'].keys())
-        ai_sharpes = [results['comparison'][s]['ai_sharpe'] for s in symbols]
-        orig_sharpes = [results['comparison'][s]['original_sharpe'] for s in symbols]
-        
-        x = np.arange(len(symbols))
-        width = 0.35
-        
-        plt.bar(x - width/2, ai_sharpes, width, label='AI Strategy')
-        plt.bar(x + width/2, orig_sharpes, width, label='Original nGS')
-        
-        plt.xlabel('Symbols')
-        plt.ylabel('Sharpe Ratio')
-        plt.title('AI vs Original nGS Strategy Performance')
-        plt.xticks(x, symbols, rotation=45)
-        plt.legend()
-        plt.tight_layout()
-        
-        plot_path = os.path.join(self.results_dir, 'performance_comparison.png')
-        plt.savefig(plot_path)
-        plt.close()
-        logger.info(f"Saved performance comparison plot to {plot_path}")
+            logger.error(f"Failed to save integration results: {e}")
 
-    # Objective retrieval
-    objective = self.objective_manager.get_primary_objective()  # This is where the error occurs
-    print("Primary objective retrieved:", objective)
-    self.active_strategies = self.create_ai_strategy_set(data, objective)
+    # --------------------------------------------------------------------------------
+    # Internals
+    # --------------------------------------------------------------------------------
 
-    for symbol, strategy in self.active_strategies.items():
+    def _get_primary_objective_safe(self) -> str:
         try:
-            trades = []
-            positions = []
-            for i in range(len(strategy.data)):
-                signal = strategy.generate_signal(strategy.data.iloc[i])
-                if signal == 1:
-                    trades.append({
-                        'symbol': symbol,
-                        'timestamp': strategy.data.index[i],
-                        'price': strategy.data['Close'].iloc[i],
-                        'type': 'buy',
-                        'shares': int(self.account_size / strategy.data['Close'].iloc[i] / len(data))
-                    })
-                elif signal == -1:
-                    trades.append({
-                        'symbol': symbol,
-                        'timestamp': strategy.data.index[i],
-                        'price': strategy.data['Close'].iloc[i],
-                        'type': 'sell',
-                        'shares': int(self.account_size / strategy.data['Close'].iloc[i] / len(data))
-                    })
+            if hasattr(self.objective_manager, "get_primary_objective"):
+                return self.objective_manager.get_primary_objective()
+            return "linear_equity"
+        except Exception:
+            return "linear_equity"
 
-            save_trades(symbol, trades, self.data_dir)
-            positions = self._calculate_positions(trades, strategy.data)
-            save_positions(symbol, positions, self.data_dir)
-
-            results[symbol] = {
-                'trades': trades,
-                'positions': positions,
-                'performance': self._calculate_performance(trades, strategy.data)
+    def _execute_symbol_ai(self, symbol: str, strategy: Any, all_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+        """
+        Execute an AI strategy on the symbol's data. Builds closed trades and positions,
+        computes performance, and saves via data_manager.
+        """
+        df = strategy.data
+        if df is None or df.empty:
+            return {
+                "trades": [],
+                "positions": [],
+                "performance": {"sharpe": 0.0, "total_return": 0.0},
+                "equity_curve": pd.Series(dtype=float),
             }
-            logger.debug(f"Processed AI strategy for {symbol}")
-        except Exception as e:
-            logger.error(f"Error processing AI strategy for {symbol}: {str(e)}")
 
-    return results
+        # Normalize index/time
+        idx = pd.to_datetime(df["Date"]) if "Date" in df.columns else pd.to_datetime(df.index)
 
-def _calculate_positions(self, trades: List[Dict], data: pd.DataFrame) -> List[Dict]:
-    """Calculate positions from trades."""
-    positions = []
-    current_position = 0
-    entry_price = 0
-    entry_time = None
+        # Position sizing (divide capital across symbols)
+        per_symbol_budget = max(self.account_size / max(len(all_data), 1), 1.0)
 
-    for trade in trades:
-        if trade['type'] == 'buy':
-            if current_position == 0:
-                current_position = trade['shares']
-                entry_price = trade['price']
-                entry_time = trade['timestamp']
-        elif trade['type'] == 'sell' and current_position > 0:
-            positions.append({
-                'symbol': trade['symbol'],
-                'entry_time': entry_time,
-                'exit_time': trade['timestamp'],
-                'entry_price': entry_price,
-                'exit_price': trade['price'],
-                'shares': current_position
-            })
-            current_position = 0
-            entry_price = 0
-            entry_time = None
+        # Execution state
+        open_shares = 0
+        entry_price = 0.0
+        entry_time = None
 
-    return positions
+        closed_trades: List[Dict] = []
+        equity_vals: List[float] = []
+        equity = per_symbol_budget
 
+        for i in range(len(df)):
+            row = df.iloc[i]
+            ts = idx[i]
+            price = float(row["Close"]) if "Close" in df.columns else float(row.get("close", np.nan))
+            if np.isnan(price):
+                equity_vals.append(equity if equity_vals else per_symbol_budget)
+                continue
 
-def _calculate_performance(self, trades: List[Dict], data: pd.DataFrame) -> Dict[str, float]:
-    """Calculate performance metrics for a set of trades."""
-    returns = []
-    for trade in trades:
-        if trade['type'] == 'sell':
-            entry_price = next(
-                (t['price'] for t in trades[::-1] if t['type'] == 'buy' and t['timestamp'] < trade['timestamp']), None)
-            if entry_price:
-                returns.append((trade['price'] - entry_price) / entry_price)
+            # Generate signal
+            try:
+                signal = strategy.generate_signal(row)
+            except Exception as e:
+                logger.debug(f"{symbol}: signal generation failed at {i}: {e}")
+                equity_vals.append(equity if equity_vals else per_symbol_budget)
+                continue
 
-    if not returns:
-        return {'sharpe': 0.0, 'total_return': 0.0}
+            if signal == 1 and open_shares == 0:
+                # Open long
+                buy_px = self._apply_slippage(price, side="buy")
+                sh = int(per_symbol_budget // buy_px)
+                if sh > 0:
+                    open_shares = sh
+                    entry_price = buy_px
+                    entry_time = ts
 
-    returns = np.array(returns)
-    mean_return = np.mean(returns)
-    std_return = np.std(returns) if len(returns) > 1 else 1.0
-    sharpe = mean_return / std_return * np.sqrt(252) if std_return != 0 else 0.0
-    total_return = np.prod(1 + returns) - 1
+            elif signal == -1 and open_shares > 0:
+                # Close long
+                sell_px = self._apply_slippage(price, side="sell")
+                gross = (sell_px - entry_price) * open_shares
+                pnl = gross - self.execution_config["commission_per_trade"]
 
-    return {
-        'sharpe': sharpe,
-        'total_return': total_return
-    }
+                closed_trades.append({
+                    "symbol": symbol,
+                    "type": "long",
+                    "entry_date": entry_time.strftime("%Y-%m-%d"),
+                    "exit_date": ts.strftime("%Y-%m-%d"),
+                    "entry_price": round(entry_price, 6),
+                    "exit_price": round(sell_px, 6),
+                    "shares": int(open_shares),
+                    "profit": float(pnl),
+                    "exit_reason": "signal",
+                    "side": "long",
+                    "strategy": getattr(strategy, "strategy_id", "ai_strategy"),
+                })
 
+                equity += pnl
+                open_shares = 0
+                entry_price = 0.0
+                entry_time = None
 
-def run_integrated_strategy(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
-    """Run integrated AI and nGS strategy based on operating mode."""
-    logger.info(f"Running integrated strategy in {self.operating_mode} mode")
+            # Append equity snapshot for this bar
+            equity_vals.append(equity if equity_vals else per_symbol_budget)
 
-    if self.operating_mode == 'ai_only':
-        results = self._run_ai_strategies_only(data)
-    else:  # comparison mode
-        ai_results = self._run_ai_strategies_only(data)
-        original_results = self._run_original_strategy(data)
-        results = {
-            'ai': ai_results,
-            'original': original_results,
-            'comparison': self._compare_strategies(ai_results, original_results)
+        # Persist closed trades
+        if closed_trades:
+            try:
+                dm_save_trades(closed_trades)
+            except Exception as e:
+                logger.warning(f"Failed to save trades for {symbol}: {e}")
+
+        # Build positions from closed trades (dashboard compatibility)
+        positions = self._calculate_positions_from_closed_trades(symbol, closed_trades)
+
+        if positions:
+            try:
+                dm_save_positions(positions)
+            except Exception as e:
+                logger.warning(f"Failed to save positions for {symbol}: {e}")
+
+        equity_curve = pd.Series(equity_vals, index=idx[:len(equity_vals)]).dropna()
+        perf = self._calculate_performance(closed_trades, df)  # retain original metrics
+
+        return {
+            "trades": closed_trades,
+            "positions": positions,
+            "performance": perf,
+            "equity_curve": equity_curve,
         }
 
-    self.strategy_performance.update(results)
-    return results
+    def _apply_slippage(self, price: float, side: str) -> float:
+        slip = self.execution_config["slippage_pct"] / 100.0
+        if side == "buy":
+            return price * (1.0 + slip)
+        return price * (1.0 - slip)
 
+    def _calculate_positions_from_closed_trades(self, symbol: str, trades: List[Dict]) -> List[Dict]:
+        """
+        Convert closed trades to positions records expected by data_manager.save_positions.
+        """
+        positions: List[Dict] = []
+        for t in trades:
+            try:
+                entry_dt = t["entry_date"]
+                exit_dt = t["exit_date"]
+                entry_px = float(t["entry_price"])
+                exit_px = float(t["exit_price"])
+                shares = int(t["shares"])
+                pnl = float(t["profit"])
+                positions.append({
+                    "symbol": symbol,
+                    "shares": shares,
+                    "entry_price": entry_px,
+                    "entry_date": entry_dt,
+                    "current_price": exit_px,
+                    "current_value": exit_px * shares,
+                    "profit": pnl,
+                    "profit_pct": ((exit_px / entry_px) - 1.0) * 100.0 if entry_px > 0 else 0.0,
+                    "days_held": int(max((pd.to_datetime(exit_dt) - pd.to_datetime(entry_dt)).days, 0)),
+                    "side": "long",
+                    "strategy": t.get("strategy", "ai_strategy"),
+                })
+            except Exception as e:
+                logger.debug(f"Failed to create position from trade for {symbol}: {e}")
+        return positions
 
-def _compare_strategies(self, ai_results: Dict, original_results: Dict) -> Dict[str, Any]:
-    """Compare AI and original strategy performance."""
-    comparison = {}
-    for symbol in ai_results.keys():
-        try:
-            ai_perf = ai_results[symbol]['performance']
-            orig_perf = original_results.get(symbol, {}).get('performance', {'sharpe': 0.0, 'total_return': 0.0})
+    def _calculate_performance(self, trades: List[Dict], data: pd.DataFrame) -> Dict[str, float]:
+        """
+        Retains original performance output structure: Sharpe and total_return.
+        """
+        returns = []
+        for trade in trades:
+            if trade.get("type") == "long":
+                entry_price = trade.get("entry_price")
+                exit_price = trade.get("exit_price")
+                if entry_price and exit_price and entry_price > 0:
+                    returns.append((exit_price - entry_price) / entry_price)
 
-            comparison[symbol] = {
-                'ai_sharpe': ai_perf['sharpe'],
-                'original_sharpe': orig_perf['sharpe'],
-                'ai_total_return': ai_perf['total_return'],
-                'original_total_return': orig_perf['total_return'],
-                'sharpe_diff': ai_perf['sharpe'] - orig_perf['sharpe'],
-                'return_diff': ai_perf['total_return'] - orig_perf['total_return']
-            }
-        except Exception as e:
-            logger.error(f"Error comparing strategies for {symbol}: {str(e)}")
-            comparison[symbol] = {}
+        if not returns:
+            return {"sharpe": 0.0, "total_return": 0.0}
 
-    return comparison
+        returns = np.array(returns, dtype=float)
+        mean_return = float(np.mean(returns))
+        std_return = float(np.std(returns)) if len(returns) > 1 else 0.0
+        sharpe = (mean_return / std_return) * np.sqrt(252) if std_return != 0 else 0.0
+        total_return = float(np.prod(1 + returns) - 1.0)
 
-
-def rebalance_portfolio(self, data: Dict[str, pd.DataFrame]) -> None:
-    """Rebalance portfolio based on AI strategy performance."""
-    if self.integration_config['rebalance_frequency'] == 'weekly':
-        current_time = datetime.now()
-        if current_time.weekday() != 0:  # Not Monday
-            logger.debug("Skipping rebalance: not a Monday")
-            return
-
-    performance = self.strategy_performance
-    allocations = {}
-    total_weight = 0
-
-    for symbol, result in performance.items():
-        if isinstance(result, dict) and 'performance' in result:
-            weight = result['performance']['sharpe'] if result['performance']['sharpe'] > 0 else 0
-            allocations[symbol] = weight
-            total_weight += weight
-
-    if total_weight == 0:
-        logger.warning("No positive Sharpe ratios found for rebalancing")
-        return
-
-    for symbol in allocations:
-        allocations[symbol] = (allocations[symbol] / total_weight) * self.integration_config['ai_allocation_pct']
-        logger.debug(f"Rebalanced allocation for {symbol}: {allocations[symbol]:.2f}%")
-
-    # Update active strategies based on new allocations
-    objective = self.objective_manager.get_primary_objective()
-    self.active_strategies = self.create_ai_strategy_set(data, objective)
-    logger.info("Portfolio rebalanced based on performance")
-
-
-def save_integration_session(self, results: Dict[str, Any], filename: str = "integration_results.json") -> None:
-    """Save integration results to a file."""
-    try:
-        output_path = os.path.join(self.results_dir, filename)
-        with open(output_path, 'w') as f:
-            json.dump(results, f, indent=2, default=str)
-        logger.info(f"Saved integration results to {output_path}")
-    except Exception as e:
-        logger.error(f"Failed to save integration results: {str(e)}")
-
-
-def plot_performance_comparison(self, results: Dict[str, Any]) -> None:
-    """Plot performance comparison between AI and original strategies."""
-    if 'comparison' not in results:
-        logger.warning("No comparison data available for plotting")
-        return
-
-    plt.figure(figsize=(12, 6))
-    symbols = list(results['comparison'].keys())
-    ai_sharpes = [results['comparison'][s]['ai_sharpe'] for s in symbols]
-    orig_sharpes = [results['comparison'][s]['original_sharpe'] for s in symbols]
-
-    x = np.arange(len(symbols))
-    width = 0.35
-
-    plt.bar(x - width / 2, ai_sharpes, width, label='AI Strategy')
-    plt.bar(x + width / 2, orig_sharpes, width, label='Original nGS')
-
-    plt.xlabel('Symbols')
-    plt.ylabel('Sharpe Ratio')
-    plt.title('AI vs Original nGS Strategy Performance')
-    plt.xticks(x, symbols, rotation=45)
-    plt.legend()
-    plt.tight_layout()
-
-    plot_path = os.path.join(self.results_dir, 'performance_comparison.png')
-    plt.savefig(plot_path)
-    plt.close()
-    logger.info(f"Saved performance comparison plot to {plot_path}")
-
-def run_ngs_automated_reporting(comparison=None):
-    import pandas as pd
-    import os
-
-    HISTORICAL_DATA_PATH = "signal_analysis.json"
-    DATA_FORMAT = "json"
-
-    def load_data(path, data_format):
-        if data_format == "json":
-            df = pd.read_json(path)
-            if "symbol" in df.columns:
-                data_dict = {sym: df[df["symbol"] == sym].copy() for sym in df["symbol"].unique()}
-                return data_dict
-            return {"default": df}
-        elif data_format == "csv":
-            df = pd.read_csv(path)
-            if "symbol" in df.columns:
-                data_dict = {sym: df[df["symbol"] == sym].copy() for sym in df["symbol"].unique()}
-                return data_dict
-            return {"default": df}
-        else:
-            raise ValueError("Unsupported data format")
-
-    print("🚀 nGS Trading Strategy with AI SELECTION ENABLED")
-    print("=" * 70)
-
-    # Load historical data
-    data = load_data(HISTORICAL_DATA_PATH, DATA_FORMAT)
-
-    # Initialize integration manager
-    manager = NGSAIIntegrationManager(account_size=1_000_000, data_dir="data")
-
-    # Run AI integration manager
-    results = manager.run_integrated_strategy(data)
-
-    # Save results
-    manager.save_integration_session(results, filename="latest_results.json")
-    print("\n AI integration complete. Results saved for dashboard.")
-
-if __name__ == "__main__":
-    run_ngs_automated_reporting()
-    print("\n AI integration complete. Results saved for dashboard.")
-
-
-if __name__ == "__main__":
-    run_ngs_automated_reporting()
+        return {"sharpe": sharpe, "total_return": total_return}
