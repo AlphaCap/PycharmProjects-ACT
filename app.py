@@ -1,26 +1,27 @@
-import streamlit as st
-import pandas as pd
-from datetime import datetime
+# Python
 import logging
-import sys
 import os
+import sys
+from datetime import datetime
+
+import pandas as pd
+import streamlit as st
 
 # Configure logging to handle UTF-8
 logging.basicConfig(
     level=logging.INFO,  # Adjust the logging level as needed
-    stream=sys.stdout,   # Ensure logs are streamed to stdout
+    stream=sys.stdout,  # Ensure logs are streamed to stdout
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
-sys.stdout.reconfigure(encoding='utf-8')  # Optional: reconfigure stdout for prints
+sys.stdout.reconfigure(encoding="utf-8")  # Optional: reconfigure stdout for prints
 
 # Add project directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from data_manager import (
+from data_manager import (  # get_system_status,
     get_portfolio_metrics,
-    get_signals,
     get_positions,
-    #get_system_status,
+    get_signals,
 )
 
 try:
@@ -46,7 +47,7 @@ hide_streamlit_style = """
     [data-testid="stHeader"] {display: none;}
     .stApp > header {display: none;}
     [data-testid="stSidebarNav"] {display: none;}
-    
+
     .stAppViewContainer > .main .block-container {
         padding-top: 1rem;
     }
@@ -81,6 +82,7 @@ account_size = st.number_input(
     key="main_account_size",
 )
 st.session_state.account_size = account_size
+
 
 # Calculate L/S Ratio from current positions - CORRECTED FORMAT
 def calculate_ls_ratio():
@@ -150,6 +152,7 @@ def calculate_ls_ratio():
     except Exception as e:
         return f"Error"
 
+
 # Enhanced portfolio metrics calculation - CORRECTED
 def get_enhanced_portfolio_metrics(account_size: int) -> dict:
     try:
@@ -178,7 +181,7 @@ def get_enhanced_portfolio_metrics(account_size: int) -> dict:
                 if "profit" in trades_df.columns and len(trades_df) > 0:
                     total_realized = trades_df["profit"].sum()
                     metrics["realized_pnl"] = f"${total_realized:+,.0f}"
-        except:
+        except Exception:
             pass
 
         # Get unrealized P&L from current positions
@@ -222,6 +225,7 @@ def get_enhanced_portfolio_metrics(account_size: int) -> dict:
             "realized_pnl": "$0.00",
             "win_rate": "0.0%",
         }
+
 
 # Load enhanced metrics
 metrics = get_enhanced_portfolio_metrics(account_size)
@@ -368,7 +372,7 @@ try:
             df_positions["entry_date"] = pd.to_datetime(
                 df_positions["entry_date"]
             ).dt.strftime("%Y-%m-%d")
-        except:
+        except Exception:
             # If conversion fails, ensure it's at least string
             df_positions["entry_date"] = df_positions["entry_date"].astype(str)
 
