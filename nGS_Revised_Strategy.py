@@ -7,10 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-# You must define HISTORICAL_DATA_PATH before using it below!
-HISTORICAL_DATA_PATH = r"c:\ACT\Python NEW 2025\signal_analysis.json"
+from pathlib import Path
 
-print("Looking for file at:", os.path.abspath(HISTORICAL_DATA_PATH))
+# Define the historical data path relative to the script's location
+HISTORICAL_DATA_PATH = str(Path(__file__).parent / "signal_analysis.json")
+
+print("Looking for file at:", HISTORICAL_DATA_PATH)
 if not os.path.exists(HISTORICAL_DATA_PATH):
     print("File does not exist! Check the path.")
     exit(1)
@@ -2085,24 +2087,23 @@ if __name__ == "__main__":
 
         traceback.print_exc()
 
-#temporary for testing
-  if __name__ == "__main__":
-      # Example inputs for testing
-      print("Testing `load_polygon_data`...")
-      symbols = ["AAPL", "MSFT", "GOOGL"]
-      start_date = "2023-01-01"
-      end_date = "2023-06-30"
+    if __name__ == "__main__":
+        # Example inputs for testing
+        print("Testing `load_polygon_data`...")
+        symbols = ["AAPL", "MSFT", "GOOGL"]
+        start_date = "2023-01-01"
+        end_date = "2023-06-30"
 
-      try:
-          result = load_polygon_data(symbols, start_date, end_date)
-          print(f"Loaded data for symbols: {result.keys()}")
-      except Exception as e:
-          print(f"Error in load_polygon_data: {e}")
+        try:
+            result = load_polygon_data(symbols, start_date, end_date)
+            print(f"Loaded data for symbols: {result.keys()}")
+        except Exception as e:
+            print(f"Error in load_polygon_data: {e}")
 
-      print("Testing `run_ngs_automated_reporting`...")
-      comparison = {"example_key": "example_value"}  # Replace with actual inputs
-      try:
-          run_ngs_automated_reporting(comparison)  # Ensure comparison is structured correctly
-          print("Successfully ran automated reporting.")
-      except Exception as e:
-          print(f"Error in run_ngs_automated_reporting: {e}")
+        print("Testing `run_ngs_automated_reporting`...")
+        comparison = {"example_key": "example_value"}  # Replace with actual inputs
+        try:
+            run_ngs_automated_reporting(comparison)  # Ensure comparison is structured correctly
+            print("Successfully ran automated reporting.")
+        except Exception as e:
+            print(f"Error in run_ngs_automated_reporting: {e}")
