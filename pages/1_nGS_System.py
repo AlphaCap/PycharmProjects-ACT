@@ -1,9 +1,9 @@
+import os
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-import sys
-import os
 
 project_root = r"C:\Users\theca\PycharmProjects"
 if project_root not in sys.path:
@@ -28,12 +28,11 @@ import os
 import re
 import sys
 from datetime import datetime
+from ngs_ai_performance_comparator import PerformanceMetrics
+from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 import matplotlib.pyplot as plt
 import streamlit.errors
-
-# This import must be at top level (no indentation)
-from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 # Optional imports with fallbacks
 try:
@@ -264,6 +263,55 @@ def get_barclay_ls_index() -> str:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
+        def get_detailed_performance_metrics(trades_df: pd.DataFrame, equity_curve: pd.Series) -> pd.DataFrame:
+            """
+            Calculate detailed performance metrics using PerformanceMetrics.
+
+            Args:
+                trades_df (pd.DataFrame): DataFrame of trades (historical trades or backtest results).
+                equity_curve (pd.Series): Series of equity values over time.
+
+            Returns:
+                pd.DataFrame: A DataFrame of detailed performance metrics for display.
+            """
+            try:
+                # Create a simulated backtest result object
+                class BacktestResult:
+                    daily_returns = equity_curve.pct_change().dropna()
+                    equity_curve = equity_curve
+                    benchmark_returns = pd.Series(np.random.normal(0, 0.01, len(daily_returns)))  # Placeholder
+                    total_return_pct = (equity_curve.iloc[-1] / equity_curve.iloc[0] - 1) * 100
+                    annualized_return_pct = total_return_pct / (len(daily_returns) / 252)
+
+                # Use PerformanceMetrics to calculate metrics
+                metrics = PerformanceMetrics.calculate_detailed_metrics(
+                    backtest_result=BacktestResult(),
+                    strategy_name="Historical Strategy",
+                    objective="Preserve Drawdown",
+                )
+
+                # Convert metrics to DataFrame format
+                metrics_dict = metrics.__dict__
+                displayable_metrics = {  # Filter out only metrics we're interested in
+                    "CAGR": metrics_dict.get("cagr"),
+                    "Calmar Ratio": metrics_dict.get("calmar_ratio"),
+                    "Sortino Ratio": metrics_dict.get("sortino_ratio"),
+                    "Omega Ratio": metrics_dict.get("omega_ratio"),
+                    "Sharpe Ratio": metrics_dict.get("sharpe_ratio"),
+                    "Max Drawdown (%)": metrics_dict.get("max_drawdown_pct"),
+                    "Win Rate (%)": metrics_dict.get("win_rate") * 100 if metrics_dict.get("win_rate") else None,
+                    "Total Trades": metrics_dict.get("total_trades"),
+                    "Profit Factor": metrics_dict.get("profit_factor"),
+                    "Average Trade Return (%)": metrics_dict.get("avg_trade_pct"),
+                    "Avg Trade Duration (Days)": metrics_dict.get("avg_trade_duration_days"),
+                }
+
+                return pd.DataFrame(displayable_metrics.items(), columns=["Metric", "Value"])
+
+            except Exception as e:
+                st.error(f"Error calculating detailed performance metrics: {e}")
+                return pd.DataFrame()
+            
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, "html.parser")
@@ -583,20 +631,28 @@ with col1:
     except Exception as e:
         st.error(f"Error loading performance stats: {e}")
 with col2:
-    st.subheader(" Equity Curve")
+    st.subheader("Equity Curve")
     try:
         trades_df = get_trades_history()
         if not trades_df.empty:
-            trades_df["exit_date"] = pd.to_datetime(trades_df["exit_date"])
-            trades_sorted = trades_df.sort_values("exit_date")
-            trades_sorted["cumulative_profit"] = trades_sorted["profit"].cumsum()
+            # Generate equity curve
+            equity_curve = trades_df["profit"].cumsum() + 10000  # Starting equity value
+
+            # Plot equity curve
             fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(
-                trades_sorted["exit_date"],
-                trades_sorted["cumulative_profit"],
-                linewidth=2,
-                color="#1f77b4",
-            )
+            ax.plot(equity_curve.index, equity_curve.values, label="Equity Curve", color="blue", linewidth=2)
+            ax.set_title("Equity Curve Over Time", fontsize=14, fontweight="bold")
+            ax.set_xlabel("Trades", fontsize=12)
+            ax.set_ylabel("Equity Value ($)", fontsize=12)
+            ax.grid(True, alpha=0.5)
+            ax.legend()
+
+            # Display the plot in Streamlit
+            st.pyplot(fig)
+        else:
+            st.warning("No trade data available to plot the Equity Curve.")
+    except Exception as e:
+        st.error(f"Error plotting Equity Curve: {e}")
             ax.fill_between(
                 trades_sorted["exit_date"],
                 trades_sorted["cumulative_profit"],
@@ -660,16 +716,6 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                     linewidth=2,
                     color="#ff6b35",
                     label="M/E Ratio",
-                )
-
-                # Add risk zones
-                ax.axhline(
-                    y=100,
-                    color="red",
-                    linestyle="--",
-                    linewidth=2,
-                    alpha=0.8,
-                    label="CRITICAL LIMIT (100%)",
                 )
 
                 # Chart formatting (identical to equity curve)
@@ -775,18 +821,34 @@ st.caption("nGulfStream Swing Trader - Historical Performance Analytics")
 # Streamlit section: "Advanced Performance Metrics"
 st.subheader("Advanced Performance Analytics")
 
-# Placeholder values (to be dynamically fetched)
-advanced_metrics = {
-    "CAGR": "12.3%",
-    "Calmar Ratio": "5.4",
-    "Sortino Ratio": "2.2",
-    "Omega Ratio": "1.55",
-    "Jensen's Alpha": "0.35",
-}
+# Generate Advanced Performance Analytics dynamically
+trades_df = get_trades_history()
+if not trades_df.empty:
+    try:
+        # Calculate equity curve and advanced performance metrics
+        equity_curve = trades_df["profit"].cumsum() + 10000
+        advanced_metrics_df = get_detailed_performance_metrics(trades_df, equity_curve)
 
-# Display columns for each metric
-col1, col2, col3, col4, col5 = st.columns(5)
-for col, (metric_name, value) in zip(
-    [col1, col2, col3, col4, col5], advanced_metrics.items()
-):
-    col.metric(label=metric_name, value=value)
+        # Display all available metrics as a DataFrame
+        st.subheader("Advanced Performance Analytics")
+        st.dataframe(advanced_metrics_df, use_container_width=True, hide_index=True)
+
+        # Highlight Key Metrics (Specific Ratios)
+        st.subheader("Highlighted Metrics")
+        col1, col2, col3 = st.columns(3)
+        col1.metric(
+            "Calmar Ratio",
+            f"{advanced_metrics_df.loc[advanced_metrics_df['Metric'] == 'Calmar Ratio', 'Value'].values[0]:.2f}",
+        )
+        col2.metric(
+            "Sortino Ratio",
+            f"{advanced_metrics_df.loc[advanced_metrics_df['Metric'] == 'Sortino Ratio', 'Value'].values[0]:.2f}",
+        )
+        col3.metric(
+            "Omega Ratio",
+            f"{advanced_metrics_df.loc[advanced_metrics_df['Metric'] == 'Omega Ratio', 'Value'].values[0]:.2f}",
+        )
+    except Exception as e:
+        st.error(f"Error generating performance metrics: {e}")
+else:
+    st.warning("No data available for advanced performance analytics.")
