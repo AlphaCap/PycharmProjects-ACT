@@ -100,14 +100,14 @@ hide_streamlit_style = """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.title("Trading Systems")
+    st.title("nGS Trading System")
 
-    # Navigation button back to Main Dashboard
-    if st.button("← Back to Main Dashboard", use_container_width=True, key="main_dashboard_btn"):
-        st.switch_page("Home")  # Matches title in app.py's st.set_page_config
+    # Navigation button to Historical Performance page
+    if st.button("Historical Performance", use_container_width=True, key="historical_page_btn"):
+        st.switch_page("1_nGS_System")  # Match the file's name (1_nGS_System.py) in the pages/ directory
 
     st.markdown("---")
-    st.caption(f"Updated: {datetime.now().strftime('%m/%d/%Y %H:%M')}")
+    st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
 
 st.markdown("### nGS Historical Performance")
 st.caption("Detailed Performance Analytics & Trade History")
