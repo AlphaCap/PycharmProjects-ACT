@@ -1,13 +1,14 @@
-import os
-import pandas as pd
-import numpy as np
 import json
 import logging
-import time
+import os
 import re
+import time
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
+import numpy as np
+import pandas as pd
 from polygon import RESTClient
-from typing import Dict, List, Optional, Union, Set, Any, Tuple
 
 # Optional imports with fallbacks for sector functionality
 try:
@@ -372,12 +373,16 @@ def get_sector_weights() -> Dict[str, float]:
         for sector, info in sector_data.get("sector_info", {}).items()
     }
 
-    target_weights: Optional[Dict[str, float]] = None,
-    def my_function(...) -> Dict[str, float]:
-    if target_weights is None:
-        return get_sector_weights()
-    return target_weights
+    from typing import Any, Dict, Optional
 
+    def my_function(arg1: Any, arg2: int, target_weights: Optional[Dict[str, float]] = None) -> Dict[str, float]:
+        """
+        This function generates and returns sector weights.
+        If target_weights is provided, it is returned directly; otherwise, it fetches sector weights.
+        """
+        if target_weights is None:
+            return get_sector_weights()
+        return target_weights
 
 def calculate_sector_rebalance_needs(
     positions_df: pd.DataFrame, target_weights: Optional[Dict[str, float]] = None
