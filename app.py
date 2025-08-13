@@ -62,9 +62,9 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 with st.sidebar:
     st.title("nGS Trading System")
 
-    # Navigation
-    if st.button(" Historical Performance", use_container_width=True):
-        st.switch_page("pages/1_nGS_System.py")
+    # Navigation button to Historical Performance page
+    if st.button("Historical Performance", use_container_width=True, key="historical_page_btn"):
+        st.switch_page("nGS_Historical_Performance")  # Must match title set in its file
 
     st.markdown("---")
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
