@@ -1,7 +1,13 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import streamlit as st
+import sys
+import os
+
+project_root = r"C:\Users\theca\PycharmProjects"
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Optional dependencies
 try:
@@ -18,14 +24,16 @@ try:
 except Exception:
     HAS_BEAUTIFULSOUP = False
 
-# This import must be at top level (no indentation)
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-import streamlit.errors
-import matplotlib.pyplot as plt
-from datetime import datetime
-import sys
 import os
 import re
+import sys
+from datetime import datetime
+
+import matplotlib.pyplot as plt
+import streamlit.errors
+
+# This import must be at top level (no indentation)
+from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 # Optional imports with fallbacks
 try:
@@ -44,14 +52,14 @@ except ImportError:
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from data_manager import get_me_ratio_history  # Added for M/E charts
 from data_manager import (
     get_portfolio_metrics,
-    get_strategy_performance,
     get_portfolio_performance_stats,
     get_signals,
-    save_system_status,
+    get_strategy_performance,
     get_trades_history,
-    get_me_ratio_history,  # Added for M/E charts
+    save_system_status,
 )
 
 try:
@@ -95,9 +103,9 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 with st.sidebar:
     st.title("Trading Systems")
     if st.button(
-            "← Back to Main Dashboard",
-            use_container_width=True,
-            key="main_dashboard_button",
+        "← Back to Main Dashboard",
+        use_container_width=True,
+        key="main_dashboard_button",
     ):
         try:
             st.switch_page("app.py")
@@ -129,7 +137,7 @@ st.session_state.initial_value = initial_value
 st.markdown("## 🏆 Best AI Strategy (AI Performance Hierarchy)")
 
 
-def load_latest_ai_integration_results(data_dir="data/integration_sessions"):
+def load_latest_ai_integration_results(data_dir="data/integration_sessions") -> None:
     """
     Loads the most recent integration session results (expects JSON files).
     """
@@ -140,16 +148,19 @@ def load_latest_ai_integration_results(data_dir="data/integration_sessions"):
         files = [f for f in os.listdir(session_dir) if f.endswith(".json")]
         if not files:
             return None
-        latest_file = max(files, key=lambda x: os.path.getmtime(os.path.join(session_dir, x)))
+        latest_file = max(
+            files, key=lambda x: os.path.getmtime(os.path.join(session_dir, x))
+        )
         with open(os.path.join(session_dir, latest_file), "r") as f:
             import json
+
             return json.load(f)
     except Exception as e:
         st.warning(f"Could not load AI integration session: {e}")
         return None
 
 
-def get_best_ai_strategy(results, manager):
+def get_best_ai_strategy(results, manager) -> None:
     """
     Returns (strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe)
     """
@@ -165,11 +176,14 @@ def get_best_ai_strategy(results, manager):
             eq_curve = pd.Series(eq_curve)
         elif isinstance(eq_curve, dict):
             eq_curve = pd.Series(eq_curve)
-        r2 = manager.evaluate_linear_equity(eq_curve) if eq_curve is not None and not getattr(eq_curve, "empty",
-                                                                                              True) else 0
-        roi = perf.get('total_return_pct', 0)
-        drawdown = perf.get('max_drawdown_pct', 0)
-        sharpe = perf.get('sharpe_ratio', 0)
+        r2 = (
+            manager.evaluate_linear_equity(eq_curve)
+            if eq_curve is not None and not getattr(eq_curve, "empty", True)
+            else 0
+        )
+        roi = perf.get("total_return_pct", 0)
+        drawdown = perf.get("max_drawdown_pct", 0)
+        sharpe = perf.get("sharpe_ratio", 0)
         tup = (r2, -drawdown, roi, sharpe)
         if best is None or tup > best_tuple:
             best = (strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe)
@@ -196,18 +210,24 @@ if best:
     # Show equity curve chart
     if isinstance(eq_curve, pd.Series) and not eq_curve.empty:
         fig, ax = plt.subplots(figsize=(8, 3))
-        ax.plot(eq_curve.index, eq_curve.values, label='Equity Curve', color='blue')
-        ax.set_title(f'Equity Curve: {strategy_id}')
+        ax.plot(eq_curve.index, eq_curve.values, label="Equity Curve", color="blue")
+        ax.set_title(f"Equity Curve: {strategy_id}")
         ax.set_xlabel("Time")
         ax.set_ylabel("Equity")
         ax.grid(True, alpha=0.3)
         ax.legend()
         st.pyplot(fig)
         plt.close()
-    elif 'equity_curve_chart' in perf and perf["equity_curve_chart"] and os.path.exists(perf["equity_curve_chart"]):
+    elif (
+        "equity_curve_chart" in perf
+        and perf["equity_curve_chart"]
+        and os.path.exists(perf["equity_curve_chart"])
+    ):
         st.image(perf["equity_curve_chart"], caption="Equity Curve Chart")
 else:
-    st.info("No AI strategy integration results found. Run AI integration manager and save results to view hierarchy.")
+    st.info(
+        "No AI strategy integration results found. Run AI integration manager and save results to view hierarchy."
+    )
 
 st.markdown("---")
 
@@ -278,7 +298,7 @@ def get_barclay_ls_index() -> str:
                             ).lower()
                             # Look for equity long/short row
                             if (
-                                    "equity" in row_text and "long" in row_text
+                                "equity" in row_text and "long" in row_text
                             ) or "long/short" in row_text:
                                 ytd_cell = cells[ytd_col_index].get_text().strip()
                                 if "%" in ytd_cell:
@@ -296,7 +316,7 @@ def get_barclay_ls_index() -> str:
                             [cell.get_text().strip() for cell in cells]
                         ).lower()
                         if (
-                                "equity" in row_text and "long" in row_text
+                            "equity" in row_text and "long" in row_text
                         ) or "long/short" in row_text:
                             # Get the last cell (should be YTD)
                             last_cell = cells[-1].get_text().strip()
@@ -766,5 +786,7 @@ advanced_metrics = {
 
 # Display columns for each metric
 col1, col2, col3, col4, col5 = st.columns(5)
-for col, (metric_name, value) in zip([col1, col2, col3, col4, col5], advanced_metrics.items()):
+for col, (metric_name, value) in zip(
+    [col1, col2, col3, col4, col5], advanced_metrics.items()
+):
     col.metric(label=metric_name, value=value)
