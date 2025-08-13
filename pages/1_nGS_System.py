@@ -75,9 +75,9 @@ except ImportError:
 from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 st.set_page_config(
-    page_title="nGS Historical Performance",
+    page_title="Home",  # Title needs to match what you're trying to switch to
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
 hide_streamlit_style = """
@@ -102,9 +102,9 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 with st.sidebar:
     st.title("Trading Systems")
 
-    # Navigation button to go back to Main Dashboard
-    if st.button("← Back to Main Dashboard", use_container_width=True, key="main_dashboard_button"):
-        st.switch_page("app")  # Navigate to the main dashboard (no .py needed)
+    # Navigation button back to Main Dashboard
+    if st.button("← Back to Main Dashboard", use_container_width=True, key="main_dashboard_btn"):
+        st.switch_page("Home")  # Matches title in app.py's st.set_page_config
 
     st.markdown("---")
     st.caption(f"Updated: {datetime.now().strftime('%m/%d/%Y %H:%M')}")
