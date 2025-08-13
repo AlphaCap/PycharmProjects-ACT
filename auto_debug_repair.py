@@ -8,7 +8,6 @@ Enhanced Auto Debug and Repair System (Comprehensive Mode)
   • Perform runtime validation and self-healing corrections.
   • Integrate comprehensive error analysis and suggestions.
 """
-
 from __future__ import annotations
 
 import ast
@@ -19,10 +18,9 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 from traceback import format_exception
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Generator
 
 # ------------ Logging ------------
 logging.basicConfig(
@@ -55,8 +53,6 @@ IMPORT_TO_PACKAGE_MAP: Dict[str, str] = {
     "requests": "requests",
     # Add more common mappings as needed
 }
-
-
 # ------------ Utilities ------------
 def read_state() -> Dict:
     if STATE_FILE.exists():
@@ -66,17 +62,16 @@ def read_state() -> Dict:
             return {}
     return {}
 
-
-def write_state(state: Dict) -> None:
+tate(state: Dict) -> None:
     try:
         STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
     except Exception as e:
         logger.warning(f"Failed to write state file: {e}")
 
-
 def is_git_repo() -> bool:
     code, out, _ = run_cmd(["git", "rev-parse", "--is-inside-work-tree"])
     return code == 0 and out.strip() == "true"
+
 
 def detect_changed_files() -> Generator[Path, None, None]:
     """
@@ -146,12 +141,10 @@ def parse_python_imports(file_path: Path) -> Set[str]:
         logger.warning(f"Failed to parse imports in {file_path}: {e}")
         return set()
 
-
 def pip_install(package: str) -> bool:
     cmd = [sys.executable, "-m", "pip", "install", package]
     code, _, _ = run_cmd(cmd, check=False)
     return code == 0
-
 
 def ensure_requirements(pkg_name: str) -> None:
     try:
@@ -166,7 +159,6 @@ def ensure_requirements(pkg_name: str) -> None:
     except Exception as e:
         logger.warning(f"Failed to update requirements.txt for {pkg_name}: {e}")
 
-
 # ------------ Enhanced Repairs ------------
 def detect_runtime_issues() -> None:
     """
@@ -179,7 +171,6 @@ def detect_runtime_issues() -> None:
         repair_runtime_issues(error_message)
 
     sys.excepthook = global_exception_handler
-
 
 def repair_runtime_issues(error_message: str) -> None:
     """
@@ -197,7 +188,6 @@ def repair_runtime_issues(error_message: str) -> None:
         # Optionally: Generate suggestions for missing keys.
     else:
         logger.warning(f"Unhandled runtime issue detected:\n{error_message}")
-
 
 # ------------ Dynamic Test Generation ------------
 def generate_dynamic_tests() -> None:
@@ -232,9 +222,12 @@ def generate_test_stub(func, file) -> Optional[str]:
     params = [arg.arg for arg in func.args.args]
     param_str = ", ".join(params) if params else ""
 
+    # Ensure file path is escaped properly for the test docstring
+    file_path = str(file).replace("\\", "\\\\")
+
     return f"""
 def {test_name}():
-    \"\"\"Auto-generated test for {func.name} from {file}\"\"\"
+    \"\"\"Auto-generated test for {func.name} from {file_path}\"\"\"
     try:
         result = {func.name}({param_str})
         # Add assertions based on logic
@@ -242,7 +235,6 @@ def {test_name}():
     except Exception as ex:
         assert False, f"Test failed due to exception: {{str(ex)}}"
 """
-
 
 # ------------ Main Auto-Repair Cycle ------------
 def auto_repair_cycle() -> None:
@@ -271,7 +263,6 @@ def auto_repair_cycle() -> None:
         logger.warning(f"Tests failed:\n{test_out}")
 
     logger.info("Auto-repair cycle completed.")
-
 
 if __name__ == "__main__":
     auto_repair_cycle()
