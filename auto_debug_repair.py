@@ -62,7 +62,7 @@ def read_state() -> Dict:
             return {}
     return {}
 
-tate(state: Dict) -> None:
+def write_state(state: Dict) -> None:
     try:
         STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
     except Exception as e:
