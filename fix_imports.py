@@ -1,6 +1,6 @@
+import ast
 import os
 import sys
-import ast
 import traceback
 from pathlib import Path
 
@@ -28,7 +28,8 @@ def parse_imports(filepath):
                     for name in node.names:
                         imports.append(name.name)
                 elif isinstance(node, ast.ImportFrom):
-                    imports.append(node.module)
+                    if node.module:
+                        imports.append(node.module)
             return imports
     except Exception as e:
         print(f"Error parsing {filepath}: {e}")
@@ -40,7 +41,7 @@ def fix_import(filepath):
     Attempt to fix imports in a given Python file.
 
     - Fixes relative imports to be absolute based on project structure.
-    - Suggests explicitly missing imports where possible.
+    - Ignores invalid or malformed imports gracefully.
     """
     try:
         # Parse existing imports from the file
@@ -60,17 +61,36 @@ def fix_import(filepath):
         modified = False
 
         for line in lines:
-            updated_line = line
-
-            # Rewrite relative imports to absolute imports
+            # Only attempt a fix for lines starting with "from ." or "import ."
             if line.strip().startswith("from .") or line.strip().startswith("import ."):
-                module_relative = line.split(" ")[1].strip()
-                module_relative = module_relative.lstrip(".")
+                # Split safely and handle unexpected cases
+                parts = line.strip().split()
+                if len(parts) < 2:
+                    updated_lines.append(line)  # Skip malformed lines
+                    continue
+
+                keyword, module_relative = parts[0], parts[1]
+                module_relative = module_relative.lstrip(".")  # Remove leading dots
                 abs_module = f"{PROJECT_ROOT.name}.{module_relative}"
 
+                # If the relative module exists, fix the import
                 if module_relative in project_modules:
-                    updated_line = line.replace(f".{module_relative}", abs_module)
-                    modified = True
+                    if keyword == "from":
+                        updated_line = line.replace(
+                            f"from .{module_relative}", f"from {abs_module}"
+                        )
+                    elif keyword == "import":
+                        updated_line = line.replace(
+                            f"import .{module_relative}", f"import {abs_module}"
+                        )
+                    else:
+                        updated_line = line  # Unknown keyword, keep as is
+                    modified = True  # Mark as modified
+                else:
+                    # If the module does not exist, keep the line unchanged
+                    updated_line = line
+            else:
+                updated_line = line  # Keep unmodified lines
 
             updated_lines.append(updated_line)
 
