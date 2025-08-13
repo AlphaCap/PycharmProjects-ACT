@@ -373,7 +373,7 @@ def get_sector_weights() -> Dict[str, float]:
     }
 
     target_weights: Optional[Dict[str, float]] = None,
-) -> Dict[str, float]:
+    Dict[str, float]:
     if target_weights is None:
         return get_sector_weights()
     return target_weights
@@ -381,7 +381,7 @@ def get_sector_weights() -> Dict[str, float]:
 
 def calculate_sector_rebalance_needs(
     positions_df: pd.DataFrame, target_weights: Optional[Dict[str, float]] = None
-) -> Dict[str, Dict[str, Any]]:
+    Dict[str, Dict[str, Any]]:
     current_exposure = get_portfolio_sector_exposure(positions_df)
     targets = get_sector_rebalance_targets(target_weights)
     rebalance_needs: Dict[str, Dict[str, Any]] = {}
@@ -430,7 +430,6 @@ def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_D
     else:
         logger.warning(f"No data to save for {symbol}")
 
-
 def load_price_data(symbol: str) -> pd.DataFrame:
     filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
     if os.path.exists(filename):
@@ -438,7 +437,6 @@ def load_price_data(symbol: str) -> pd.DataFrame:
         return filter_by_retention_period(df, "Date")
     else:
         return pd.DataFrame(columns=ALL_COLUMNS)
-
 
 TRADE_COLUMNS: List[str] = [
     "symbol",
@@ -468,7 +466,6 @@ POSITION_COLUMNS: List[str] = [
 ]
 SIGNAL_COLUMNS: List[str] = ["date", "symbol", "signal_type", "direction", "price", "strategy"]
 SYSTEM_STATUS_COLUMNS: List[str] = ["timestamp", "system", "message"]
-
 
 def get_trades_history() -> pd.DataFrame:
     try:
@@ -602,7 +599,6 @@ def get_me_ratio_history() -> pd.DataFrame:
         logger.error(f"Error loading M/E ratio history: {e}")
         return pd.DataFrame(columns=["Date", "ME_Ratio"])
 
-
 def save_trades(trades_list: List[Dict[str, Any]]) -> None:
     ensure_dir(TRADES_HISTORY_FILE)
     cutoff_date = get_cutoff_date()
@@ -666,7 +662,6 @@ def get_positions_df() -> pd.DataFrame:
         return df
     return pd.DataFrame(columns=POSITION_COLUMNS)
 
-
 def save_positions(positions_list: List[Dict[str, Any]]) -> None:
     ensure_dir(POSITIONS_FILE)
     cutoff_date = get_cutoff_date()
@@ -691,11 +686,9 @@ def save_positions(positions_list: List[Dict[str, Any]]) -> None:
     df.to_csv(POSITIONS_FILE, index=False)
     logger.info(f"Saved {len(filtered_positions)} positions within retention period")
 
-
 def get_positions() -> List[Dict[str, Any]]:
     df = get_positions_df()
     return df.to_dict(orient="records") if not df.empty else []
-
 
 def get_signals() -> pd.DataFrame:
     if os.path.exists(SIGNALS_FILE):
@@ -704,7 +697,6 @@ def get_signals() -> pd.DataFrame:
             df = filter_by_retention_period(df, "date")
         return df
     return pd.DataFrame(columns=SIGNAL_COLUMNS)
-
 
 def save_signals(signals: List[Dict[str, Any]]) -> None:
     ensure_dir(SIGNALS_FILE)
@@ -723,7 +715,6 @@ def save_signals(signals: List[Dict[str, Any]]) -> None:
     df = pd.DataFrame(filtered_signals)
     df.to_csv(SIGNALS_FILE, index=False)
     logger.info(f"Saved {len(filtered_signals)} signals within retention period")
-
 
 def save_system_status(message: str, system: str = "nGS") -> None:
     ensure_dir(SYSTEM_STATUS_FILE)
@@ -768,7 +759,6 @@ def init_metadata() -> Dict[str, Any]:
                 json.dump(metadata, f, indent=2)
     return metadata
 
-
 def update_metadata(key: str, value: Any) -> None:
     metadata = init_metadata()
     if "." in key:
@@ -810,7 +800,6 @@ def calculate_current_me_ratio(
         logger.error(f"Error calculating current M/E ratio: {e}")
         return 0.0
 
-
 def calculate_historical_me_ratio(
     trades_df: pd.DataFrame, initial_value: float = 1000000
 ) -> float:
@@ -846,7 +835,6 @@ def calculate_historical_me_ratio(
         logger.warning(f"Could not load historical M/E from indicators: {e}")
     return 18.5
 
-
 def calculate_ytd_return(trades_df: pd.DataFrame, initial_value: float) -> Tuple[str, str]:
     if trades_df.empty:
         return "$0", "0.00%"
@@ -864,7 +852,6 @@ def calculate_ytd_return(trades_df: pd.DataFrame, initial_value: float) -> Tuple
     except Exception as e:
         logger.error(f"Error calculating YTD return: {e}")
         return "$0", "0.00%"
-
 
 def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> Tuple[str, str]:
     if trades_df.empty:
@@ -955,7 +942,6 @@ def get_portfolio_metrics(
             "short_exposure": "$0",
             "net_exposure": "$0",
         }
-
 
 def get_strategy_performance(initial_portfolio_value: float = 1000000) -> pd.DataFrame:
     try:
@@ -1224,7 +1210,6 @@ def initialize() -> None:
     logger.info(f"Current cutoff date: {get_cutoff_date().strftime('%Y-%m-%d')}")
     logger.info("Data manager initialized with 6-month retention and sector support")
 
-
 def get_historical_data(
     polygon_client: Any, symbol: str, start_date: datetime, end_date: datetime
 ) -> pd.DataFrame:
@@ -1267,7 +1252,6 @@ def get_historical_data(
         logger.error(f"Error fetching data for {symbol}: {e}")
         return pd.DataFrame()
 
-
 def map_sic_to_sector(sic_description: str) -> Optional[str]:
     if not sic_description:
         return None
@@ -1306,7 +1290,6 @@ def map_sic_to_sector(sic_description: str) -> Optional[str]:
         if keyword in description:
             return sector
     return None
-
 
 __all__ = [
     "get_sp500_symbols",
