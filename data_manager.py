@@ -373,16 +373,46 @@ def get_sector_weights() -> Dict[str, float]:
         for sector, info in sector_data.get("sector_info", {}).items()
     }
 
-    from typing import Any, Dict, Optional
+def get_portfolio_sector_exposure(positions_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+    """
+    Calculate the portfolio's exposure to each sector based on the positions DataFrame.
 
-    def my_function(arg1: Any, arg2: int, target_weights: Optional[Dict[str, float]] = None) -> Dict[str, float]:
-        """
-        This function generates and returns sector weights.
-        If target_weights is provided, it is returned directly; otherwise, it fetches sector weights.
-        """
-        if target_weights is None:
-            return get_sector_weights()
-        return target_weights
+    Args:
+        positions_df (pd.DataFrame): DataFrame with current portfolio positions. 
+            Required columns: 'sector', 'current_value'.
+
+    Returns:
+        Dict[str, Dict[str, float]]: Exposure data for each sector.
+            Example:
+            {
+                'Technology': {'value': 10000, 'percentage': 20.0},
+                'Health Care': {'value': 5000, 'percentage': 10.0},
+                ...
+            }
+    """
+    # Check if positions_df exists and has the required columns
+    if positions_df is None or positions_df.empty:
+        return {}
+    if "sector" not in positions_df.columns or "current_value" not in positions_df.columns:
+        raise ValueError("DataFrame must include 'sector' and 'current_value' columns.")
+
+    # Calculate total portfolio value
+    total_portfolio_value = positions_df["current_value"].sum()
+    if total_portfolio_value <= 0:
+        return {}
+
+    # Group by sector and calculate exposure
+    sector_exposure = (
+        positions_df.groupby("sector")["current_value"]
+        .sum()
+        .sort_values(ascending=False)
+        .reset_index()
+        .rename(columns={"current_value": "value"})
+    )
+    sector_exposure["percentage"] = sector_exposure["value"] / total_portfolio_value * 100
+
+    # Convert to dictionary
+    return sector_exposure.set_index("sector").to_dict(orient="index")
 
 def calculate_sector_rebalance_needs(
     positions_df: pd.DataFrame, target_weights: Optional[Dict[str, float]] = None
