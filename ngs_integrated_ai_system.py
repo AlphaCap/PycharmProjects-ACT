@@ -4,31 +4,30 @@ Comprehensive backtesting framework for AI-generated strategies using YOUR nGS p
 Tests multiple strategies, timeframes, and objectives with detailed performance analysis
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any, Union
-from datetime import datetime, timedelta
-import logging
 import json
+import logging
 import os
 import warnings
 from dataclasses import dataclass
-import matplotlib.pyplot as plt
-import seaborn as sns  # type: ignore
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns  # type: ignore
 
 warnings.filterwarnings("ignore")
 
+from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
+from ngs_ai_integration_manager import NGSAIIntegrationManager
+from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
+from performance_objectives import ObjectiveManager
+
 # Import your existing components
 from shared_utils import load_polygon_data
-
-from comprehensive_indicator_library import ComprehensiveIndicatorLibrary  
-from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
-from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
-from performance_objectives import ObjectiveManager
 from strategy_generator_ai import ObjectiveAwareStrategyGenerator, TradingStrategy
-
-from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 # Create aliases to match expected names
 NGSAwareStrategyGenerator = ObjectiveAwareStrategyGenerator
@@ -748,15 +747,19 @@ class NGSAIBacktestingSystem:
             original_result, ai_results, comparison_metrics
         )
 
-        # Summary statistics
+        if ai_results and len(ai_results) > 0:
+            ai_mean_return = float(np.mean([r.total_return_pct for r in ai_results]))
+        else:
+            ai_mean_return = 0.0
+
         summary_stats = {
             "total_strategies_tested": len(all_results),
             "original_vs_ai_winner": (
                 "original"
-                if original_result.total_return_pct
-                >= float(np.mean([r.total_return_pct for r in ai_results])) if ai_results else 0.0
+                if original_result.total_return_pct >= ai_mean_return
                 else "ai"
             ),
+        }
             "best_performing_strategy": max(
                 all_results, key=lambda x: x.total_return_pct
             ).strategy_id,
