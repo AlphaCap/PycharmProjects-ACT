@@ -3,7 +3,7 @@ import subprocess
 
 # Example: Simple admin authentication (replace with secure method in production)
 def is_admin():
-    return st.text_input("Enter admin password:", type="password") == "your_admin_password"
+    return st.text_input("Enter admin password:", type="password") == "4250Galt"
 
 def run_repair():
     result = subprocess.run(['python', 'auto_debug_repair.py'], capture_output=True, text=True)
