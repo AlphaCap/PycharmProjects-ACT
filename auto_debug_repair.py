@@ -56,6 +56,7 @@ IMPORT_TO_PACKAGE_MAP: Dict[str, str] = {
     # Add more common mappings as needed
 }
 
+
 # ------------ Utilities ------------
 def read_state() -> Dict:
     if STATE_FILE.exists():
@@ -77,6 +78,34 @@ def is_git_repo() -> bool:
     code, out, _ = run_cmd(["git", "rev-parse", "--is-inside-work-tree"])
     return code == 0 and out.strip() == "true"
 
+def detect_changed_files() -> Generator[Path, None, None]:
+    """
+    Detect all Python files that have been modified or newly created.
+    Returns a generator of Path objects.
+    """
+    try:
+        # Check if we're in a Git repository
+        if is_git_repo():
+            # Use Git to find modified or new Python files
+            code, output, _ = run_cmd(
+                ["git", "diff", "--name-only", "--diff-filter=d", "HEAD"]
+            )
+            if code == 0:
+                # Yield only Python files
+                for line in output.splitlines():
+                    path = PROJECT_ROOT / line.strip()
+                    if path.suffix == ".py" and path.exists():
+                        yield path
+        else:
+            # Fallback: Use file timestamps for non-Git-tracked projects
+            logger.warning("Not a Git repository. Falling back to file timestamps.")
+            for file in PROJECT_ROOT.rglob("*.py"):
+                # Get files modified in the last 24 hours
+                if file.stat().st_mtime > time.time() - 24 * 60 * 60:
+                    yield file
+    except Exception as e:
+        logger.error(f"Failed to detect changed files: {e}")
+        return []
 
 def run_cmd(
     cmd: List[str],
@@ -100,7 +129,6 @@ def run_cmd(
         return result.returncode, result.stdout, result.stderr
     except FileNotFoundError:
         return 127, "", f"Command not found: {cmd[0]}"
-
 
 def parse_python_imports(file_path: Path) -> Set[str]:
     try:
@@ -144,8 +172,9 @@ def detect_runtime_issues() -> None:
     """
     Globally capture runtime issues for analysis and repair.
     """
+
     def global_exception_handler(exc_type, exc_value, exc_traceback):
-        error_message = ''.join(format_exception(exc_type, exc_value, exc_traceback))
+        error_message = "".join(format_exception(exc_type, exc_value, exc_traceback))
         logger.error(f"Unhandled Runtime Exception:\n{error_message}")
         repair_runtime_issues(error_message)
 
@@ -213,6 +242,7 @@ def {test_name}():
     except Exception as ex:
         assert False, f"Test failed due to exception: {{str(ex)}}"
 """
+
 
 # ------------ Main Auto-Repair Cycle ------------
 def auto_repair_cycle() -> None:
