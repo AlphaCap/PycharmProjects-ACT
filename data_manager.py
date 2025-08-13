@@ -373,7 +373,7 @@ def get_sector_weights() -> Dict[str, float]:
     }
 
     target_weights: Optional[Dict[str, float]] = None,
-    Dict[str, float]:
+    def my_function(...) -> Dict[str, float]:
     if target_weights is None:
         return get_sector_weights()
     return target_weights
