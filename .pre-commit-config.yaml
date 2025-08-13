@@ -6,7 +6,7 @@ repos:
         entry: python auto_debug_repair.py
         language: system
         files: \.py$
-        stages: [commit, push]
+        stages: [manual]
         pass_filenames: false
         always_run: true
 
