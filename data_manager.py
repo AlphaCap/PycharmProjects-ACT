@@ -386,11 +386,26 @@ def get_sector_weights() -> Dict[str, float]:
 
 def calculate_sector_rebalance_needs(
     positions_df: pd.DataFrame, target_weights: Optional[Dict[str, float]] = None
-    Dict[str, Dict[str, Any]]:
+) -> Dict[str, Dict[str, Any]]:
     current_exposure = get_portfolio_sector_exposure(positions_df)
     targets = get_sector_rebalance_targets(target_weights)
     rebalance_needs: Dict[str, Dict[str, Any]] = {}
     total_value = positions_df["current_value"].sum() if not positions_df.empty else 0
+
+    for sector in targets:
+        current_weight = current_exposure.get(sector, {}).get("weight", 0)
+        target_weight = targets[sector]
+        difference = target_weight - current_weight
+
+        rebalance_needs[sector] = {
+            "current_weight": current_weight,
+            "target_weight": target_weight,
+            "difference": difference,
+            "dollar_adjustment": difference * total_value if total_value > 0 else 0,
+            "action": "buy" if difference > 0 else "sell" if difference < 0 else "hold",
+        }
+
+    return rebalance_needs
 
     for sector in targets:
         current_weight = current_exposure.get(sector, {}).get("weight", 0)
