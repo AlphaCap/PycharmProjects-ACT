@@ -3,12 +3,17 @@ Run Sector Optimization with 2-Year Dataset
 Optimized for shorter time periods but still effective
 """
 
+import sys
+import os
+
+project_root = r"C:\Users\theca\PycharmProjects"
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from sector_etf_optimizer import SectorETFOptimizer
 from sector_parameter_manager import SectorParameterManager
-import pandas as pd
 
-
-def run_2year_optimization():
+def run_2year_optimization() -> None:
     print(" Running Sector Optimization with 2-Year Data")
     print("=" * 50)
     print(" Using data: 2023-07-24 to 2025-07-21 (2.0 years)")
@@ -87,7 +92,7 @@ def run_2year_optimization():
             print(f" Error: {e}")
 
 
-def check_data_quality():
+def check_data_quality() -> None:
     """Quick check of the 2-year data quality"""
     print(f"\n Data Quality Check:")
 
@@ -122,5 +127,3 @@ if __name__ == "__main__":
         run_2year_optimization()
     else:
         print(f"\n Consider getting more data or using Yahoo Finance alternative")
-
-
