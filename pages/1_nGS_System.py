@@ -101,21 +101,13 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 with st.sidebar:
     st.title("Trading Systems")
-    if st.button(
-        "← Back to Main Dashboard",
-        use_container_width=True,
-        key="main_dashboard_button",
-    ):
-        try:
-            st.switch_page("app.py")
-        except streamlit.errors.StreamlitAPIException:
-            st.warning(
-                "Failed to switch to main page. Ensure 'app.py' is the main script."
-            )
-            st.info("Current setup: Run 'streamlit run app.py' with this as a subpage.")
+
+    # Navigation button to go back to Main Dashboard
+    if st.button("← Back to Main Dashboard", use_container_width=True, key="main_dashboard_button"):
+        st.switch_page("app")  # Navigate to the main dashboard (no .py needed)
 
     st.markdown("---")
-    st.caption(f"{datetime.now().strftime('%m/%d/%Y %H:%M')}")
+    st.caption(f"Updated: {datetime.now().strftime('%m/%d/%Y %H:%M')}")
 
 st.markdown("### nGS Historical Performance")
 st.caption("Detailed Performance Analytics & Trade History")
@@ -311,7 +303,7 @@ def get_barclay_ls_index() -> str:
             except Exception as e:
                 st.error(f"Error calculating detailed performance metrics: {e}")
                 return pd.DataFrame()
-            
+
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, "html.parser")
@@ -635,24 +627,19 @@ with col2:
     try:
         trades_df = get_trades_history()
         if not trades_df.empty:
-            # Generate equity curve
-            equity_curve = trades_df["profit"].cumsum() + 10000  # Starting equity value
+            trades_df["exit_date"] = pd.to_datetime(trades_df["exit_date"])
+            trades_sorted = trades_df.sort_values("exit_date")
+            trades_sorted["cumulative_profit"] = trades_sorted["profit"].cumsum()
 
             # Plot equity curve
             fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(equity_curve.index, equity_curve.values, label="Equity Curve", color="blue", linewidth=2)
-            ax.set_title("Equity Curve Over Time", fontsize=14, fontweight="bold")
-            ax.set_xlabel("Trades", fontsize=12)
-            ax.set_ylabel("Equity Value ($)", fontsize=12)
-            ax.grid(True, alpha=0.5)
-            ax.legend()
-
-            # Display the plot in Streamlit
-            st.pyplot(fig)
-        else:
-            st.warning("No trade data available to plot the Equity Curve.")
-    except Exception as e:
-        st.error(f"Error plotting Equity Curve: {e}")
+            ax.plot(
+                trades_sorted["exit_date"],
+                trades_sorted["cumulative_profit"],
+                label="Equity Curve",
+                linewidth=2,
+                color="#1f77b4",
+            )
             ax.fill_between(
                 trades_sorted["exit_date"],
                 trades_sorted["cumulative_profit"],
@@ -667,14 +654,15 @@ with col2:
                 alpha=0.3,
                 color="red",
             )
+
             ax.set_title("Cumulative Profit Over Time", fontsize=12, fontweight="bold")
             ax.set_xlabel("Date")
             ax.set_ylabel("Cumulative Profit ($)")
             ax.grid(True, alpha=0.3)
             ax.tick_params(axis="x", rotation=45)
-            plt.tight_layout()
+            ax.legend()
+
             st.pyplot(fig)
-            plt.close()
         else:
             st.info("No trade history available for equity curve.")
     except Exception as e:
@@ -687,7 +675,6 @@ with col2:
         plot_me_ratio_history(trades_df, initial_value)
     except Exception as e:
         st.error(f"Error creating M/E chart: {e}")
-
 
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     """
