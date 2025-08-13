@@ -4,6 +4,10 @@ import os
 import sys
 from datetime import datetime
 
+project_root = r"C:\Users\theca\PycharmProjects"
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import pandas as pd
 import streamlit as st
 
@@ -85,7 +89,7 @@ st.session_state.account_size = account_size
 
 
 # Calculate L/S Ratio from current positions - CORRECTED FORMAT
-def calculate_ls_ratio():
+def calculate_ls_ratio() -> None:
     try:
         positions = get_positions()
         if not positions or len(positions) == 0:
