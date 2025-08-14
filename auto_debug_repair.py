@@ -18,7 +18,7 @@ def add_to_pythonpath():
 
 def fix_navigation_logic(file_path: Path):
     """
-    Detect and correct invalid Streamlit navigation paths (e.g., invalid st.switch_page calls).
+    Detect and correct invalid Streamlit navigation paths (eapps).
     """
     print(f"Processing file for navigation issues: {file_path}")
     try:
@@ -36,7 +36,7 @@ def fix_navigation_logic(file_path: Path):
         for line in content:
             if "st.switch_page" in line:
                 # Extract target page name
-                start = line.find("(") + 2  # Account for "st.switch_page("
+                start = line.find("(") + 2  # Finds the start of `st.switch_page(` argument
                 end = line.rfind(")") - 1
                 target_page = line[start:end] if start < end else None
 
@@ -44,7 +44,9 @@ def fix_navigation_logic(file_path: Path):
                     # Check if the navigation target matches valid pages
                     target_page_fixed = target_page.strip('"').strip("'")
                     if target_page_fixed not in valid_pages:
-                        print(f"Invalid navigation target detected: {target_page_fixed}")
+                        print(
+                            f"Invalid navigation target detected: {target_page_fixed}"
+                        )
                         if valid_pages:
                             # Suggest the first matching page
                             suggested_page = valid_pages[0]
@@ -84,7 +86,7 @@ def detect_runtime_issues(log_file: Optional[Path] = None):
         # Look for Streamlit navigation errors
         if "StreamlitAPIException" in log_data:
             print("Streamlit navigation issue detected in logs.")
-            print("Suggestion: Validate all arguments passed to st.switch_page().")
+            print("app")
             print("Fixing logic...")
             for file in PROJECT_ROOT.rglob("*.py"):
                 fix_navigation_logic(file)
@@ -120,7 +122,7 @@ def generate_dynamic_tests():
             file.write("    ]\n")
             file.write("    for page in pages:\n")
             file.write("        try:\n")
-            file.write("            st.switch_page(page)\n")
+            file.write("app")
             file.write("            print(f'Navigation to {page} passed.')\n")
             file.write("        except Exception as e:\n")
             file.write("            print(f'Failed to navigate to {page}: {e}')\n")
