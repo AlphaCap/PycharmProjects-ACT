@@ -8,7 +8,7 @@ import streamlit as st
 project_root = r"C:\Users\theca\PycharmProjects"
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
+    
 # Optional dependencies
 try:
     import requests  # noqa: F401
