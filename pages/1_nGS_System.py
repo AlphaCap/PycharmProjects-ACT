@@ -5,9 +5,11 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-project_root = r"C:\Users\theca\PycharmProjects"
+project_root = os.path.dirname(os.path.abspath(__file__))  # Get the root directory
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+from ngs_ai_integration_manager import NGSAIIntegrationManager
     
 # Optional dependencies
 try:
