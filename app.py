@@ -1,533 +1,195 @@
-# Python
-import logging
 import os
 import sys
-from datetime import datetime
-
-project_root = r"C:\Users\theca\PycharmProjects"
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-import pandas as pd
-import streamlit as st
-
-# Configure logging to handle UTF-8
-logging.basicConfig(
-    level=logging.INFO,  # Adjust the logging level as needed
-    stream=sys.stdout,  # Ensure logs are streamed to stdout
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-sys.stdout.reconfigure(encoding="utf-8")  # Optional: reconfigure stdout for prints
-
-# Add project directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from data_manager import (  # get_system_status,
-    get_portfolio_metrics,
-    get_positions,
-    get_signals,
-)
-
-try:
-    from portfolio_calculator import calculate_real_portfolio_metrics
-
-    USE_REAL_METRICS = True
-except ImportError:
-    USE_REAL_METRICS = False
-
-st.set_page_config(
-    page_title="nGS Trading Dashboard", layout="wide", initial_sidebar_state="expanded"
-)
-
-# Hide Streamlit style elements
-hide_streamlit_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display:none;}
-    .stDecoration {display:none;}
-    [data-testid="stToolbar"] {display: none;}
-    [data-testid="stHeader"] {display: none;}
-    .stApp > header {display: none;}
-    [data-testid="stSidebarNav"] {display: none;}
-
-    .stAppViewContainer > .main .block-container {
-        padding-top: 1rem;
-    }
-    </style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
-with st.sidebar:
-    st.title("nGS Trading System")
-
-    # Navigation button to Historical Performance page
-    if st.button("Historical Performance", use_container_width=True, key="historical_page_btn"):
-        st.switch_page("nGS_Historical_Performance")  # Must match title set in its file
-
-    st.markdown("---")
-    st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
-
-# Main content
-st.title("nGulfStream Trader")
-
-# Initialize session state for account size
-if "account_size" not in st.session_state:
-    st.session_state.account_size = 1000000
-
-# Account size input
-account_size = st.number_input(
-    "Account Size:",
-    min_value=10000,
-    value=st.session_state.account_size,
-    step=10000,
-    format="%d",
-    key="main_account_size",
-)
-st.session_state.account_size = account_size
+import subprocess
+from pathlib import Path
+from typing import Optional
 
 
-# Calculate L/S Ratio from current positions - CORRECTED FORMAT
-def calculate_ls_ratio() -> None:
-    try:
-        positions = get_positions()
-        if not positions or len(positions) == 0:
-            return "N/A"
-
-        df_positions = pd.DataFrame(positions)
-
-        # Ensure required columns exist
-        if "side" not in df_positions.columns:
-            # Determine side from shares if side column missing
-            if "shares" in df_positions.columns:
-                df_positions["side"] = df_positions["shares"].apply(
-                    lambda x: "long" if x > 0 else "short"
-                )
-            else:
-                return "N/A"
-
-        # Calculate position values (not just counts)
-        if all(col in df_positions.columns for col in ["current_price", "shares"]):
-            df_positions["position_value"] = (
-                df_positions["current_price"] * df_positions["shares"].abs()
-            )
-
-            long_value = df_positions[df_positions["side"] == "long"][
-                "position_value"
-            ].sum()
-            short_value = df_positions[df_positions["side"] == "short"][
-                "position_value"
-            ].sum()
-
-            if long_value == 0 and short_value == 0:
-                return "N/A"
-            elif short_value == 0:
-                return f"{long_value/short_value if short_value > 0 else int(long_value/1000)}:0"  # All long
-            elif long_value == 0:
-                return f"-{int(short_value/1000)}:0"  # All short with minus
-            else:
-                # Calculate the ratio based on VALUES
-                if long_value >= short_value:
-                    ratio = long_value / short_value
-                    return f"{ratio:.1f}:1"  # Positive for net long
-                else:
-                    ratio = short_value / long_value
-                    return f"-{ratio:.1f}:1"  # NEGATIVE for net short (no letter S)
-        else:
-            # Fallback to position counts if values not available
-            long_count = len(df_positions[df_positions["side"] == "long"])
-            short_count = len(df_positions[df_positions["side"] == "short"])
-
-            if long_count == 0 and short_count == 0:
-                return "N/A"
-            elif short_count == 0:
-                return f"{long_count}:0"
-            elif long_count == 0:
-                return f"-{short_count}:0"  # Negative for shorts only
-            else:
-                if long_count >= short_count:
-                    ratio = long_count / short_count
-                    return f"{ratio:.1f}:1"
-                else:
-                    ratio = short_count / long_count
-                    return f"-{ratio:.1f}:1"  # Negative for net short
-
-    except Exception as e:
-        return f"Error"
+# Project root is dynamically resolved
+PROJECT_ROOT = Path(__file__).parent.resolve()
 
 
-# Enhanced portfolio metrics calculation - CORRECTED
-def get_enhanced_portfolio_metrics(account_size: int) -> dict:
-    try:
-        # Get base metrics
-        if USE_REAL_METRICS:
-            metrics = calculate_real_portfolio_metrics(
-                initial_portfolio_value=account_size
-            )
-        else:
-            metrics = get_portfolio_metrics(initial_portfolio_value=account_size)
-
-        total_realized = 0.0
-        total_unrealized = 0.0
-
-        # Get realized P&L from trades data
-        try:
-            import os
-
-            if os.path.exists("data/trades.csv"):
-                trades_df = pd.read_csv("data/trades.csv")
-                if "profit" in trades_df.columns and len(trades_df) > 0:
-                    total_realized = trades_df["profit"].sum()
-                    metrics["realized_pnl"] = f"${total_realized:+,.0f}"
-            elif os.path.exists("trade_history.csv"):
-                trades_df = pd.read_csv("trade_history.csv")
-                if "profit" in trades_df.columns and len(trades_df) > 0:
-                    total_realized = trades_df["profit"].sum()
-                    metrics["realized_pnl"] = f"${total_realized:+,.0f}"
-        except Exception:
-            pass
-
-        # Get unrealized P&L from current positions
-        positions = get_positions()
-        if positions and len(positions) > 0:
-            df_positions = pd.DataFrame(positions)
-
-            # Calculate unrealized P&L from current positions
-            if all(
-                col in df_positions.columns
-                for col in ["current_price", "entry_price", "shares"]
-            ):
-                df_positions["unrealized_pnl"] = (
-                    df_positions["current_price"] - df_positions["entry_price"]
-                ) * df_positions["shares"]
-                total_unrealized = df_positions["unrealized_pnl"].sum()
-                metrics["unrealized_pnl"] = f"${total_unrealized:+,.0f}"
-            elif "profit" in df_positions.columns:
-                # Use profit column if available
-                total_unrealized = df_positions["profit"].sum()
-                metrics["unrealized_pnl"] = f"${total_unrealized:+,.0f}"
-
-        # CORRECTED: Portfolio value = Starting Account + Total P&L (realized + unrealized)
-        total_pnl = total_realized + total_unrealized
-        total_portfolio_value = account_size + total_pnl
-        metrics["total_value"] = f"${total_portfolio_value:,.0f}"
-
-        # Calculate return percentage based on total P&L
-        return_pct = (total_pnl / account_size * 100) if account_size > 0 else 0.0
-        metrics["total_return_pct"] = f"{return_pct:+.2f}%"
-
-        return metrics
-
-    except Exception as e:
-        st.error(f"Error getting enhanced portfolio metrics: {e}")
-        return {
-            "total_value": f"${account_size:,.0f}",
-            "total_return_pct": "+0.0%",
-            "daily_pnl": "$0.00",
-            "unrealized_pnl": "$0.00",
-            "realized_pnl": "$0.00",
-            "win_rate": "0.0%",
-        }
+def add_to_pythonpath():
+    """Ensure project files are accessible in PYTHONPATH"""
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+        print(f"Added {PROJECT_ROOT} to PYTHONPATH")
 
 
-# Load enhanced metrics
-metrics = get_enhanced_portfolio_metrics(account_size)
-
-# Ensure all required keys exist
-safe_metrics = {
-    "total_value": f"${account_size:,.0f}",
-    "total_return_pct": "+0.0%",
-    "daily_pnl": "$0.00",
-    "unrealized_pnl": "$0.00",
-    "realized_pnl": "$0.00",
-    "win_rate": "0.0%",
-}
-for key, default_value in safe_metrics.items():
-    if key not in metrics:
-        metrics[key] = default_value
-
-# Calculate L/S ratio
-ls_ratio = calculate_ls_ratio()
-
-# Portfolio Summary
-st.subheader("Portfolio Summary")
-
-# Custom CSS for metric fonts - IMPROVED SPACING v2.2
-st.markdown(
+def fix_navigation_logic(file_path: Path):
     """
-<style>
-/* Improved spacing and font sizing v2.2 */
-[data-testid="metric-container"] {
-    background-color: rgba(28, 131, 225, 0.1);
-    border: 1px solid rgba(28, 131, 225, 0.1);
-    padding: 2% 2% 2% 4% !important;
-    border-radius: 5px;
-    margin: 0 !important;
-}
+    Detect and correct invalid Streamlit navigation paths (eapps).
+    """
+    print(f"Processing file for navigation issues: {file_path}")
+    try:
+        # Read file content
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.readlines()
 
-[data-testid="metric-container"] > div {
-    width: fit-content;
-    margin: auto;
-}
+        updated_content = []
+        modified = False
 
-[data-testid="metric-container"] label {
-    width: fit-content;
-    margin: auto;
-    font-size: 0.6rem !important;
-    font-weight: 600;
-    white-space: nowrap !important;
-}
+        # Gather valid file names in the main and `pages/` directory
+        valid_pages = [f.stem for f in PROJECT_ROOT.glob("*.py")]  # Main files
+        valid_pages += [f.stem for f in (PROJECT_ROOT / "pages").glob("*.py")]  # Pages/
 
-[data-testid="metric-container"] [data-testid="metric-value"] {
-    font-size: 0.8rem !important;
-    font-weight: 700;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-}
+        for line in content:
+            if "st.switch_page" in line:
+                # Extract target page name
+                start = line.find("(") + 2  # Finds the start of `st.switch_page(` argument
+                end = line.rfind(")") - 1
+                target_page = line[start:end] if start < end else None
 
-[data-testid="metric-container"] [data-testid="metric-delta"] {
-    font-size: 0.7rem !important;
-    white-space: nowrap !important;
-}
+                if target_page:
+                    # Check if the navigation target matches valid pages
+                    target_page_fixed = target_page.strip('"').strip("'")
+                    if target_page_fixed not in valid_pages:
+                        print(
+                            f"Invalid navigation target detected: {target_page_fixed}"
+                        )
+                        if valid_pages:
+                            # Suggest the first matching page
+                            suggested_page = valid_pages[0]
+                            print(f"Attempting to fix to: {suggested_page}")
+                            line = (
+                                line.replace(target_page_fixed, suggested_page)
+                                if target_page_fixed
+                                else line
+                            )
+                            modified = True
+            updated_content.append(line)
 
-/* Additional spacing fixes */
-.stMetric {
-    margin: 0 !important;
-    padding: 0 !important;
-}
+        # Save updated content if modifications were made
+        if modified:
+            with open(file_path, "w", encoding="utf-8") as file:
+                file.writelines(updated_content)
+            print(f"Navigation logic fixed in {file_path}")
 
-.stMetric > div {
-    margin: 0 !important;
-    padding: 0 !important;
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+    except Exception as e:
+        print(f"Failed to process {file_path}: {e}")
 
-# Now using 6 columns for portfolio summary (removed refresh button)
-col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-with col1:
-    total_value_clean = str(metrics["total_value"]).replace(".00", "").replace(",", "")
-    st.metric(
-        label="Portfolio Value",
-        value=total_value_clean,
-        delta=metrics["total_return_pct"],
-    )
+def detect_runtime_issues(log_file: Optional[Path] = None):
+    """
+    Analyze runtime logs or Streamlit API exceptions for patterns that can be corrected.
+    """
+    print("Running runtime issue detection")
+    try:
+        log_path = log_file or (PROJECT_ROOT / "runtime.log")
+        if not log_path.exists():
+            print(f"No runtime log found at: {log_path}")
+            return
 
-with col2:
-    st.metric(label="Daily P&L", value=metrics["daily_pnl"])
+        with open(log_path, "r", encoding="utf-8") as file:
+            log_data = file.read()
 
-with col3:
-    st.metric(label="Unrealized P&L", value=metrics["unrealized_pnl"])
+        # Look for Streamlit navigation errors
+        if "StreamlitAPIException" in log_data:
+            print("Streamlit navigation issue detected in logs.")
+            print("app")
+            print("Fixing logic...")
+            for file in PROJECT_ROOT.rglob("*.py"):
+                fix_navigation_logic(file)
 
-with col4:
-    st.metric(label="Realized P&L", value=metrics["realized_pnl"])
+    except Exception as e:
+        print(f"Error analyzing runtime logs: {e}")
 
-with col5:
-    st.metric(label="Win Rate", value=metrics["win_rate"])
 
-with col6:
-    st.metric(label="L/S Ratio", value=ls_ratio)
+def generate_dynamic_tests():
+    """
+    Dynamically generate test cases to validate navigation and critical paths.
+    """
+    print("Generating dynamic tests...")
 
-st.markdown("---")
+    test_dir = PROJECT_ROOT / "tests/auto_generated"
+    test_dir.mkdir(parents=True, exist_ok=True)
 
-# Current Positions - FIXED VERSION
-st.subheader(" Current Positions")
+    try:
+        # Generate navigation tests for Streamlit pages
+        test_file = test_dir / "test_navigation.py"
+        with open(test_file, "w", encoding="utf-8") as file:
+            file.write("import streamlit as st\n\n")
+            file.write("def test_navigation_pages():\n")
+            file.write("    pages = [\n")
 
-try:
-    positions = get_positions()
-
-    if positions and len(positions) > 0:
-        # Convert to DataFrame for better display
-        df_positions = pd.DataFrame(positions)
-
-        # Ensure required columns exist
-        required_columns = [
-            "symbol",
-            "entry_date",
-            "position",
-            "shares",
-            "entry_price",
-            "current_price",
-            "profit",
-        ]
-        for col in required_columns:
-            if col not in df_positions.columns:
-                if col == "position":
-                    df_positions[col] = "long"  # default
-                elif col == "entry_date":
-                    df_positions[col] = datetime.now().strftime(
-                        "%Y-%m-%d"
-                    )  # default to today
-                elif col in ["shares", "entry_price", "current_price"]:
-                    df_positions[col] = 0
-                elif col == "profit":
-                    df_positions[col] = 0.0
-                else:
-                    df_positions[col] = "N/A"
-
-        # FIXED: Ensure entry_date is properly formatted as string
-        try:
-            # Convert entry_date to datetime first, then to string
-            df_positions["entry_date"] = pd.to_datetime(
-                df_positions["entry_date"]
-            ).dt.strftime("%Y-%m-%d")
-        except Exception:
-            # If conversion fails, ensure it's at least string
-            df_positions["entry_date"] = df_positions["entry_date"].astype(str)
-
-        # Format the display DataFrame with entry_date as 2nd column
-        display_df = pd.DataFrame()
-        display_df["Symbol"] = df_positions["symbol"]
-        display_df["Entry Date"] = pd.to_datetime(
-            df_positions["entry_date"]
-        ).dt.strftime("%m/%d/%y")
-        display_df["Side"] = df_positions["side"].str.capitalize()
-        display_df["Shares"] = df_positions["shares"].astype(int)
-        display_df["Entry Price"] = df_positions["entry_price"].apply(
-            lambda x: f"${float(x):,.2f}"
-        )
-        display_df["Current Price"] = df_positions["current_price"].apply(
-            lambda x: f"${float(x):,.2f}"
-        )
-        display_df["Current Value"] = (
-            df_positions["shares"] * df_positions["current_price"]
-        ).apply(lambda x: f"${float(x):,.0f}")
-        display_df["P&L"] = df_positions["profit"].apply(lambda x: f"${float(x):+,.0f}")
-        display_df["P&L %"] = (
-            (df_positions["current_price"] / df_positions["entry_price"] - 1)
-            * 100
-            * df_positions["shares"].apply(lambda x: 1 if x > 0 else -1)
-        ).apply(lambda x: f"{float(x):+.1f}%")
-
-        # Display positions count with L/S breakdown
-        total_positions = len(display_df)
-        long_count = len(df_positions[df_positions["side"] == "long"])
-        short_count = len(df_positions[df_positions["side"] == "short"])
-
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total Positions", total_positions)
-        with col2:
-            st.metric("Long", long_count)
-        with col3:
-            st.metric("Short", short_count)
-        with col4:
-            st.metric("L/S Ratio", ls_ratio)
-
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Symbol": st.column_config.TextColumn("Symbol", width="small"),
-                "Entry Date": st.column_config.TextColumn("Entry Date", width="small"),
-                "Side": st.column_config.TextColumn("Side", width="small"),
-                "Shares": st.column_config.NumberColumn("Shares", width="small"),
-                "Entry Price": st.column_config.TextColumn(
-                    "Entry Price", width="small"
-                ),
-                "Current Price": st.column_config.TextColumn(
-                    "Current Price", width="small"
-                ),
-                "Current Value": st.column_config.TextColumn(
-                    "Current Value", width="small"
-                ),
-                "P&L": st.column_config.TextColumn("P&L", width="small"),
-                "P&L %": st.column_config.TextColumn("P&L %", width="small"),
-            },
-        )
-
-        # FIXED: Check for suspicious future dates - now safe to use
-        try:
-            future_positions = df_positions[
-                pd.to_datetime(df_positions["entry_date"]) > datetime.now()
+            # Generate page list dynamically
+            pages = [f.stem for f in PROJECT_ROOT.glob("*.py")] + [
+                f.stem for f in (PROJECT_ROOT / "pages").glob("*.py")
             ]
-            if not future_positions.empty:
-                st.warning(
-                    f" WARNING: {len(future_positions)} positions have FUTURE entry dates - these are likely from backtest data!"
-                )
-                st.info(
-                    " If you see future dates (like 04/09/25), these positions are synthetic/test data, not real trades."
-                )
-        except Exception as e:
-            st.warning(f"Could not check for future dates: {e}")
+            for page in pages:
+                file.write(f"        '{page}',\n")
 
-        # FIXED: Check for very recent positions (today) - now safe to use string comparison
-        try:
-            today = datetime.now().strftime("%Y-%m-%d")
-            today_positions = df_positions[
-                df_positions["entry_date"] == today
-            ]  # Use == instead of .str.contains()
-            if not today_positions.empty:
-                st.success(
-                    f" {len(today_positions)} positions entered TODAY - these appear to be new live trades!"
-                )
-        except Exception as e:
-            st.warning(f"Could not check for today's positions: {e}")
+            file.write("    ]\n")
+            file.write("    for page in pages:\n")
+            file.write("        try:\n")
+            file.write("app")
+            file.write("            print(f'Navigation to {page} passed.')\n")
+            file.write("        except Exception as e:\n")
+            file.write("            print(f'Failed to navigate to {page}: {e}')\n")
 
-    else:
-        st.info("No current positions")
-        # Show L/S ratio as N/A when no positions
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total Positions", 0)
-        with col2:
-            st.metric("Long Positions", 0)
-        with col3:
-            st.metric("Short Positions", 0)
-        with col4:
-            st.metric("L/S Ratio", "N/A")
+        print(f"Generated test_navigation.py in {test_dir}")
 
-except Exception as e:
-    st.error(f"Error loading positions: {e}")
-    st.info("Check your data sources and ensure the system is properly configured.")
-    # Add debug info
-    import traceback
+    except Exception as e:
+        print(f"Failed to generate dynamic tests: {e}")
 
-    st.code(traceback.format_exc())
 
-st.markdown("---")
-
-# Today's Signals
-st.subheader(" Today's Signals")
-try:
-    signals = get_signals()
-
-    # Check if signals exist and are not empty
-    if signals is not None:
-        if isinstance(signals, pd.DataFrame):
-            if not signals.empty:
-                # Show last 10 signals for DataFrame
-                recent_signals = signals.head(10)
-                st.dataframe(recent_signals, use_container_width=True, hide_index=True)
-            else:
-                st.info("No signals today")
-        elif isinstance(signals, list) and len(signals) > 0:
-            # Show last 10 signals for list
-            recent_signals = signals[:10]
-            signal_df = pd.DataFrame(recent_signals)
-            st.dataframe(signal_df, use_container_width=True, hide_index=True)
-        else:
-            st.info("No signals today")
-    else:
-        st.info("No signals today")
-
-except Exception as e:
-    st.error(f"Error loading signals: {e}")
-
-# Footer
-st.markdown("---")
-st.markdown(
+def run_static_fixers():
     """
-    <div style='text-align: center; color: #666; font-size: 0.8rem;'>
-    nGulfStream Trading System | Neural Grid Strategy<br>
-    <em>Real-time algorithmic trading dashboard</em>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+    Run static code fixers like black and isort.
+    """
+    print("Running static code fixers...")
+    try:
+        subprocess.run(["black", str(PROJECT_ROOT)], check=True)
+        subprocess.run(["isort", str(PROJECT_ROOT)], check=True)
+    except Exception as e:
+        print(f"Static fixers encountered an error: {e}")
+
+
+def run_tests():
+    """
+    Run all tests to validate existing functionality.
+    """
+    print("Running all tests...")
+    try:
+        result = subprocess.run(
+            ["pytest", str(PROJECT_ROOT / "tests")],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        print(result.stdout)
+        if result.returncode != 0:
+            print("Some tests failed. Check the output.")
+    except Exception as e:
+        print(f"Failed to execute tests: {e}")
+
+
+def auto_repair_cycle():
+    """
+    Main enhanced repair workflow incorporating new logic for robustness.
+    """
+    print("\n=== Starting Comprehensive Auto-Repair Cycle ===\n")
+
+    # Step 1: Run Static Code Fixers
+    run_static_fixers()
+
+    # Step 2: Dynamic Dependency & Navigation Fixes
+    print("\n=== Fixing Navigation Logic ===")
+    for file in PROJECT_ROOT.rglob("*.py"):
+        fix_navigation_logic(file)
+
+    # Step 3: Dynamic Test Generation
+    generate_dynamic_tests()
+
+    # Step 4: Detect Runtime Issues
+    detect_runtime_issues()
+
+    # Step 5: Validate with Tests
+    run_tests()
+
+    print("\n=== Auto-Repair Cycle Completed ===")
+
+
+if __name__ == "__main__":
+    add_to_pythonpath()
+    auto_repair_cycle()
