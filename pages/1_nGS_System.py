@@ -24,9 +24,7 @@ try:
 except Exception:
     HAS_BEAUTIFULSOUP = False
 
-import os
 import re
-import sys
 from datetime import datetime
 from ngs_ai_performance_comparator import PerformanceMetrics
 from ngs_ai_integration_manager import NGSAIIntegrationManager
