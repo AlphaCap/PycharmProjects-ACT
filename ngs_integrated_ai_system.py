@@ -760,9 +760,11 @@ class NGSAIBacktestingSystem:
                 else "ai"
             ),
         }
+        output = {
             "best_performing_strategy": max(
-                all_results, key=lambda x: x.total_return_pct
-            ).strategy_id,
+                strategies, key=lambda x: x.get("performance_metric", 0)
+            ),
+            "additional_info": some_other_value,
             "lowest_risk_strategy": min(
                 all_results, key=lambda x: x.max_drawdown_pct
             ).strategy_id,
@@ -770,7 +772,6 @@ class NGSAIBacktestingSystem:
                 all_results, key=lambda x: x.sharpe_ratio
             ).strategy_id,
         }
-
         return BacktestComparison(
             original_ngs_result=original_result,
             ai_results=ai_results,
