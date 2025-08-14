@@ -102,7 +102,7 @@ with st.sidebar:
 
     # Navigation button to Historical Performance page
     if st.button("Historical Performance", use_container_width=True, key="historical_page_btn"):
-        st.switch_page("app")  # Match the file's name (1_nGS_System.py) in the pages/ directory
+        st.switch_page("1_nGS_System")  # Match the file's name (1_nGS_System.py) in the pages/ directory
 
     st.markdown("---")
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
