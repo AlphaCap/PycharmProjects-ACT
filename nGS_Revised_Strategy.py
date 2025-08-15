@@ -1,16 +1,20 @@
-import json
 import logging
 import os
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
-from pathlib import Path
+# Ensure the project root is added to PYTHONPATH
+PROJECT_ROOT = str(Path(__file__).resolve().parent)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # Define the historical data path relative to the script's location
-HISTORICAL_DATA_PATH = str(Path(__file__).parent / "signal_analysis.json")
+HISTORICAL_DATA_PATH = str(Path(PROJECT_ROOT, "signal_analysis.json"))
 
 print("Looking for file at:", HISTORICAL_DATA_PATH)
 if not os.path.exists(HISTORICAL_DATA_PATH):
@@ -19,12 +23,9 @@ if not os.path.exists(HISTORICAL_DATA_PATH):
 else:
     print("File exists! Proceeding to load data.")
 
-import sys
-
 from data_manager import (
     RETENTION_DAYS,
     calculate_sector_rebalance_needs,
-    get_all_sectors,
     get_portfolio_sector_exposure,
     get_positions,
     get_positions_df,
@@ -33,7 +34,7 @@ from data_manager import (
     get_symbol_sector,
 )
 from data_manager import initialize as init_data_manager
-from data_manager import load_price_data, save_positions, save_signals, save_trades
+from data_manager import load_price_data, save_positions, save_trades
 from shared_utils import load_polygon_data
 
 
@@ -997,10 +998,7 @@ class NGSStrategy:
                 logger.warning(f"LRV calculation error at index {i}: {e}")
 
     def _check_long_signals(self, df: pd.DataFrame, i: int) -> None:
-        from ngs_integrated_ai_system import (
-            NGSAwareStrategyGenerator,
-            NGSIndicatorLibrary,
-        )
+        pass
 
         if (
             df["Open"].iloc[i] < df["Close"].iloc[i - 1]
@@ -2103,7 +2101,9 @@ if __name__ == "__main__":
         print("Testing `run_ngs_automated_reporting`...")
         comparison = {"example_key": "example_value"}  # Replace with actual inputs
         try:
-            run_ngs_automated_reporting(comparison)  # Ensure comparison is structured correctly
+            run_ngs_automated_reporting(
+                comparison
+            )  # Ensure comparison is structured correctly
             print("Successfully ran automated reporting.")
         except Exception as e:
             print(f"Error in run_ngs_automated_reporting: {e}")
