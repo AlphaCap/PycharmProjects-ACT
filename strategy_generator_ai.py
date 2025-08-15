@@ -51,10 +51,15 @@ class TradingStrategy:
         try:
             print(f" Executing strategy {self.strategy_id} on {len(df)} bars of data")
             position_size_config = self.config.get("position_sizing", {})
+            copilot/fix-2
             position_size = position_size_config.get(
                 "size", 5000
             )  # Default size to $5000
             print(f"DEBUG: Using position size for execution: {position_size}")
+
+            position_size = position_size_config.get("size", 5000)  # Default size to $5000
+            print(f"DEBUG: Using position size for execution {position_size}")
+         main
 
             # CRITICAL: Ensure data has minimum required length
             if len(df) < 50:
