@@ -1,8 +1,9 @@
 # calculate_daily_me_ratio_fixed.py - Calculate and store daily M/E ratios (Fixed for actual trade format)
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
+
+import numpy as np
+import pandas as pd
 
 
 def calculate_daily_me_ratios(initial_value=100000):
@@ -372,4 +373,3 @@ if __name__ == "__main__":
     else:
         print("\n✗ M/E ratio calculation failed. Check error messages above.")
         print("\n M/E ratio calculation failed. Check error messages above.")
-

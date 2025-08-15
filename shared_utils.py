@@ -1,10 +1,12 @@
+import json
+import os
+import time
+from datetime import datetime, timedelta
+
 import pandas as pd
 from polygon import RESTClient
+
 from polygon_config import POLYGON_API_KEY
-from datetime import datetime, timedelta
-import os
-import json
-import time
 
 
 def load_polygon_data(symbols):
@@ -115,5 +117,3 @@ def load_polygon_data(symbols):
 
     print(f"load_polygon_data returning: {type(data)}, keys: {list(data.keys())}")
     return data
-
-

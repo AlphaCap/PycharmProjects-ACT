@@ -7,12 +7,13 @@ Integrates with existing sector mapping system.
 import json
 import os
 from datetime import datetime
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
+
 import pandas as pd
 
 # Import your existing sector functions
 try:
-    from data_manager import get_symbol_sector, get_all_sectors
+    from data_manager import get_all_sectors, get_symbol_sector
 
     SECTOR_INTEGRATION = True
 except ImportError:
@@ -300,5 +301,3 @@ if __name__ == "__main__":
     print("\n Optimization summary:")
     summary = manager.get_optimization_summary()
     print(summary.to_string(index=False))
-
-

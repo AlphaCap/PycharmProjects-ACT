@@ -35,9 +35,11 @@ NGSIndicatorLibrary = ComprehensiveIndicatorLibrary
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class BacktestResult:
     """Container for individual backtest results"""
+
     strategy_id: str
     objective_name: str
     start_date: str
@@ -57,30 +59,40 @@ class BacktestResult:
     trades: List[Dict[str, Any]]
     daily_returns: pd.Series
 
+
 @dataclass
 class BacktestComparison:
     """Container for comparing multiple backtest results"""
+
     original_ngs_result: BacktestResult
     ai_results: List[BacktestResult]
     comparison_metrics: Dict[str, Any]
     recommendation: str
     summary_stats: Dict[str, Any]
 
+
 class NGSAIBacktestingSystem:
     """
     Comprehensive backtesting system for AI-generated strategies
     Tests strategies against historical data with YOUR proven nGS parameters
     """
+
     def __init__(self, account_size: float = 1000000, data_dir: str = "data") -> None:
         self.account_size: float = account_size
         self.data_dir: str = data_dir
         self.results_dir: str = os.path.join(data_dir, "backtest_results")
         os.makedirs(self.results_dir, exist_ok=True)
-        self.integration_manager: NGSAIIntegrationManager = NGSAIIntegrationManager(account_size, data_dir)
-        self.ngs_indicator_lib: ComprehensiveIndicatorLibrary = ComprehensiveIndicatorLibrary()
+        self.integration_manager: NGSAIIntegrationManager = NGSAIIntegrationManager(
+            account_size, data_dir
+        )
+        self.ngs_indicator_lib: ComprehensiveIndicatorLibrary = (
+            ComprehensiveIndicatorLibrary()
+        )
         self.objective_manager: ObjectiveManager = ObjectiveManager()
-        self.ai_generator: ObjectiveAwareStrategyGenerator = ObjectiveAwareStrategyGenerator(
-            self.ngs_indicator_lib, self.objective_manager
+        self.ai_generator: ObjectiveAwareStrategyGenerator = (
+            ObjectiveAwareStrategyGenerator(
+                self.ngs_indicator_lib, self.objective_manager
+            )
         )
         self.backtest_config: Dict[str, Any] = {
             "commission_per_trade": 1.0,
@@ -100,6 +112,7 @@ class NGSAIBacktestingSystem:
             f"   Commission:          ${self.backtest_config['commission_per_trade']:.2f} per trade"
         )
         print(f"   Slippage:            {self.backtest_config['slippage_pct']:.2f}%")
+
     # =============================================================================
     # SINGLE STRATEGY BACKTESTING
     # =============================================================================
@@ -162,6 +175,7 @@ class NGSAIBacktestingSystem:
         Backtest your original nGS strategy for comparison
         """
         from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
+
         print(f"\n Backtesting Original nGS Strategy")
 
         # Filter data by date range if specified
@@ -266,7 +280,9 @@ class NGSAIBacktestingSystem:
         print(f"   Original nGS vs {len(objectives)} AI objectives")
 
         # Backtest original nGS
-        original_result: BacktestResult = self.backtest_original_ngs(data, start_date, end_date)
+        original_result: BacktestResult = self.backtest_original_ngs(
+            data, start_date, end_date
+        )
 
         # Backtest AI strategies
         ai_results: List[BacktestResult] = self.backtest_multiple_objectives(
@@ -282,6 +298,7 @@ class NGSAIBacktestingSystem:
         self._save_comparison_results(comparison)
 
         return comparison
+
     # =============================================================================
     # WALK-FORWARD ANALYSIS
     # =============================================================================
@@ -310,8 +327,10 @@ class NGSAIBacktestingSystem:
         end_date: datetime = max(all_dates)
 
         # Create walk-forward windows
-        windows: List[Tuple[datetime, datetime, datetime, datetime]] = self._create_walk_forward_windows(
-            start_date, end_date, training_months, testing_months
+        windows: List[Tuple[datetime, datetime, datetime, datetime]] = (
+            self._create_walk_forward_windows(
+                start_date, end_date, training_months, testing_months
+            )
         )
 
         walk_forward_results: List[Dict[str, Any]] = []
@@ -367,9 +386,7 @@ class NGSAIBacktestingSystem:
         # Analyze walk-forward results
         wf_analysis = self._analyze_walk_forward_results(walk_forward_results)
 
-        print(
-            f"\n Walk-Forward Analysis Complete: {len(walk_forward_results)} windows"
-        )
+        print(f"\n Walk-Forward Analysis Complete: {len(walk_forward_results)} windows")
         print(f"   Average Return: {wf_analysis['avg_return']:.2f}%")
         print(f"   Return Std Dev: {wf_analysis['return_std']:.2f}%")
         print(
@@ -390,7 +407,9 @@ class NGSAIBacktestingSystem:
     # PERFORMANCE ANALYSIS METHODS
     # =============================================================================
 
-    def _apply_trading_costs(self, trades: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _apply_trading_costs(
+        self, trades: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Apply commission and slippage to trades"""
         adjusted_trades: List[Dict[str, Any]] = []
 
@@ -398,8 +417,8 @@ class NGSAIBacktestingSystem:
             adjusted_trade = trade.copy()
 
             # Apply commission (reduces profit)
-            commission = self.backtest_config['commission_per_trade']
-            adjusted_trade['profit'] = trade['profit'] - commission
+            commission = self.backtest_config["commission_per_trade"]
+            adjusted_trade["profit"] = trade["profit"] - commission
 
             # Apply slippage (reduces profit)
             entry_price = trade["entry_price"]
@@ -456,13 +475,17 @@ class NGSAIBacktestingSystem:
         # Return calculations
         total_profit = float(sum(profits))
         total_return_pct = (total_profit / float(self.account_size)) * 100
-        avg_trade_pct = (np.mean(profits) / float(self.account_size)) * 100 if profits else 0.0
+        avg_trade_pct = (
+            (np.mean(profits) / float(self.account_size)) * 100 if profits else 0.0
+        )
 
         # Risk calculations
         daily_returns = equity_curve.pct_change().dropna()
         max_drawdown_pct = self._calculate_max_drawdown(equity_curve)
         volatility_pct = (
-            float(daily_returns.std()) * np.sqrt(252) * 100 if len(daily_returns) > 1 else 0.0
+            float(daily_returns.std()) * np.sqrt(252) * 100
+            if len(daily_returns) > 1
+            else 0.0
         )
 
         # Sharpe ratio
@@ -499,16 +522,20 @@ class NGSAIBacktestingSystem:
             strategy_id=strategy.strategy_id,
             objective_name=strategy.objective_name,
             start_date=(
-                start_date or (
+                start_date
+                or (
                     equity_curve.index[0].strftime("%Y-%m-%d")
-                    if not equity_curve.empty and hasattr(equity_curve.index[0], "strftime")
+                    if not equity_curve.empty
+                    and hasattr(equity_curve.index[0], "strftime")
                     else "N/A"
                 )
             ),
             end_date=(
-                end_date or (
+                end_date
+                or (
                     equity_curve.index[-1].strftime("%Y-%m-%d")
-                    if not equity_curve.empty and hasattr(equity_curve.index[-1], "strftime")
+                    if not equity_curve.empty
+                    and hasattr(equity_curve.index[-1], "strftime")
                     else "N/A"
                 )
             ),
@@ -527,6 +554,7 @@ class NGSAIBacktestingSystem:
             trades=trades,
             daily_returns=daily_returns,
         )
+
     def _calculate_comprehensive_metrics_from_trades(
         self,
         strategy_id: str,
@@ -567,12 +595,16 @@ class NGSAIBacktestingSystem:
 
         total_profit = float(sum(profits))
         total_return_pct = (total_profit / float(self.account_size)) * 100
-        avg_trade_pct = (np.mean(profits) / float(self.account_size)) * 100 if profits else 0.0
+        avg_trade_pct = (
+            (np.mean(profits) / float(self.account_size)) * 100 if profits else 0.0
+        )
 
         daily_returns = equity_curve.pct_change().dropna()
         max_drawdown_pct = self._calculate_max_drawdown(equity_curve)
         volatility_pct = (
-            float(daily_returns.std()) * np.sqrt(252) * 100 if len(daily_returns) > 1 else 0.0
+            float(daily_returns.std()) * np.sqrt(252) * 100
+            if len(daily_returns) > 1
+            else 0.0
         )
 
         excess_returns = daily_returns - (self.backtest_config["risk_free_rate"] / 252)
@@ -604,16 +636,20 @@ class NGSAIBacktestingSystem:
             strategy_id=strategy_id,
             objective_name=objective_name,
             start_date=(
-                start_date or (
+                start_date
+                or (
                     equity_curve.index[0].strftime("%Y-%m-%d")
-                    if not equity_curve.empty and hasattr(equity_curve.index[0], "strftime")
+                    if not equity_curve.empty
+                    and hasattr(equity_curve.index[0], "strftime")
                     else "N/A"
                 )
             ),
             end_date=(
-                end_date or (
+                end_date
+                or (
                     equity_curve.index[-1].strftime("%Y-%m-%d")
-                    if not equity_curve.empty and hasattr(equity_curve.index[-1], "strftime")
+                    if not equity_curve.empty
+                    and hasattr(equity_curve.index[-1], "strftime")
                     else "N/A"
                 )
             ),
@@ -705,7 +741,9 @@ class NGSAIBacktestingSystem:
                 min([r.total_return_pct for r in ai_results]) if ai_results else 0.0
             ),
             "ai_average": (
-                float(np.mean([r.total_return_pct for r in ai_results])) if ai_results else 0.0
+                float(np.mean([r.total_return_pct for r in ai_results]))
+                if ai_results
+                else 0.0
             ),
             "original_rank": sorted(returns, reverse=True).index(
                 original_result.total_return_pct
@@ -934,7 +972,9 @@ class NGSAIBacktestingSystem:
 
         return windows
 
-    def _analyze_walk_forward_results(self, wf_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _analyze_walk_forward_results(
+        self, wf_results: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """Analyze walk-forward results for consistency"""
 
         if not wf_results:

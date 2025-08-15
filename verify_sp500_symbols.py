@@ -7,8 +7,9 @@ ensuring the trading universe is adequately covered.
 """
 
 import os
-from data_manager import get_sp500_symbols, verify_sp500_coverage
 from typing import List
+
+from data_manager import get_sp500_symbols, verify_sp500_coverage
 
 
 def main() -> None:
@@ -78,5 +79,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

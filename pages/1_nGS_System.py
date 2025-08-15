@@ -5,8 +5,8 @@ performance analytics and trade history for the nGulfStream trading system.
 """
 
 import os
-import sys
 import re
+import sys
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -22,9 +22,6 @@ if project_root not in sys.path:
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Project imports
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-from ngs_ai_performance_comparator import PerformanceMetrics
 from data_manager import (
     get_me_ratio_history,
     get_portfolio_metrics,
@@ -32,6 +29,10 @@ from data_manager import (
     get_strategy_performance,
     get_trades_history,
 )
+
+# Project imports
+from ngs_ai_integration_manager import NGSAIIntegrationManager
+from ngs_ai_performance_comparator import PerformanceMetrics
 
 # Optional dependencies
 try:
@@ -292,9 +293,15 @@ def get_barclay_ls_index() -> str:
         if not HAS_REQUESTS or not HAS_BEAUTIFULSOUP:
             return "N/A (Install requests & beautifulsoup4)"
 
-        url = "https://portal.barclayhedge.com/cgi-bin/indices/displayHfIndex.cgi?indexCat=Barclay-Hedge-Fund-Indices&indexName=Equity-Long-Short-Index"
+        url = (
+            "https://portal.barclayhedge.com/cgi-bin/indices/displayHfIndex.cgi?"
+            "indexCat=Barclay-Hedge-Fund-Indices&indexName=Equity-Long-Short-Index"
+        )
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
         }
 
         response = requests.get(url, headers=headers, timeout=15)
@@ -540,7 +547,9 @@ if USE_REAL_METRICS and metrics.get("total_trades", 0) > 0:
         f" Real portfolio metrics calculated from {metrics['total_trades']} trades"
     )
     st.info(
-        f" Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | Winners: {metrics.get('winning_trades', 0)} | Losers: {metrics.get('losing_trades', 0)}"
+        f" Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | "
+        f"Winners: {metrics.get('winning_trades', 0)} | "
+        f"Losers: {metrics.get('losing_trades', 0)}"
     )
 
 # Single row of portfolio metrics

@@ -4,12 +4,13 @@ Fixed to load data directly from downloaded CSV files
 No dependency on data_manager.py
 """
 
-import pandas as pd
-import numpy as np
 import os
 import sys
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 # Import our parameter manager
 from sector_parameter_manager import SectorParameterManager
@@ -669,5 +670,3 @@ if __name__ == "__main__":
     if OPTIMIZATION_ENGINE == "grid_search":
         print("\n For faster optimization, install Optuna:")
         print("   pip install optuna")
-
-

@@ -5,10 +5,11 @@ Each indicator is implemented as a reusable function with consistent interface
 FIXED: Now handles both 'Close'/'close' and other column name variations
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Union, Any
 import warnings
+from typing import Any, Dict, List, Optional, Union
+
+import numpy as np
+import pandas as pd
 
 warnings.filterwarnings("ignore")
 
@@ -242,6 +243,7 @@ class ComprehensiveIndicatorLibrary:
             "output_type": "price_level",
             "description": "Daily pivot calculations",
         }
+
     # =============================================================================
     # INDICATOR IMPLEMENTATIONS - ALL FIXED FOR COLUMN NAME COMPATIBILITY
     # =============================================================================
@@ -256,7 +258,9 @@ class ComprehensiveIndicatorLibrary:
             if i < length:
                 tsf_values.append(np.nan)
             else:
-                recent_prices = df["Close"].iloc[i - length + 1 : i + 1].to_numpy(dtype=float)
+                recent_prices = (
+                    df["Close"].iloc[i - length + 1 : i + 1].to_numpy(dtype=float)
+                )
                 x_values = np.arange(len(recent_prices))
 
                 if len(recent_prices) > 1:
@@ -277,7 +281,9 @@ class ComprehensiveIndicatorLibrary:
             if i < length:
                 linreg_values.append(np.nan)
             else:
-                recent_prices = df["Close"].iloc[i - length + 1 : i + 1].to_numpy(dtype=float)
+                recent_prices = (
+                    df["Close"].iloc[i - length + 1 : i + 1].to_numpy(dtype=float)
+                )
                 x_values = np.arange(len(recent_prices))
 
                 if len(recent_prices) > 1:
@@ -298,7 +304,9 @@ class ComprehensiveIndicatorLibrary:
             if i < length:
                 slopes.append(0.0)
             else:
-                recent_prices = df["Close"].iloc[i - length + 1 : i + 1].to_numpy(dtype=float)
+                recent_prices = (
+                    df["Close"].iloc[i - length + 1 : i + 1].to_numpy(dtype=float)
+                )
                 x_values = np.arange(len(recent_prices))
 
                 if len(recent_prices) > 1:
@@ -318,7 +326,9 @@ class ComprehensiveIndicatorLibrary:
         bb_upper = bb_mid + (deviation * bb_std)
         bb_lower = bb_mid - (deviation * bb_std)
 
-        bb_position = ((df["Close"] - bb_lower) / (bb_upper - bb_lower) * 100).astype(float)
+        bb_position = ((df["Close"] - bb_lower) / (bb_upper - bb_lower) * 100).astype(
+            float
+        )
         bb_position = bb_position.fillna(50).clip(0, 100)
         return bb_position.rename("BB_Position")
 
@@ -383,7 +393,9 @@ class ComprehensiveIndicatorLibrary:
         lowest_low = df["Low"].rolling(window=k_length).min()
         highest_high = df["High"].rolling(window=k_length).max()
 
-        k_percent = ((df["Close"] - lowest_low) / (highest_high - lowest_low) * 100).astype(float)
+        k_percent = (
+            (df["Close"] - lowest_low) / (highest_high - lowest_low) * 100
+        ).astype(float)
         k_percent = k_percent.fillna(50)
         d_percent = k_percent.rolling(window=d_length).mean()
         return d_percent.fillna(50).rename("Stochastic")
@@ -527,7 +539,9 @@ class ComprehensiveIndicatorLibrary:
         else:
             raise ValueError(f"Indicator '{indicator_name}' not found")
 
-    def list_indicators_by_category(self, category: Optional[str] = None) -> Union[Dict[str, List[str]], List[str]]:
+    def list_indicators_by_category(
+        self, category: Optional[str] = None
+    ) -> Union[Dict[str, List[str]], List[str]]:
         if category is None:
             categories: Dict[str, List[str]] = {}
             for name, info in self.indicators_catalog.items():
@@ -557,7 +571,10 @@ class ComprehensiveIndicatorLibrary:
         return function(df_standardized, **params)
 
     def calculate_multiple_indicators(
-        self, df: pd.DataFrame, indicator_list: List[str], custom_params: Optional[Dict[str, Dict[str, Any]]] = None
+        self,
+        df: pd.DataFrame,
+        indicator_list: List[str],
+        custom_params: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> pd.DataFrame:
         results = self._standardize_columns(df)
         custom_params = custom_params or {}
@@ -571,6 +588,7 @@ class ComprehensiveIndicatorLibrary:
             else:
                 print(f"Warning: Indicator '{indicator_name}' not found, skipping")
         return results
+
 
 def test_indicator_library() -> None:
     print("\n TESTING FIXED INDICATOR LIBRARY")
@@ -621,6 +639,7 @@ def test_indicator_library() -> None:
     for cat, indicators in categories.items():
         print(f"   {cat.upper()}: {len(indicators)} indicators")
     print(f"\n COLUMN NAME COMPATIBILITY FIXED!")
+
 
 if __name__ == "__main__":
     print(" FIXED COMPREHENSIVE INDICATOR LIBRARY")

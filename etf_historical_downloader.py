@@ -4,14 +4,15 @@ Downloads 4+ years of historical data for sector ETFs using Polygon API.
 Separate from main strategy data for ML optimization purposes.
 """
 
-import pandas as pd
-import numpy as np
-import requests
-import time
+import json
 import os
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
-import json
+
+import numpy as np
+import pandas as pd
+import requests
 
 # Import existing configuration if available
 try:
@@ -50,7 +51,9 @@ class ETFHistoricalDownloader:
     - Validates data quality
     """
 
-    def __init__(self, data_dir: str = "data/etf_historical", years_back: int = 2):  # Changed from 4 to 2
+    def __init__(
+        self, data_dir: str = "data/etf_historical", years_back: int = 2
+    ):  # Changed from 4 to 2
         self.data_dir = data_dir
         self.years_back = years_back
 
@@ -74,7 +77,9 @@ class ETFHistoricalDownloader:
 
         # Calculate date ranges
         self.end_date = datetime.now()
-        self.start_date = self.end_date - timedelta(days=365 * years_back + 30)  # Extra month buffer
+        self.start_date = self.end_date - timedelta(
+            days=365 * years_back + 30
+        )  # Extra month buffer
 
         # API settings
         self.api_delay = 12.1  # Polygon free tier: 5 calls per minute
@@ -336,9 +341,7 @@ class ETFHistoricalDownloader:
         successful_downloads = 0
 
         for i, (sector, etf_symbol) in enumerate(self.sector_etfs.items(), 1):
-            print(
-                f"\n Processing {i}/{len(self.sector_etfs)}: {etf_symbol} ({sector})"
-            )
+            print(f"\n Processing {i}/{len(self.sector_etfs)}: {etf_symbol} ({sector})")
 
             try:
                 success = self.update_etf_data(etf_symbol, force_full_download)
@@ -521,5 +524,3 @@ if __name__ == "__main__":
     print(f"\n Final Summary:")
     final_summary = downloader.get_download_summary()
     print(final_summary.to_string(index=False))
-
-

@@ -1,8 +1,9 @@
-import requests
-import pandas as pd
-from datetime import datetime, timedelta
-import time
 import logging
+import time
+from datetime import datetime, timedelta
+
+import pandas as pd
+import requests
 
 # --- HARDCODED POLYGON API KEY ---
 POLYGON_API_KEY = "yTZVrttxzFCK58_gOUGGATWxQzytgAxy"
@@ -141,5 +142,3 @@ class PolygonClient:
 # Example usage (in your other scripts):
 # client = PolygonClient()
 # df = client.get_daily_bars("AAPL", "2025-07-01", "2025-07-07")
-
-

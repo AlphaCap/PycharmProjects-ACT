@@ -3,8 +3,8 @@ Run Sector Optimization with 2-Year Dataset
 Optimized for shorter time periods but still effective
 """
 
-import sys
 import os
+import sys
 
 project_root = r"C:\Users\theca\PycharmProjects"
 if project_root not in sys.path:
@@ -12,6 +12,7 @@ if project_root not in sys.path:
 
 from sector_etf_optimizer import SectorETFOptimizer
 from sector_parameter_manager import SectorParameterManager
+
 
 def run_2year_optimization() -> None:
     print(" Running Sector Optimization with 2-Year Data")

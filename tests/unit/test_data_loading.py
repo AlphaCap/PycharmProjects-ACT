@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 project_root = r"C:\Users\theca\PycharmProjects"
 if project_root not in sys.path:
@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+
 
 def test_project_structure() -> None:
     """Test that required project directories exist"""
