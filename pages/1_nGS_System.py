@@ -1,5 +1,6 @@
 import os
 import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -28,11 +29,12 @@ except Exception:
 
 import re
 from datetime import datetime
-from ngs_ai_performance_comparator import PerformanceMetrics
-from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 import matplotlib.pyplot as plt
 import streamlit.errors
+
+from ngs_ai_integration_manager import NGSAIIntegrationManager
+from ngs_ai_performance_comparator import PerformanceMetrics
 
 # Optional imports with fallbacks
 try:
