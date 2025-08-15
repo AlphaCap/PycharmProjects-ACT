@@ -691,6 +691,7 @@ class ObjectiveAwareStrategyGenerator:
         strategy_id = f"fallback_{objective_name}_{datetime.now().strftime('%H%M%S')}"
 
         # Simple strategy using only basic indicators
+        # Simple strategy using only basic indicators
         config: Dict[str, Any] = {
             "indicators": ["bb_position", "rsi"],
             "entry_logic": {
@@ -703,7 +704,7 @@ class ObjectiveAwareStrategyGenerator:
                     },
                     {"indicator": "rsi", "operator": "<", "threshold": 40, "weight": 1},
                 ],
-                "confirmation_ratio": 0.5,  # Entry condition confirmation threshold
+                "confirmation_ratio": 0.5,
                 "style": "simple",
             },
             "exit_logic": {
@@ -719,7 +720,7 @@ class ObjectiveAwareStrategyGenerator:
             },
             "position_sizing": {
                 "method": "fixed",
-                "size": 5000  # Updated default position sizing to $5000
+                "size": 5000,  # Default updated size in dollars to resolve missing 'size' issue
             },
             "objective_focus": "fallback",
             "indicator_params": {
@@ -727,7 +728,6 @@ class ObjectiveAwareStrategyGenerator:
                 "rsi": {"length": 14},
             },
         }
-
         print(f"  Using fallback strategy for {objective_name}")
         return TradingStrategy(strategy_id, objective_name, config)
 
