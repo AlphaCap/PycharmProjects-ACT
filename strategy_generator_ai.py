@@ -50,6 +50,9 @@ class TradingStrategy:
         """
         try:
             print(f" Executing strategy {self.strategy_id} on {len(df)} bars of data")
+            position_size_config = self.config.get("position_sizing", {})
+            position_size = position_size_config.get("size", 5000)  # Default size to $5000
+            print(f"DEBUG: Using position size for execution 
 
             # CRITICAL: Ensure data has minimum required length
             if len(df) < 50:
@@ -461,22 +464,22 @@ class TradingStrategy:
         return trades, pd.Series(equity[: len(df)], index=df.index[: len(equity)])
 
     def _calculate_position_size(self, equity: float, config: Dict[str, Any]) -> float:
-        """Calculate position size based on configuration - ENHANCED"""
+        """Calculate position size based on configuration"""
         try:
             method = config.get("method", "fixed")
+            size = config.get("size", 5000)  # Fallback to $5000
+            print(f"DEBUG: Calculating position size -> method='{method}', size={size}")  # Debug print
 
             if method == "fixed":
-                return min(float(config.get("size", 0.1)), 0.2)  # Cap at 20%
+                return float(size)
             elif method == "volatility_adjusted":
-                # Simple volatility adjustment
                 base_size = float(config.get("base_size", 0.1))
-                volatility_factor = max(
-                    float(config.get("volatility_factor", 1.0)), 0.5
-                )
-                return min(base_size / volatility_factor, 0.2)
+                volatility_factor = max(float(config.get("volatility_factor", 1.0)), 0.5)
+                return base_size / volatility_factor
             else:
                 return 0.1
-        except Exception:
+        except Exception as e:
+            print(f"ERROR: Failed calculating position size -> {e}")  # Debug error
             return 0.05  # Conservative fallback
 
     def _calculate_performance_metrics(self) -> Dict[str, Any]:
@@ -690,8 +693,6 @@ class ObjectiveAwareStrategyGenerator:
         """Create a simple fallback strategy when generation fails"""
         strategy_id = f"fallback_{objective_name}_{datetime.now().strftime('%H%M%S')}"
 
-        # Simple strategy using only basic indicators
-        # Simple strategy using only basic indicators
         config: Dict[str, Any] = {
             "indicators": ["bb_position", "rsi"],
             "entry_logic": {
@@ -704,7 +705,7 @@ class ObjectiveAwareStrategyGenerator:
                     },
                     {"indicator": "rsi", "operator": "<", "threshold": 40, "weight": 1},
                 ],
-                "confirmation_ratio": 0.5,
+                "confirmation_ratio": 0.5,  # Entry condition confirmation threshold
                 "style": "simple",
             },
             "exit_logic": {
@@ -720,7 +721,7 @@ class ObjectiveAwareStrategyGenerator:
             },
             "position_sizing": {
                 "method": "fixed",
-                "size": 5000,  # Default updated size in dollars to resolve missing 'size' issue
+                "size": 5000,  # Default fixed size
             },
             "objective_focus": "fallback",
             "indicator_params": {
@@ -728,8 +729,11 @@ class ObjectiveAwareStrategyGenerator:
                 "rsi": {"length": 14},
             },
         }
-        print(f"  Using fallback strategy for {objective_name}")
-        return TradingStrategy(strategy_id, objective_name, config)
+
+        # Debug print to confirm fallback strategy configuration
+        print(f"DEBUG: Fallback strategy for {objective_name} -> position_sizing={config['position_sizing']}")
+
+        return TradingStrategy(strategy_id, objective_name, c
 
     def _generate_adaptive_logic(
         self,
@@ -1037,26 +1041,29 @@ class ObjectiveAwareStrategyGenerator:
             )
 
     def _generate_position_sizing(
-        self, objective_prefs: Dict[str, Any]
+            self, objective_prefs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Generate position sizing rules based on objective"""
 
         risk_tolerance = objective_prefs.get("risk_tolerance", "moderate")
+        print(f"DEBUG: Generating position sizing for risk_tolerance='{risk_tolerance}'")  # Debug print
 
         if risk_tolerance == "minimal":
             return {"method": "fixed", "size": 0.02}
         elif risk_tolerance == "low":
             return {"method": "fixed", "size": 0.05}
         elif risk_tolerance == "moderate":
-            return {"method": "fixed", "size": 0.08}
+            return {"method": "fixed", "size": 5000}  # Set default to $5000 explicitly
         elif risk_tolerance == "high":
             return {"method": "fixed", "size": 0.12}
         else:
-            return {
+            sizing = {
                 "method": "volatility_adjusted",
                 "base_size": 0.08,
                 "volatility_factor": 1.0,
             }
+            print(f"DEBUG: Fallback position sizing -> {sizing}")  # Debug print
+            return sizing
 
     def _generate_indicator_params(self, indicators: List[str]) -> Dict[str, Any]:
         """Generate parameters for indicators based on strategy needs"""
