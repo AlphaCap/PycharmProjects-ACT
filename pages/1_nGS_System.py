@@ -1,65 +1,46 @@
 import os
+import re
 import sys
+from datetime import datetime
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.errors
 
-project_root = os.path.dirname(os.path.abspath(__file__))  # Get the root directory
+# Setup project path
+project_root = os.path.dirname(os.path.abspath(__file__))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-    
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Optional dependencies
 try:
     import requests  # noqa: F401
 
     HAS_REQUESTS = True
-except Exception:
+except (ImportError, Exception):
     HAS_REQUESTS = False
 
 try:
     from bs4 import BeautifulSoup  # noqa: F401
 
     HAS_BEAUTIFULSOUP = True
-except Exception:
+except (ImportError, Exception):
     HAS_BEAUTIFULSOUP = False
 
-import re
-from datetime import datetime
-from ngs_ai_performance_comparator import PerformanceMetrics
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-
-import matplotlib.pyplot as plt
-import streamlit.errors
-
-# Optional imports with fallbacks
-try:
-    import requests
-
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
-
-try:
-    from bs4 import BeautifulSoup
-
-    HAS_BEAUTIFULSOUP = True
-except ImportError:
-    HAS_BEAUTIFULSOUP = False
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+# Local imports
 from data_manager import get_me_ratio_history  # Added for M/E charts
 from data_manager import (
     get_portfolio_metrics,
     get_portfolio_performance_stats,
-    get_signals,
     get_strategy_performance,
     get_trades_history,
-    save_system_status,
 )
+from ngs_ai_integration_manager import NGSAIIntegrationManager
+from ngs_ai_performance_comparator import PerformanceMetrics
 
 try:
     from portfolio_calculator import (
@@ -71,13 +52,10 @@ try:
 except ImportError:
     USE_REAL_METRICS = False
 
-# ---- NEW: Import AI integration manager ----
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-
 st.set_page_config(
     page_title="Home",  # Title needs to match what you're trying to switch to
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 hide_streamlit_style = """
@@ -103,8 +81,12 @@ with st.sidebar:
     st.title("nGS Trading System")
 
     # Navigation button to Historical Performance page
-    if st.button("Historical Performance", use_container_width=True, key="historical_page_btn"):
-        st.switch_page("1_nGS_System")  # Match the file's name (1_nGS_System.py) in the pages/ directory
+    if st.button(
+        "Historical Performance", use_container_width=True, key="historical_page_btn"
+    ):
+        st.switch_page(
+            "1_nGS_System"
+        )  # Match the file's name (1_nGS_System.py) in the pages/ directory
 
     st.markdown("---")
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
@@ -217,7 +199,8 @@ if best:
         st.image(perf["equity_curve_chart"], caption="Equity Curve Chart")
 else:
     st.info(
-        "No AI strategy integration results found. Run AI integration manager and save results to view hierarchy."
+        "No AI strategy integration results found. Run AI integration "
+        "manager and save results to view hierarchy."
     )
 
 st.markdown("---")
@@ -244,65 +227,83 @@ def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> fl
         return 0.0
 
 
+def get_detailed_performance_metrics(
+    trades_df: pd.DataFrame, equity_curve: pd.Series
+) -> pd.DataFrame:
+    """
+    Calculate detailed performance metrics using PerformanceMetrics.
+
+    Args:
+        trades_df (pd.DataFrame): DataFrame of trades (historical trades or
+                                backtest results).
+        equity_curve (pd.Series): Series of equity values over time.
+
+    Returns:
+        pd.DataFrame: A DataFrame of detailed performance metrics for display.
+    """
+    try:
+        # Create a simulated backtest result object
+        class BacktestResult:
+            daily_returns = equity_curve.pct_change().dropna()
+            equity_curve = equity_curve
+            benchmark_returns = pd.Series(
+                np.random.normal(0, 0.01, len(daily_returns))
+            )  # Placeholder
+            total_return_pct = (equity_curve.iloc[-1] / equity_curve.iloc[0] - 1) * 100
+            annualized_return_pct = total_return_pct / (len(daily_returns) / 252)
+
+        # Use PerformanceMetrics to calculate metrics
+        metrics = PerformanceMetrics.calculate_detailed_metrics(
+            backtest_result=BacktestResult(),
+            strategy_name="Historical Strategy",
+            objective="Preserve Drawdown",
+        )
+
+        # Convert metrics to DataFrame format
+        metrics_dict = metrics.__dict__
+        displayable_metrics = {  # Filter out only metrics we're interested in
+            "CAGR": metrics_dict.get("cagr"),
+            "Calmar Ratio": metrics_dict.get("calmar_ratio"),
+            "Sortino Ratio": metrics_dict.get("sortino_ratio"),
+            "Omega Ratio": metrics_dict.get("omega_ratio"),
+            "Sharpe Ratio": metrics_dict.get("sharpe_ratio"),
+            "Max Drawdown (%)": metrics_dict.get("max_drawdown_pct"),
+            "Win Rate (%)": (
+                metrics_dict.get("win_rate") * 100
+                if metrics_dict.get("win_rate")
+                else None
+            ),
+            "Total Trades": metrics_dict.get("total_trades"),
+            "Profit Factor": metrics_dict.get("profit_factor"),
+            "Average Trade Return (%)": metrics_dict.get("avg_trade_pct"),
+            "Avg Trade Duration (Days)": metrics_dict.get("avg_trade_duration_days"),
+        }
+
+        return pd.DataFrame(displayable_metrics.items(), columns=["Metric", "Value"])
+
+    except Exception as e:
+        st.error(f"Error calculating detailed performance metrics: {e}")
+        return pd.DataFrame()
+
+
 def get_barclay_ls_index() -> str:
     """Fetch Barclay L/S Index YTD value - specifically target the YTD column (5.79%)"""
     try:
         if not HAS_REQUESTS or not HAS_BEAUTIFULSOUP:
             return "N/A (Install requests & beautifulsoup4)"
 
-        url = "https://portal.barclayhedge.com/cgi-bin/indices/displayHfIndex.cgi?indexCat=Barclay-Hedge-Fund-Indices&indexName=Equity-Long-Short-Index"
+        url = (
+            "https://portal.barclayhedge.com/cgi-bin/indices/"
+            "displayHfIndex.cgi?indexCat=Barclay-Hedge-Fund-Indices"
+            "&indexName=Equity-Long-Short-Index"
+        )
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            )
         }
-
-        def get_detailed_performance_metrics(trades_df: pd.DataFrame, equity_curve: pd.Series) -> pd.DataFrame:
-            """
-            Calculate detailed performance metrics using PerformanceMetrics.
-
-            Args:
-                trades_df (pd.DataFrame): DataFrame of trades (historical trades or backtest results).
-                equity_curve (pd.Series): Series of equity values over time.
-
-            Returns:
-                pd.DataFrame: A DataFrame of detailed performance metrics for display.
-            """
-            try:
-                # Create a simulated backtest result object
-                class BacktestResult:
-                    daily_returns = equity_curve.pct_change().dropna()
-                    equity_curve = equity_curve
-                    benchmark_returns = pd.Series(np.random.normal(0, 0.01, len(daily_returns)))  # Placeholder
-                    total_return_pct = (equity_curve.iloc[-1] / equity_curve.iloc[0] - 1) * 100
-                    annualized_return_pct = total_return_pct / (len(daily_returns) / 252)
-
-                # Use PerformanceMetrics to calculate metrics
-                metrics = PerformanceMetrics.calculate_detailed_metrics(
-                    backtest_result=BacktestResult(),
-                    strategy_name="Historical Strategy",
-                    objective="Preserve Drawdown",
-                )
-
-                # Convert metrics to DataFrame format
-                metrics_dict = metrics.__dict__
-                displayable_metrics = {  # Filter out only metrics we're interested in
-                    "CAGR": metrics_dict.get("cagr"),
-                    "Calmar Ratio": metrics_dict.get("calmar_ratio"),
-                    "Sortino Ratio": metrics_dict.get("sortino_ratio"),
-                    "Omega Ratio": metrics_dict.get("omega_ratio"),
-                    "Sharpe Ratio": metrics_dict.get("sharpe_ratio"),
-                    "Max Drawdown (%)": metrics_dict.get("max_drawdown_pct"),
-                    "Win Rate (%)": metrics_dict.get("win_rate") * 100 if metrics_dict.get("win_rate") else None,
-                    "Total Trades": metrics_dict.get("total_trades"),
-                    "Profit Factor": metrics_dict.get("profit_factor"),
-                    "Average Trade Return (%)": metrics_dict.get("avg_trade_pct"),
-                    "Avg Trade Duration (Days)": metrics_dict.get("avg_trade_duration_days"),
-                }
-
-                return pd.DataFrame(displayable_metrics.items(), columns=["Metric", "Value"])
-
-            except Exception as e:
-                st.error(f"Error calculating detailed performance metrics: {e}")
-                return pd.DataFrame()
 
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
@@ -328,7 +329,8 @@ def get_barclay_ls_index() -> str:
                     if header_row:
                         break
 
-                # If YTD column found, look for Equity Long/Short data in subsequent rows
+                # If YTD column found, look for Equity Long/Short data in
+                # subsequent rows
                 if ytd_col_index >= 0:
                     for row in rows:
                         cells = row.find_all(["td", "th"])
@@ -380,7 +382,7 @@ def get_barclay_ls_index() -> str:
                     val = float(pct.replace("%", ""))
                     if 3 <= val <= 10:  # Narrow range for likely YTD equity L/S returns
                         return pct
-                except:
+                except (ValueError, TypeError):
                     continue
 
             return "N/A (YTD 5.79% not found)"
@@ -502,7 +504,10 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 min_me = clean_data["ME_Ratio"].min()
 
                 # Add statistics box
-                stats_text = f"Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%"
+                stats_text = (
+                    f"Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\n"
+                    f"Minimum: {min_me:.1f}%"
+                )
                 ax.text(
                     0.02,
                     0.98,
@@ -546,7 +551,9 @@ if USE_REAL_METRICS and metrics.get("total_trades", 0) > 0:
         f" Real portfolio metrics calculated from {metrics['total_trades']} trades"
     )
     st.info(
-        f" Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | Winners: {metrics.get('winning_trades', 0)} | Losers: {metrics.get('losing_trades', 0)}"
+        f" Total profit: ${metrics.get('total_profit_raw', 0):,.2f} | "
+        f"Winners: {metrics.get('winning_trades', 0)} | "
+        f"Losers: {metrics.get('losing_trades', 0)}"
     )
 
 # Single row of portfolio metrics
@@ -575,7 +582,7 @@ with col3:
             )
         else:
             historical_me = "0.0"
-    except:
+    except Exception:
         historical_me = "0.0"
     st.metric(label="Avg Historical M/E", value=f"{historical_me}%")
 with col4:
@@ -676,6 +683,7 @@ with col2:
     except Exception as e:
         st.error(f"Error creating M/E chart: {e}")
 
+
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     """
     Plot M/E ratio history using data_manager's get_me_ratio_history function.
@@ -724,7 +732,10 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                 min_me = clean_data["ME_Ratio"].min()
 
                 # Add statistics box
-                stats_text = f"Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%"
+                stats_text = (
+                    f"Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\n"
+                    f"Minimum: {min_me:.1f}%"
+                )
                 ax.text(
                     0.02,
                     0.98,
@@ -799,7 +810,8 @@ except Exception as e:
     st.error(f"Error loading trade history: {e}")
 
 st.markdown(
-    "<p style='text-align: center; color: #999; font-size: 0.8rem;'>* Data retention: 6 months (180 days)</p>",
+    "<p style='text-align: center; color: #999; font-size: 0.8rem;'>"
+    "* Data retention: 6 months (180 days)</p>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
@@ -823,18 +835,21 @@ if not trades_df.empty:
         # Highlight Key Metrics (Specific Ratios)
         st.subheader("Highlighted Metrics")
         col1, col2, col3 = st.columns(3)
-        col1.metric(
-            "Calmar Ratio",
-            f"{advanced_metrics_df.loc[advanced_metrics_df['Metric'] == 'Calmar Ratio', 'Value'].values[0]:.2f}",
-        )
-        col2.metric(
-            "Sortino Ratio",
-            f"{advanced_metrics_df.loc[advanced_metrics_df['Metric'] == 'Sortino Ratio', 'Value'].values[0]:.2f}",
-        )
-        col3.metric(
-            "Omega Ratio",
-            f"{advanced_metrics_df.loc[advanced_metrics_df['Metric'] == 'Omega Ratio', 'Value'].values[0]:.2f}",
-        )
+
+        calmar_value = advanced_metrics_df.loc[
+            advanced_metrics_df["Metric"] == "Calmar Ratio", "Value"
+        ].values[0]
+        col1.metric("Calmar Ratio", f"{calmar_value:.2f}")
+
+        sortino_value = advanced_metrics_df.loc[
+            advanced_metrics_df["Metric"] == "Sortino Ratio", "Value"
+        ].values[0]
+        col2.metric("Sortino Ratio", f"{sortino_value:.2f}")
+
+        omega_value = advanced_metrics_df.loc[
+            advanced_metrics_df["Metric"] == "Omega Ratio", "Value"
+        ].values[0]
+        col3.metric("Omega Ratio", f"{omega_value:.2f}")
     except Exception as e:
         st.error(f"Error generating performance metrics: {e}")
 else:
