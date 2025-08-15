@@ -728,18 +728,25 @@ class NGSStrategy:
                 f"Insufficient data for indicator calculation: {len(df) if df is not None else 'None'} rows"
             )
             return None
+        
+        logger.debug(f"Starting indicator calculation on {len(df)} rows")
+        
         df = self._filter_recent_data(df)
         if df is None or df.empty or len(df) < 20:
             logger.warning(
                 f"Insufficient data after 6-month filtering: {len(df) if df is not None else 'None'} rows"
             )
             return None
+        
         df = df.copy()
         required_cols = ["Date", "Open", "High", "Low", "Close", "Volume"]
         missing = [col for col in required_cols if col not in df.columns]
         if missing:
             logger.error(f"Missing required columns: {missing}")
             return None
+        
+        logger.debug(f"All required columns present: {required_cols}")
+        
         indicator_columns = [
             "BBAvg",
             "BBSDev",
@@ -809,11 +816,26 @@ class NGSStrategy:
         except Exception as e:
             logger.warning(f"Linear regression calculation error: {e}")
         try:
+            # Calculate Value1 and ROC with debugging
+            logger.debug("Calculating Value1 and ROC indicators")
+            
+            # Use shorter windows for testing/development to ensure signals can be generated
+            short_window = min(5, len(df) // 4)  # Adaptive short window
+            long_window = min(20, len(df) // 2)   # Adaptive long window (was 35)
+            
+            logger.debug(f"Using adaptive windows: short={short_window}, long={long_window} (data length={len(df)})")
+            
             df["Value1"] = (
-                df["Close"].rolling(window=5).mean()
-                - df["Close"].rolling(window=35).mean()
+                df["Close"].rolling(window=short_window).mean()
+                - df["Close"].rolling(window=long_window).mean()
             ).round(2)
             df["ROC"] = (df["Value1"] - df["Value1"].shift(3)).round(2)
+            
+            # Check validity of intermediate calculations
+            value1_valid = df["Value1"].notna().sum()
+            roc_valid = df["ROC"].notna().sum()
+            logger.debug(f"Intermediate indicators: Value1={value1_valid}/{len(df)} valid, ROC={roc_valid}/{len(df)} valid")
+            
             self._calculate_lrv(df)
         except Exception as e:
             logger.warning(f"Additional indicators calculation error: {e}")
@@ -822,6 +844,24 @@ class NGSStrategy:
             df["SwingHigh"] = df["Close"].rolling(window=4).max().round(2)
         except Exception as e:
             logger.warning(f"Swing High/Low calculation error: {e}")
+        
+        # Log indicator calculation summary
+        critical_indicators = ["LowerBB", "UpperBB", "oLRValue", "oLRValue2", "ATR", "SwingLow", "SwingHigh"]
+        indicator_status = {}
+        for ind in critical_indicators:
+            if ind in df.columns:
+                valid_count = df[ind].notna().sum()
+                indicator_status[ind] = f"{valid_count}/{len(df)} valid"
+            else:
+                indicator_status[ind] = "missing"
+        
+        logger.info(f"Indicator calculation complete: {indicator_status}")
+        
+        # Check for completely empty indicators
+        empty_indicators = [ind for ind, status in indicator_status.items() if "0/" in status]
+        if empty_indicators:
+            logger.warning(f"WARNING: These indicators have no valid values: {empty_indicators}")
+        
         return df
 
     def _calculate_psar(self, df: pd.DataFrame) -> None:
@@ -966,6 +1006,8 @@ class NGSStrategy:
                 logger.warning(f"Linear regression error at index {i}: {e}")
 
     def _calculate_lrv(self, df: pd.DataFrame) -> None:
+        logger.debug("Starting LRV calculation")
+        
         def linear_reg_value(series: pd.Series, period: int, shift: int) -> float:
             if len(series) < period or series.isna().any():
                 return np.nan
@@ -977,29 +1019,63 @@ class NGSStrategy:
                 logger.warning(f"Linear regression value calculation error: {e}")
                 return np.nan
 
+        lrv_calculated = 0
+        oLRValue_calculated = 0
+        oLRValue2_calculated = 0
+        
         for i in range(len(df)):
             try:
+                # Calculate LRV (needs ROC to be valid)
                 if i >= 8 and not df["ROC"].iloc[max(0, i - 8) : i + 1].isna().any():
                     df.loc[df.index[i], "LRV"] = linear_reg_value(
                         df["ROC"].iloc[max(0, i - 8) : i + 1], 8, 0
                     )
+                    lrv_calculated += 1
+                
+                # Calculate LinReg
                 if i >= 8 and not df["Close"].iloc[max(0, i - 8) : i + 1].isna().any():
                     df.loc[df.index[i], "LinReg"] = linear_reg_value(
                         df["Close"].iloc[max(0, i - 8) : i + 1], 8, 0
                     )
+                
+                # Calculate oLRValue (needs LRV to be valid)
                 if i >= 3 and not df["LRV"].iloc[max(0, i - 3) : i + 1].isna().any():
                     df.loc[df.index[i], "oLRValue"] = linear_reg_value(
                         df["LRV"].iloc[max(0, i - 3) : i + 1], 3, -2
                     )
+                    oLRValue_calculated += 1
+                
+                # Calculate oLRValue2 (needs LRV to be valid)  
                 if i >= 5 and not df["LRV"].iloc[max(0, i - 5) : i + 1].isna().any():
                     df.loc[df.index[i], "oLRValue2"] = linear_reg_value(
                         df["LRV"].iloc[max(0, i - 5) : i + 1], 5, -3
                     )
+                    oLRValue2_calculated += 1
+                    
             except Exception as e:
                 logger.warning(f"LRV calculation error at index {i}: {e}")
+        
+        logger.debug(f"LRV calculation results: LRV={lrv_calculated}, oLRValue={oLRValue_calculated}, oLRValue2={oLRValue2_calculated}")
+        
+        # Check the dependency chain
+        roc_valid = df["ROC"].notna().sum()
+        lrv_valid = df["LRV"].notna().sum()
+        olrvalue_valid = df["oLRValue"].notna().sum()
+        olrvalue2_valid = df["oLRValue2"].notna().sum()
+        
+        logger.debug(f"Dependency chain: ROC={roc_valid} → LRV={lrv_valid} → oLRValue={olrvalue_valid}, oLRValue2={olrvalue2_valid}")
+        
+        if roc_valid == 0:
+            logger.warning("ROC has no valid values - check Value1 calculation")
+        if lrv_valid == 0 and roc_valid > 8:
+            logger.warning("LRV calculation failed despite valid ROC values")
 
     def _check_long_signals(self, df: pd.DataFrame, i: int) -> None:
-        pass
+        """Check for long signal conditions with comprehensive debugging."""
+        debug_signal = i % 200 == 0  # Log detailed debug info every 200 rows
+        
+        if debug_signal:
+            logger.debug(f"Checking long signals at row {i}")
 
         if (
             df["Open"].iloc[i] < df["Close"].iloc[i - 1]
@@ -1022,6 +1098,7 @@ class NGSStrategy:
             df.loc[df.index[i], "Shares"] = int(
                 round(self.inputs["PositionSize"] / df["Close"].iloc[i])
             )
+            logger.info(f"LONG SIGNAL GENERATED: Engf L at row {i}, price={df['Close'].iloc[i]:.2f}, shares={df['Shares'].iloc[i]}")
         elif (
             df["Open"].iloc[i] < df["Close"].iloc[i - 1]
             and df["Close"].iloc[i] > df["Open"].iloc[i - 1]
@@ -1041,6 +1118,7 @@ class NGSStrategy:
             df.loc[df.index[i], "Shares"] = int(
                 round(self.inputs["PositionSize"] / df["Close"].iloc[i])
             )
+            logger.info(f"LONG SIGNAL GENERATED: Engf L NuLo at row {i}, price={df['Close'].iloc[i]:.2f}, shares={df['Shares'].iloc[i]}")
         elif (
             df["Open"].iloc[i] <= df["Close"].iloc[i - 1] * 1.001
             and df["Open"].iloc[i] > df["Close"].iloc[i - 1]
@@ -1068,6 +1146,7 @@ class NGSStrategy:
             df.loc[df.index[i], "Shares"] = int(
                 round(self.inputs["PositionSize"] / df["Close"].iloc[i])
             )
+            logger.info(f"LONG SIGNAL GENERATED: SemiEng L at row {i}, price={df['Close'].iloc[i]:.2f}, shares={df['Shares'].iloc[i]}")
         elif (
             df["Open"].iloc[i] <= df["Close"].iloc[i - 1] * 1.001
             and df["Open"].iloc[i] > df["Close"].iloc[i - 1]
@@ -1093,6 +1172,7 @@ class NGSStrategy:
             df.loc[df.index[i], "Shares"] = int(
                 round(self.inputs["PositionSize"] / df["Close"].iloc[i])
             )
+            logger.info(f"LONG SIGNAL GENERATED: SemiEng L NuLo at row {i}, price={df['Close'].iloc[i]:.2f}, shares={df['Shares'].iloc[i]}")
 
     def _check_short_signals(self, df: pd.DataFrame, i: int) -> None:
         if (
@@ -1484,25 +1564,75 @@ class NGSStrategy:
         if df is None or df.empty:
             logger.warning("Empty dataframe provided to generate_signals")
             return df
+        
+        logger.info(f"Starting signal generation on {len(df)} rows of data")
+        logger.debug(f"DataFrame columns: {list(df.columns)}")
+        logger.debug(f"Input parameters: MinPrice={self.inputs['MinPrice']}, MaxPrice={self.inputs['MaxPrice']}, PositionSize={self.inputs['PositionSize']}")
+        
         df = df.copy()
         df["Signal"] = 0
         df["SignalType"] = ""
         df["Shares"] = 0
+        
+        processed_count = 0
+        price_filtered_count = 0
+        nan_filtered_count = 0
+        
         for i in range(1, len(df)):
+            # Check for NaN values in price data
             if (
                 pd.isna(df["Open"].iloc[i])
                 or pd.isna(df["Close"].iloc[i])
                 or pd.isna(df["High"].iloc[i])
                 or pd.isna(df["Low"].iloc[i])
             ):
+                nan_filtered_count += 1
                 continue
+            
+            # Check price range filter
             if not (
                 df["Open"].iloc[i] > self.inputs["MinPrice"]
                 and df["Open"].iloc[i] < self.inputs["MaxPrice"]
             ):
+                price_filtered_count += 1
                 continue
+            
+            processed_count += 1
+            # Check for required indicators before signal generation
+            required_indicators = ["LowerBB", "UpperBB", "oLRValue", "oLRValue2", "ATR", "SwingLow", "SwingHigh"]
+            missing_indicators = [ind for ind in required_indicators if ind not in df.columns or pd.isna(df[ind].iloc[i])]
+            
+            if missing_indicators:
+                logger.debug(f"Row {i}: Missing/NaN indicators: {missing_indicators}")
+                continue
+                
+            # Log key indicator values for debugging
+            if i % 100 == 0:  # Log every 100th row to avoid spam
+                logger.debug(f"Row {i}: Open={df['Open'].iloc[i]:.2f}, Close={df['Close'].iloc[i]:.2f}, "
+                           f"LowerBB={df['LowerBB'].iloc[i]:.2f}, UpperBB={df['UpperBB'].iloc[i]:.2f}, "
+                           f"oLRValue={df['oLRValue'].iloc[i]:.4f}, oLRValue2={df['oLRValue2'].iloc[i]:.4f}")
+            
             self._check_long_signals(df, i)
             self._check_short_signals(df, i)
+        
+        signals_generated = (df["Signal"] != 0).sum()
+        logger.info(f"Signal generation complete: processed {processed_count} rows, filtered {nan_filtered_count} NaN rows, {price_filtered_count} price-filtered rows")
+        logger.info(f"Generated {signals_generated} signals total")
+        
+        if signals_generated > 0:
+            signal_breakdown = df[df["Signal"] != 0]["SignalType"].value_counts()
+            logger.info(f"Signal breakdown: {dict(signal_breakdown)}")
+        else:
+            logger.warning("NO SIGNALS GENERATED - investigating causes...")
+            # Log a sample of rows to understand why no signals were generated
+            sample_rows = min(5, len(df)-1)
+            for i in range(1, sample_rows + 1):
+                logger.debug(f"Sample row {i}: Open={df['Open'].iloc[i]:.2f} (valid price range: {self.inputs['MinPrice']} < x < {self.inputs['MaxPrice']})")
+                if 'LowerBB' in df.columns:
+                    logger.debug(f"  LowerBB={df['LowerBB'].iloc[i]:.2f}, UpperBB={df['UpperBB'].iloc[i]:.2f}")
+                if 'oLRValue' in df.columns:
+                    logger.debug(f"  oLRValue={df['oLRValue'].iloc[i]:.4f}, oLRValue2={df['oLRValue2'].iloc[i]:.4f}")
+        
         return df
 
     def _load_positions(self) -> None:
@@ -1573,19 +1703,33 @@ class NGSStrategy:
         )
 
     def _filter_trades_by_retention(self) -> None:
+        logger.info(f"Starting trade retention filtering. Initial trades count: {len(self._trades)}")
+        logger.debug(f"Cutoff date for retention: {self.cutoff_date.strftime('%Y-%m-%d')}")
+        
         if self._trades:
             filtered_trades: List[Dict[str, Any]] = []
+            invalid_trade_count = 0
+            
             for trade in self._trades:
                 try:
                     exit_date = datetime.strptime(trade["exit_date"], "%Y-%m-%d")
                     if exit_date >= self.cutoff_date:
                         filtered_trades.append(trade)
-                except (ValueError, KeyError):
-                    logger.warning(f"Invalid trade date format: {trade}")
+                        logger.debug(f"Trade kept: exit_date={exit_date.strftime('%Y-%m-%d')}, symbol={trade.get('symbol', 'unknown')}")
+                    else:
+                        logger.debug(f"Trade filtered out: exit_date={exit_date.strftime('%Y-%m-%d')}, symbol={trade.get('symbol', 'unknown')}")
+                except (ValueError, KeyError) as e:
+                    invalid_trade_count += 1
+                    logger.warning(f"Invalid trade date format: {trade}, error: {e}")
+            
+            trades_removed = len(self._trades) - len(filtered_trades)
             self._trades = filtered_trades
+            
             logger.info(
-                f"Filtered trades to {len(self._trades)} within retention period"
+                f"Trade filtering complete: {len(self._trades)} trades kept, {trades_removed} removed, {invalid_trade_count} invalid"
             )
+        else:
+            logger.info("No trades to filter - starting with empty trade list")
 
     @property
     def trades(self) -> List[Dict[str, Any]]:
@@ -1626,12 +1770,23 @@ class NGSStrategy:
         return long_positions, short_positions
 
     def process_symbol(self, symbol: str, df: pd.DataFrame) -> Optional[pd.DataFrame]:
+        logger.debug(f"Processing symbol {symbol} with {len(df)} rows of data")
         try:
             df_with_indicators = self.calculate_indicators(df)
             if df_with_indicators is None or df_with_indicators.empty:
                 logger.warning(f"Failed to calculate indicators for {symbol}")
                 return None
+            
+            logger.debug(f"Successfully calculated indicators for {symbol}")
             df_with_signals = self.generate_signals(df_with_indicators)
+            
+            # Log signal generation results for this symbol
+            signals_count = (df_with_signals["Signal"] != 0).sum()
+            if signals_count > 0:
+                logger.info(f"Symbol {symbol}: Generated {signals_count} signals")
+            else:
+                logger.debug(f"Symbol {symbol}: No signals generated")
+            
             result_df = self.manage_positions(df_with_signals, symbol)
             if not result_df.empty and symbol in self.positions:
                 current_price = result_df["Close"].iloc[-1]
@@ -1646,9 +1801,12 @@ class NGSStrategy:
                         current_price=current_price,
                         trade_type=trade_type,
                     )
+                    logger.debug(f"Updated position for {symbol}: {self.positions[symbol]['shares']} shares at {current_price:.2f}")
             return result_df
         except Exception as e:
             logger.error(f"Error processing {symbol}: {e}")
+            import traceback
+            logger.debug(f"Traceback for {symbol}: {traceback.format_exc()}")
             return None
 
     def run(self, data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
