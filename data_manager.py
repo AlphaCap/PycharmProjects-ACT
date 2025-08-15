@@ -48,10 +48,38 @@ SP500_MINIMUM_COUNT: int = 490
 
 PRICE_COLUMNS: List[str] = ["Date", "Open", "High", "Low", "Close", "Volume"]
 INDICATOR_COLUMNS: List[str] = [
-    "BBAvg", "BBSDev", "UpperBB", "LowerBB", "High_Low", "High_Close", "Low_Close",
-    "TR", "ATR", "ATRma", "LongPSAR", "ShortPSAR", "PSAR_EP", "PSAR_AF", "PSAR_IsLong",
-    "oLRSlope", "oLRAngle", "oLRIntercept", "TSF", "oLRSlope2", "oLRAngle2", "oLRIntercept2",
-    "TSF5", "Value1", "ROC", "LRV", "LinReg", "oLRValue", "oLRValue2", "SwingLow", "SwingHigh", "ME_Ratio"
+    "BBAvg",
+    "BBSDev",
+    "UpperBB",
+    "LowerBB",
+    "High_Low",
+    "High_Close",
+    "Low_Close",
+    "TR",
+    "ATR",
+    "ATRma",
+    "LongPSAR",
+    "ShortPSAR",
+    "PSAR_EP",
+    "PSAR_AF",
+    "PSAR_IsLong",
+    "oLRSlope",
+    "oLRAngle",
+    "oLRIntercept",
+    "TSF",
+    "oLRSlope2",
+    "oLRAngle2",
+    "oLRIntercept2",
+    "TSF5",
+    "Value1",
+    "ROC",
+    "LRV",
+    "LinReg",
+    "oLRValue",
+    "oLRValue2",
+    "SwingLow",
+    "SwingHigh",
+    "ME_Ratio",
 ]
 ALL_COLUMNS: List[str] = PRICE_COLUMNS + INDICATOR_COLUMNS
 
@@ -210,6 +238,7 @@ def get_sp500_symbol_stats() -> Dict[str, Any]:
     }
     return stats
 
+
 # --- SECTOR MANAGEMENT ---
 def get_sp500_sector_data(force_refresh: bool = False) -> Dict[str, Any]:
     if os.path.exists(SECTOR_DATA_FILE) and not force_refresh:
@@ -350,6 +379,7 @@ def format_sector_data(
         "sector_count": len(sectors),
     }
 
+
 # --- SECTOR ACCESS FUNCTIONS ---
 def get_sector_symbols(sector_name: str) -> List[str]:
     sector_data = get_sp500_sector_data()
@@ -373,60 +403,53 @@ def get_sector_weights() -> Dict[str, float]:
         for sector, info in sector_data.get("sector_info", {}).items()
     }
 
-def get_portfolio_sector_exposure(positions_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+    target_weights: Optional[Dict[str, float]] = (None,)
+
+    def my_function() -> Dict[str, float]:
+        if target_weights is None:
+            return get_sector_weights()
+
+    return target_weights
+
+
+def get_sector_rebalance_targets(
+    target_weights: Optional[Dict[str, float]] = None
+) -> Dict[str, float]:
     """
-    Calculate the portfolio's exposure to each sector based on the positions DataFrame.
-
-    Args:
-        positions_df (pd.DataFrame): DataFrame with current portfolio positions. 
-            Required columns: 'sector', 'current_value'.
-
-    Returns:
-        Dict[str, Dict[str, float]]: Exposure data for each sector.
-            Example:
-            {
-                'Technology': {'value': 10000, 'percentage': 20.0},
-                'Health Care': {'value': 5000, 'percentage': 10.0},
-                ...
-            }
+    Returns the sector rebalance targets dict. If target_weights is not provided, defaults to current sector weights.
     """
-    # Check if positions_df exists and has the required columns
-    if positions_df is None or positions_df.empty:
-        return {}
-    if "sector" not in positions_df.columns or "current_value" not in positions_df.columns:
-        raise ValueError("DataFrame must include 'sector' and 'current_value' columns.")
-
-    # Calculate total portfolio value
-    total_portfolio_value = positions_df["current_value"].sum()
-    if total_portfolio_value <= 0:
-        return {}
-
-    # Group by sector and calculate exposure
-    sector_exposure = (
-        positions_df.groupby("sector")["current_value"]
-        .sum()
-        .sort_values(ascending=False)
-        .reset_index()
-        .rename(columns={"current_value": "value"})
-    )
-    sector_exposure["percentage"] = sector_exposure["value"] / total_portfolio_value * 100
-
-    # Convert to dictionary
-    return sector_exposure.set_index("sector").to_dict(orient="index")
+    if target_weights is not None:
+        return target_weights
+    return get_sector_weights()
 
 def calculate_sector_rebalance_needs(
-    positions_df: pd.DataFrame, target_weights: Optional[Dict[str, float]] = None
+    positions_df: pd.DataFrame,
+    target_weights: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Dict[str, Any]]:
+    # Current sector exposure based on positions
     current_exposure = get_portfolio_sector_exposure(positions_df)
+
+    # Retrieve sector rebalance targets
     targets = get_sector_rebalance_targets(target_weights)
+
+    # Initialize rebalance needs dictionary
     rebalance_needs: Dict[str, Dict[str, Any]] = {}
+
+    # Calculate total value from positions DataFrame
     total_value = positions_df["current_value"].sum() if not positions_df.empty else 0
 
+    # Iterate through each sector in targets
     for sector in targets:
+        # Get the current weight for the sector (default to 0 if not found)
         current_weight = current_exposure.get(sector, {}).get("weight", 0)
+
+        # Target weight for the sector
         target_weight = targets[sector]
+
+        # Calculate the difference between target and current weights
         difference = target_weight - current_weight
 
+        # Populate rebalance_needs with details
         rebalance_needs[sector] = {
             "current_weight": current_weight,
             "target_weight": target_weight,
@@ -434,26 +457,11 @@ def calculate_sector_rebalance_needs(
             "dollar_adjustment": difference * total_value if total_value > 0 else 0,
             "action": "buy" if difference > 0 else "sell" if difference < 0 else "hold",
         }
-
+    # Return the rebalance needs dictionary
     return rebalance_needs
-
-    for sector in targets:
-        current_weight = current_exposure.get(sector, {}).get("weight", 0)
-        target_weight = targets[sector]
-        difference = target_weight - current_weight
-
-        rebalance_needs[sector] = {
-            "current_weight": current_weight,
-            "target_weight": target_weight,
-            "difference": difference,
-            "dollar_adjustment": difference * total_value if total_value > 0 else 0,
-            "action": "buy" if difference > 0 else "sell" if difference < 0 else "hold",
-        }
-
-    return rebalance_needs
-
-
-def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_DAYS) -> None:
+def save_price_data(
+    symbol: str, df: pd.DataFrame, history_days: int = HISTORY_DAYS
+) -> None:
     filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
     ensure_dir(filename)
     if not df.empty:
@@ -480,6 +488,7 @@ def save_price_data(symbol: str, df: pd.DataFrame, history_days: int = HISTORY_D
     else:
         logger.warning(f"No data to save for {symbol}")
 
+
 def load_price_data(symbol: str) -> pd.DataFrame:
     filename = os.path.join(DAILY_DIR, f"{symbol}.csv")
     if os.path.exists(filename):
@@ -487,6 +496,7 @@ def load_price_data(symbol: str) -> pd.DataFrame:
         return filter_by_retention_period(df, "Date")
     else:
         return pd.DataFrame(columns=ALL_COLUMNS)
+
 
 TRADE_COLUMNS: List[str] = [
     "symbol",
@@ -514,8 +524,16 @@ POSITION_COLUMNS: List[str] = [
     "side",
     "strategy",
 ]
-SIGNAL_COLUMNS: List[str] = ["date", "symbol", "signal_type", "direction", "price", "strategy"]
+SIGNAL_COLUMNS: List[str] = [
+    "date",
+    "symbol",
+    "signal_type",
+    "direction",
+    "price",
+    "strategy",
+]
 SYSTEM_STATUS_COLUMNS: List[str] = ["timestamp", "system", "message"]
+
 
 def get_trades_history() -> pd.DataFrame:
     try:
@@ -631,23 +649,27 @@ def get_trades_history_formatted() -> pd.DataFrame:
         return pd.DataFrame(
             columns=["Date", "Symbol", "Type", "Shares", "Entry", "Exit", "P&L", "Days"]
         )
-def get_me_ratio_history() -> pd.DataFrame:
+
+
+def get_me_ratio_history(file_path="data/me_ratio_history.csv") -> pd.DataFrame:
+    """
+    Retrieve the historical Margin-to-Equity (M/E) ratio data from the specified file.
+    """
     try:
-        filename = "data/me_ratio_history.csv"
-        if not os.path.exists(filename):
-            logger.warning(f"Portfolio M/E history file not found: {filename}")
-            return pd.DataFrame(columns=["Date", "ME_Ratio"])
-        df = pd.read_csv(filename, parse_dates=["Date"])
-        df = filter_by_retention_period(df, "Date")
-        if df.empty:
-            logger.warning("No M/E ratio data after filtering")
-            return pd.DataFrame(columns=["Date", "ME_Ratio"])
-        history_df = df[["Date", "ME_Ratio"]].sort_values("Date").reset_index(drop=True)
-        logger.info(f"Loaded M/E ratio history: {len(history_df)} days")
-        return history_df
+        # Check if the file exists
+        if os.path.exists(file_path):
+            me_ratio_df = pd.read_csv(file_path)
+            me_ratio_df["Date"] = pd.to_datetime(me_ratio_df["Date"], errors="coerce")
+            return me_ratio_df.dropna(subset=["ME_Ratio"])
+        else:
+            logger.warning(
+                f"File not found: {file_path}. Create it to track M/E ratios."
+            )
+            return pd.DataFrame()
     except Exception as e:
         logger.error(f"Error loading M/E ratio history: {e}")
-        return pd.DataFrame(columns=["Date", "ME_Ratio"])
+        return pd.DataFrame()
+
 
 def save_trades(trades_list: List[Dict[str, Any]]) -> None:
     ensure_dir(TRADES_HISTORY_FILE)
@@ -712,6 +734,7 @@ def get_positions_df() -> pd.DataFrame:
         return df
     return pd.DataFrame(columns=POSITION_COLUMNS)
 
+
 def save_positions(positions_list: List[Dict[str, Any]]) -> None:
     ensure_dir(POSITIONS_FILE)
     cutoff_date = get_cutoff_date()
@@ -736,9 +759,11 @@ def save_positions(positions_list: List[Dict[str, Any]]) -> None:
     df.to_csv(POSITIONS_FILE, index=False)
     logger.info(f"Saved {len(filtered_positions)} positions within retention period")
 
+
 def get_positions() -> List[Dict[str, Any]]:
     df = get_positions_df()
     return df.to_dict(orient="records") if not df.empty else []
+
 
 def get_signals() -> pd.DataFrame:
     if os.path.exists(SIGNALS_FILE):
@@ -747,6 +772,7 @@ def get_signals() -> pd.DataFrame:
             df = filter_by_retention_period(df, "date")
         return df
     return pd.DataFrame(columns=SIGNAL_COLUMNS)
+
 
 def save_signals(signals: List[Dict[str, Any]]) -> None:
     ensure_dir(SIGNALS_FILE)
@@ -765,6 +791,7 @@ def save_signals(signals: List[Dict[str, Any]]) -> None:
     df = pd.DataFrame(filtered_signals)
     df.to_csv(SIGNALS_FILE, index=False)
     logger.info(f"Saved {len(filtered_signals)} signals within retention period")
+
 
 def save_system_status(message: str, system: str = "nGS") -> None:
     ensure_dir(SYSTEM_STATUS_FILE)
@@ -790,6 +817,8 @@ def save_system_status(message: str, system: str = "nGS") -> None:
         else:
             df = new_row
         df.to_csv(SYSTEM_STATUS_FILE, index=False)
+
+
 def init_metadata() -> Dict[str, Any]:
     if not os.path.exists(METADATA_FILE):
         metadata = {
@@ -808,6 +837,7 @@ def init_metadata() -> Dict[str, Any]:
             with open(METADATA_FILE, "w") as f:
                 json.dump(metadata, f, indent=2)
     return metadata
+
 
 def update_metadata(key: str, value: Any) -> None:
     metadata = init_metadata()
@@ -850,6 +880,7 @@ def calculate_current_me_ratio(
         logger.error(f"Error calculating current M/E ratio: {e}")
         return 0.0
 
+
 def calculate_historical_me_ratio(
     trades_df: pd.DataFrame, initial_value: float = 1000000
 ) -> float:
@@ -885,7 +916,10 @@ def calculate_historical_me_ratio(
         logger.warning(f"Could not load historical M/E from indicators: {e}")
     return 18.5
 
-def calculate_ytd_return(trades_df: pd.DataFrame, initial_value: float) -> Tuple[str, str]:
+
+def calculate_ytd_return(
+    trades_df: pd.DataFrame, initial_value: float
+) -> Tuple[str, str]:
     if trades_df.empty:
         return "$0", "0.00%"
     try:
@@ -903,7 +937,10 @@ def calculate_ytd_return(trades_df: pd.DataFrame, initial_value: float) -> Tuple
         logger.error(f"Error calculating YTD return: {e}")
         return "$0", "0.00%"
 
-def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> Tuple[str, str]:
+
+def calculate_mtd_return(
+    trades_df: pd.DataFrame, initial_value: float
+) -> Tuple[str, str]:
     if trades_df.empty:
         return "$0", "0.00%"
     current_date = datetime.now()
@@ -913,6 +950,8 @@ def calculate_mtd_return(trades_df: pd.DataFrame, initial_value: float) -> Tuple
     mtd_profit = mtd_trades["profit"].sum() if not mtd_trades.empty else 0
     mtd_pct = (mtd_profit / initial_value * 100) if initial_value > 0 else 0
     return format_dollars(mtd_profit), f"{mtd_pct:.2f}%"
+
+
 def get_portfolio_metrics(
     initial_portfolio_value: float = 1000000, is_historical: bool = False
 ) -> Dict[str, Any]:
@@ -992,6 +1031,7 @@ def get_portfolio_metrics(
             "short_exposure": "$0",
             "net_exposure": "$0",
         }
+
 
 def get_strategy_performance(initial_portfolio_value: float = 1000000) -> pd.DataFrame:
     try:
@@ -1226,6 +1266,8 @@ def get_short_positions() -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error getting short positions: {e}")
         return []
+
+
 def initialize() -> None:
     ensure_dir(POSITIONS_FILE)
     ensure_dir(TRADES_HISTORY_FILE)
@@ -1259,6 +1301,7 @@ def initialize() -> None:
     logger.info(f"Data retention policy: {RETENTION_DAYS} days (6 months)")
     logger.info(f"Current cutoff date: {get_cutoff_date().strftime('%Y-%m-%d')}")
     logger.info("Data manager initialized with 6-month retention and sector support")
+
 
 def get_historical_data(
     polygon_client: Any, symbol: str, start_date: datetime, end_date: datetime
@@ -1302,6 +1345,7 @@ def get_historical_data(
         logger.error(f"Error fetching data for {symbol}: {e}")
         return pd.DataFrame()
 
+
 def map_sic_to_sector(sic_description: str) -> Optional[str]:
     if not sic_description:
         return None
@@ -1340,6 +1384,7 @@ def map_sic_to_sector(sic_description: str) -> Optional[str]:
         if keyword in description:
             return sector
     return None
+
 
 __all__ = [
     "get_sp500_symbols",
