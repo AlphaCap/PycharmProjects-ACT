@@ -29,3 +29,9 @@ polygon_config.py
 
 # Backtest results
 data/backtest_results/
+
+# Test coverage
+.coverage
+htmlcov/
+*.cover
+.pytest_cache/
