@@ -399,7 +399,7 @@ class NGSStrategy:
             return False
         logger.debug(f"Sector check passed: {sector} would be {new_sector_weight:.1%}")
         return True
-    
+
     def generate_sector_report(self) -> Dict[str, Any]:
         positions_df = get_positions_df()
 
@@ -1945,8 +1945,7 @@ def run_ngs_automated_reporting(comparison: Optional[Any] = None) -> None:
 
 if __name__ == "__main__":
     from ngs_ai_integration_manager import NGSAIIntegrationManager
-    from ngs_ai_performance_comparator import NGSAIPerformanceComparator
-
+    
     print(" nGS Trading Strategy with AI SELECTION ENABLED")
     print("=" * 70)
     print(f"Data Retention: {RETENTION_DAYS} days (6 months)")
