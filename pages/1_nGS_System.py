@@ -1,16 +1,38 @@
+"""nGS Trading System Historical Performance Page.
+
+This module provides the Streamlit interface for displaying historical
+performance analytics and trade history for the nGulfStream trading system.
+"""
+
 import os
 import sys
+import re
+from datetime import datetime
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.errors
 
-project_root = os.path.dirname(os.path.abspath(__file__))  # Get the root directory
+# Set up project paths
+project_root = os.path.dirname(os.path.abspath(__file__))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Project imports
 from ngs_ai_integration_manager import NGSAIIntegrationManager
-    
+from ngs_ai_performance_comparator import PerformanceMetrics
+from data_manager import (
+    get_me_ratio_history,
+    get_portfolio_metrics,
+    get_portfolio_performance_stats,
+    get_strategy_performance,
+    get_trades_history,
+)
+
 # Optional dependencies
 try:
     import requests  # noqa: F401
@@ -26,41 +48,6 @@ try:
 except Exception:
     HAS_BEAUTIFULSOUP = False
 
-import re
-from datetime import datetime
-from ngs_ai_performance_comparator import PerformanceMetrics
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-
-import matplotlib.pyplot as plt
-import streamlit.errors
-
-# Optional imports with fallbacks
-try:
-    import requests
-
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
-
-try:
-    from bs4 import BeautifulSoup
-
-    HAS_BEAUTIFULSOUP = True
-except ImportError:
-    HAS_BEAUTIFULSOUP = False
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from data_manager import get_me_ratio_history  # Added for M/E charts
-from data_manager import (
-    get_portfolio_metrics,
-    get_portfolio_performance_stats,
-    get_signals,
-    get_strategy_performance,
-    get_trades_history,
-    save_system_status,
-)
-
 try:
     from portfolio_calculator import (
         calculate_real_portfolio_metrics,
@@ -71,13 +58,10 @@ try:
 except ImportError:
     USE_REAL_METRICS = False
 
-# ---- NEW: Import AI integration manager ----
-from ngs_ai_integration_manager import NGSAIIntegrationManager
-
 st.set_page_config(
     page_title="Home",  # Title needs to match what you're trying to switch to
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 hide_streamlit_style = """
@@ -103,8 +87,12 @@ with st.sidebar:
     st.title("nGS Trading System")
 
     # Navigation button to Historical Performance page
-    if st.button("Historical Performance", use_container_width=True, key="historical_page_btn"):
-        st.switch_page("1_nGS_System")  # Match the file's name (1_nGS_System.py) in the pages/ directory
+    if st.button(
+        "Historical Performance", use_container_width=True, key="historical_page_btn"
+    ):
+        st.switch_page(
+            "1_nGS_System"
+        )  # Match the file's name (1_nGS_System.py) in the pages/ directory
 
     st.markdown("---")
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
@@ -129,9 +117,7 @@ st.markdown("## 🏆 Best AI Strategy (AI Performance Hierarchy)")
 
 
 def load_latest_ai_integration_results(data_dir="data/integration_sessions") -> None:
-    """
-    Loads the most recent integration session results (expects JSON files).
-    """
+    """Load the most recent integration session results (expects JSON files)."""
     try:
         session_dir = os.path.abspath(data_dir)
         if not os.path.isdir(session_dir):
@@ -152,9 +138,7 @@ def load_latest_ai_integration_results(data_dir="data/integration_sessions") -> 
 
 
 def get_best_ai_strategy(results, manager) -> None:
-    """
-    Returns (strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe)
-    """
+    """Return (strategy_id, ai_result, perf, eq_curve, r2, roi, drawdown, sharpe)."""
     best = None
     best_tuple = None
     if not results or "ai_strategies" not in results:
@@ -217,14 +201,15 @@ if best:
         st.image(perf["equity_curve_chart"], caption="Equity Curve Chart")
 else:
     st.info(
-        "No AI strategy integration results found. Run AI integration manager and save results to view hierarchy."
+        "No AI strategy integration results found. "
+        "Run AI integration manager and save results to view hierarchy."
     )
 
 st.markdown("---")
 
 
 def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> float:
-    """Calculate Value at Risk from historical trades"""
+    """Calculate Value at Risk from historical trades."""
     try:
         if trades_df.empty:
             return 0.0
@@ -244,8 +229,65 @@ def calculate_var(trades_df: pd.DataFrame, confidence_level: float = 0.95) -> fl
         return 0.0
 
 
+def get_detailed_performance_metrics(
+    trades_df: pd.DataFrame, equity_curve: pd.Series
+) -> pd.DataFrame:
+    """Calculate detailed performance metrics using PerformanceMetrics.
+
+    Args:
+        trades_df (pd.DataFrame): DataFrame of trades (historical trades or backtest results).
+        equity_curve (pd.Series): Series of equity values over time.
+
+    Returns:
+        pd.DataFrame: A DataFrame of detailed performance metrics for display.
+    """
+    try:
+        # Create a simulated backtest result object
+        class BacktestResult:
+            daily_returns = equity_curve.pct_change().dropna()
+            equity_curve = equity_curve
+            benchmark_returns = pd.Series(
+                np.random.normal(0, 0.01, len(daily_returns))
+            )  # Placeholder
+            total_return_pct = (equity_curve.iloc[-1] / equity_curve.iloc[0] - 1) * 100
+            annualized_return_pct = total_return_pct / (len(daily_returns) / 252)
+
+        # Use PerformanceMetrics to calculate metrics
+        metrics = PerformanceMetrics.calculate_detailed_metrics(
+            backtest_result=BacktestResult(),
+            strategy_name="Historical Strategy",
+            objective="Preserve Drawdown",
+        )
+
+        # Convert metrics to DataFrame format
+        metrics_dict = metrics.__dict__
+        displayable_metrics = {  # Filter out only metrics we're interested in
+            "CAGR": metrics_dict.get("cagr"),
+            "Calmar Ratio": metrics_dict.get("calmar_ratio"),
+            "Sortino Ratio": metrics_dict.get("sortino_ratio"),
+            "Omega Ratio": metrics_dict.get("omega_ratio"),
+            "Sharpe Ratio": metrics_dict.get("sharpe_ratio"),
+            "Max Drawdown (%)": metrics_dict.get("max_drawdown_pct"),
+            "Win Rate (%)": (
+                metrics_dict.get("win_rate") * 100
+                if metrics_dict.get("win_rate")
+                else None
+            ),
+            "Total Trades": metrics_dict.get("total_trades"),
+            "Profit Factor": metrics_dict.get("profit_factor"),
+            "Average Trade Return (%)": metrics_dict.get("avg_trade_pct"),
+            "Avg Trade Duration (Days)": metrics_dict.get("avg_trade_duration_days"),
+        }
+
+        return pd.DataFrame(displayable_metrics.items(), columns=["Metric", "Value"])
+
+    except Exception as e:
+        st.error(f"Error calculating detailed performance metrics: {e}")
+        return pd.DataFrame()
+
+
 def get_barclay_ls_index() -> str:
-    """Fetch Barclay L/S Index YTD value - specifically target the YTD column (5.79%)"""
+    """Fetch Barclay L/S Index YTD value - specifically target the YTD column (5.79%)."""
     try:
         if not HAS_REQUESTS or not HAS_BEAUTIFULSOUP:
             return "N/A (Install requests & beautifulsoup4)"
@@ -254,55 +296,6 @@ def get_barclay_ls_index() -> str:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
-
-        def get_detailed_performance_metrics(trades_df: pd.DataFrame, equity_curve: pd.Series) -> pd.DataFrame:
-            """
-            Calculate detailed performance metrics using PerformanceMetrics.
-
-            Args:
-                trades_df (pd.DataFrame): DataFrame of trades (historical trades or backtest results).
-                equity_curve (pd.Series): Series of equity values over time.
-
-            Returns:
-                pd.DataFrame: A DataFrame of detailed performance metrics for display.
-            """
-            try:
-                # Create a simulated backtest result object
-                class BacktestResult:
-                    daily_returns = equity_curve.pct_change().dropna()
-                    equity_curve = equity_curve
-                    benchmark_returns = pd.Series(np.random.normal(0, 0.01, len(daily_returns)))  # Placeholder
-                    total_return_pct = (equity_curve.iloc[-1] / equity_curve.iloc[0] - 1) * 100
-                    annualized_return_pct = total_return_pct / (len(daily_returns) / 252)
-
-                # Use PerformanceMetrics to calculate metrics
-                metrics = PerformanceMetrics.calculate_detailed_metrics(
-                    backtest_result=BacktestResult(),
-                    strategy_name="Historical Strategy",
-                    objective="Preserve Drawdown",
-                )
-
-                # Convert metrics to DataFrame format
-                metrics_dict = metrics.__dict__
-                displayable_metrics = {  # Filter out only metrics we're interested in
-                    "CAGR": metrics_dict.get("cagr"),
-                    "Calmar Ratio": metrics_dict.get("calmar_ratio"),
-                    "Sortino Ratio": metrics_dict.get("sortino_ratio"),
-                    "Omega Ratio": metrics_dict.get("omega_ratio"),
-                    "Sharpe Ratio": metrics_dict.get("sharpe_ratio"),
-                    "Max Drawdown (%)": metrics_dict.get("max_drawdown_pct"),
-                    "Win Rate (%)": metrics_dict.get("win_rate") * 100 if metrics_dict.get("win_rate") else None,
-                    "Total Trades": metrics_dict.get("total_trades"),
-                    "Profit Factor": metrics_dict.get("profit_factor"),
-                    "Average Trade Return (%)": metrics_dict.get("avg_trade_pct"),
-                    "Avg Trade Duration (Days)": metrics_dict.get("avg_trade_duration_days"),
-                }
-
-                return pd.DataFrame(displayable_metrics.items(), columns=["Metric", "Value"])
-
-            except Exception as e:
-                st.error(f"Error calculating detailed performance metrics: {e}")
-                return pd.DataFrame()
 
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
@@ -380,7 +373,7 @@ def get_barclay_ls_index() -> str:
                     val = float(pct.replace("%", ""))
                     if 3 <= val <= 10:  # Narrow range for likely YTD equity L/S returns
                         return pct
-                except:
+                except ValueError:
                     continue
 
             return "N/A (YTD 5.79% not found)"
@@ -391,7 +384,7 @@ def get_barclay_ls_index() -> str:
 
 
 def get_enhanced_portfolio_performance_stats() -> pd.DataFrame:
-    """Get enhanced performance statistics including VaR and benchmark"""
+    """Get enhanced performance statistics including VaR and benchmark."""
     try:
         # Get original performance stats
         original_stats = get_portfolio_performance_stats()
@@ -434,6 +427,7 @@ def get_enhanced_portfolio_performance_stats() -> pd.DataFrame:
 
 
 def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
+    """Get portfolio metrics with fallback to basic metrics if enhanced unavailable."""
     try:
         if USE_REAL_METRICS:
             return calculate_real_portfolio_metrics(
@@ -455,8 +449,8 @@ def get_portfolio_metrics_with_fallback(initial_value: int) -> dict:
 
 
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
-    """
-    Plot M/E ratio history using data_manager's get_me_ratio_history function.
+    """Plot M/E ratio history using data_manager's get_me_ratio_history function.
+
     Sized to match equity curve chart exactly.
     """
     try:
@@ -509,7 +503,7 @@ def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
                     stats_text,
                     transform=ax.transAxes,
                     verticalalignment="top",
-                    bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.8),
+                    bbox={"boxstyle": "round", "facecolor": "lightblue", "alpha": 0.8},
                     fontsize=10,
                 )
 
@@ -575,7 +569,7 @@ with col3:
             )
         else:
             historical_me = "0.0"
-    except:
+    except Exception:
         historical_me = "0.0"
     st.metric(label="Avg Historical M/E", value=f"{historical_me}%")
 with col4:
@@ -592,6 +586,7 @@ st.subheader(" Strategy Performance")
 
 
 def get_strategy_data(initial_value: int) -> pd.DataFrame:
+    """Get strategy performance data with fallback to basic metrics."""
     try:
         if USE_REAL_METRICS:
             return get_enhanced_strategy_performance(
@@ -675,76 +670,6 @@ with col2:
         plot_me_ratio_history(trades_df, initial_value)
     except Exception as e:
         st.error(f"Error creating M/E chart: {e}")
-
-def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
-    """
-    Plot M/E ratio history using data_manager's get_me_ratio_history function.
-    Sized to match equity curve chart exactly.
-    """
-    try:
-        # Get M/E history from data_manager
-        me_history_df = get_me_ratio_history()
-
-        if not me_history_df.empty:
-            # Convert Date column to datetime if it's not already
-            me_history_df["Date"] = pd.to_datetime(me_history_df["Date"])
-
-            # Filter out any bad data (0.0% M/E ratios)
-            clean_data = me_history_df[me_history_df["ME_Ratio"] > 0].copy()
-
-            if not clean_data.empty:
-                # Create the chart with EXACT same size as equity curve
-                fig, ax = plt.subplots(figsize=(10, 4))
-
-                # Plot M/E ratio line (matching equity curve line style)
-                ax.plot(
-                    clean_data["Date"],
-                    clean_data["ME_Ratio"],
-                    linewidth=2,
-                    color="#ff6b35",
-                    label="M/E Ratio",
-                )
-
-                # Chart formatting (identical to equity curve)
-                ax.set_title(
-                    "Historical M/E Ratio - Risk Management",
-                    fontsize=12,
-                    fontweight="bold",
-                )
-                ax.set_xlabel("Date")
-                ax.set_ylabel("M/E Ratio (%)")
-                ax.set_ylim(0, max(110, clean_data["ME_Ratio"].max() * 1.1))
-                ax.grid(True, alpha=0.3)
-                ax.legend(loc="upper left")
-                ax.tick_params(axis="x", rotation=45)
-
-                # Calculate statistics
-                avg_me = clean_data["ME_Ratio"].mean()
-                max_me = clean_data["ME_Ratio"].max()
-                min_me = clean_data["ME_Ratio"].min()
-
-                # Add statistics box
-                stats_text = f"Average: {avg_me:.1f}%\nMaximum: {max_me:.1f}%\nMinimum: {min_me:.1f}%"
-                ax.text(
-                    0.02,
-                    0.98,
-                    stats_text,
-                    transform=ax.transAxes,
-                    verticalalignment="top",
-                    bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.8),
-                    fontsize=10,
-                )
-
-                plt.tight_layout()
-                st.pyplot(fig)
-                plt.close()
-            else:
-                st.warning(" M/E history contains only invalid data (0.0% ratios)")
-        else:
-            st.warning(" No M/E ratio history found")
-
-    except Exception as e:
-        st.error(f" Error creating M/E ratio chart: {e}")
 
 
 st.markdown("---")
