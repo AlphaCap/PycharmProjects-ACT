@@ -66,7 +66,7 @@ with st.sidebar:
     if st.button(
         "Historical Performance", use_container_width=True, key="historical_page_btn"
     ):
-        st.switch_page("app")  # Must match title set in its file
+        st.switch_page("1_nGS_System")  # Must match title set in its file
 
     st.markdown("---")
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
@@ -533,4 +533,3 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
