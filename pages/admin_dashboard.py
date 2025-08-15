@@ -1,22 +1,30 @@
+import os
 import subprocess
+import sys
+
 import streamlit as st
 
 
-# Example: Simple admin authentication (replace with a secure method in production)
-def is_admin(password: str) -> bool:
+# Simple admin authentication (hard-coded by requirement)
+def is_admin(password: str | None = None) -> bool:
     """
     Check if the given password matches the admin password.
+    If password is None (e.g., some tests call is_admin() without args), return False.
     """
     ADMIN_PASSWORD = "4250Galt"
+    if password is None:
+        return False
     return password == ADMIN_PASSWORD
+
 
 def run_repair() -> str:
     """
     Execute the auto_debug_repair script and return the result.
+    Uses the current Python interpreter to avoid PATH issues.
     """
     try:
         result = subprocess.run(
-            ["python", "auto_debug_repair.py"],
+            [sys.executable, "auto_debug_repair.py"],
             capture_output=True,
             text=True,
             check=True,
@@ -28,24 +36,60 @@ def run_repair() -> str:
         return f"Unexpected error occurred: {e}"
 
 
-def git_commit_and_push() -> bool:
+def git_commit_and_push(dry_run: bool | None = None) -> bool:
     """
     Commit and push changes to the Git repository.
+    - If dry_run is True or env var NGS_DRY_RUN=1 is set, simulate success (no network).
+    - Gracefully handle common git states (nothing to commit, no upstream).
     """
     try:
-        subprocess.run(["git", "add", "."], check=True, capture_output=True)
-        subprocess.run(
+        # Dry run mode for tests/CI
+        if dry_run is True or os.getenv("NGS_DRY_RUN") == "1":
+            # Simulate the flow and success for tests (no git side-effects)
+            print("NGS_DRY_RUN enabled: simulating git add/commit/push success")
+            return True
+
+        # Stage changes
+        add_proc = subprocess.run(["git", "add", "."], capture_output=True, text=True)
+        if add_proc.returncode != 0:
+            st.error(f"git add failed:\n{add_proc.stderr}")
+            return False
+
+        # Commit changes (allow no-op if nothing to commit)
+        commit_proc = subprocess.run(
             ["git", "commit", "-m", "Automated debug repairs"],
-            check=True,
             capture_output=True,
+            text=True,
         )
-        subprocess.run(["git", "push"], check=True, capture_output=True)
+        if commit_proc.returncode != 0:
+            # Common case: nothing to commit
+            if "nothing to commit" in (commit_proc.stderr or "").lower() or "nothing to commit" in (commit_proc.stdout or "").lower():
+                st.info("No changes to commit. Skipping push.")
+                return True
+            st.error(f"git commit failed:\n{commit_proc.stderr or commit_proc.stdout}")
+            return False
+
+        # Push changes (handle missing upstream)
+        push_proc = subprocess.run(["git", "push"], capture_output=True, text=True)
+        if push_proc.returncode != 0:
+            # Detect missing upstream and provide actionable message
+            if "has no upstream branch" in (push_proc.stderr or "").lower():
+                st.error(
+                    "Push failed: No upstream branch configured. "
+                    "Set the upstream, e.g.: git push --set-upstream origin <branch>"
+                )
+            else:
+                st.error(f"git push failed:\n{push_proc.stderr or push_proc.stdout}")
+            return False
+
         return True
-    except subprocess.CalledProcessError as e:
-        st.error(f"Git command failed with error:\n{e.stderr}")
-        return False
+
     except Exception as e:
-        st.error(f"Unexpected error occurred: {e}")
+        # Avoid hard failure if Streamlit isn't available (e.g., under tests)
+        try:
+            st.error(f"Unexpected error occurred: {e}")
+        except Exception:
+            print(f"Unexpected error occurred: {e}")
         return False
 
 
@@ -65,15 +109,24 @@ def admin_dashboard():
 
             # Prompt for Git commit and push if repairs were made
             if "Repairs made" in repair_output:
-                if st.button("Repairs made. Commit and push now?"):
-                    if git_commit_and_push():
+                st.warning(
+                    "Repairs were made. Please confirm you authorize committing and pushing these changes."
+                )
+
+                # Explicit authorization checkbox
+                approved = st.checkbox("I authorize commit and push to the remote repository")
+
+                # Only show/enable the push button when approved
+                if st.button("Commit and Push Now", disabled=not approved):
+                    # Normal operation (not dry-run) in UI
+                    if git_commit_and_push(dry_run=False):
                         st.success("Changes committed and pushed successfully.")
                     else:
-                        st.error("Failed to commit and push changes.")
+                        st.error("Failed to commit and/or push changes.")
                 else:
-                    st.info("Review repairs before committing.")
+                    st.info("Review the repair output and approve before pushing.")
             else:
-                st.warning("No repairs were needed or an error occurred during the repair process.")
+                st.info("No repairs were needed or the repair process reported no changes.")
     else:
         st.warning("Admin access required.")
 
