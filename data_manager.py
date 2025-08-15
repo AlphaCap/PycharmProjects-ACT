@@ -413,7 +413,7 @@ def get_sector_weights() -> Dict[str, float]:
 
 
 def get_sector_rebalance_targets(
-    target_weights: Optional[Dict[str, float]] = None
+    target_weights: Optional[Dict[str, float]] = None,
 ) -> Dict[str, float]:
     """
     Returns the sector rebalance targets dict. If target_weights is not provided, defaults to current sector weights.
@@ -421,6 +421,7 @@ def get_sector_rebalance_targets(
     if target_weights is not None:
         return target_weights
     return get_sector_weights()
+
 
 def calculate_sector_rebalance_needs(
     positions_df: pd.DataFrame,
@@ -459,6 +460,8 @@ def calculate_sector_rebalance_needs(
         }
     # Return the rebalance needs dictionary
     return rebalance_needs
+
+
 def save_price_data(
     symbol: str, df: pd.DataFrame, history_days: int = HISTORY_DAYS
 ) -> None:

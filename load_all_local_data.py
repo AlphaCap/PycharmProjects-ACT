@@ -1,11 +1,13 @@
-import pandas as pd
 import os
 import sys
 
-sys.stdout.reconfigure(encoding='utf-8')
+import pandas as pd
+
+sys.stdout.reconfigure(encoding="utf-8")
+
+import os
 
 import pandas as pd
-import os
 
 # ---------- LOAD ALL STOCKS FROM data/daily/ ----------
 
@@ -46,5 +48,3 @@ print(f"Loaded {len(etf_data)} ETFs from {etf_dir}")
 # Example: print all loaded stock symbols
 print("Stock symbols:", list(stock_data.keys()))
 print("ETF symbols:", list(etf_data.keys()))
-
-

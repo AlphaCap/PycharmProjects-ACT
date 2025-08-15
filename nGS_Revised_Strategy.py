@@ -33,7 +33,11 @@ from data_manager import (
     get_symbol_sector,
 )
 from data_manager import initialize as init_data_manager
-from data_manager import load_price_data, save_positions, save_trades
+from data_manager import (
+    load_price_data,
+    save_positions,
+    save_trades,
+)
 from shared_utils import load_polygon_data
 
 
@@ -373,10 +377,10 @@ class NGSStrategy:
             return 0.0
 
     def check_sector_limits(
-            self,
-            symbol: str,
-            proposed_position_value: float,
-            current_portfolio_value: float,
+        self,
+        symbol: str,
+        proposed_position_value: float,
+        current_portfolio_value: float,
     ) -> bool:
         if not self.sector_allocation_enabled:
             return True
@@ -424,6 +428,7 @@ class NGSStrategy:
             "min_sector_weight": self.min_sector_weight,
             "rebalance_threshold": self.sector_rebalance_threshold,
         }
+
     def calculate_ls_ratio(self) -> Optional[float]:
         try:
             long_count = len(
@@ -1945,7 +1950,7 @@ def run_ngs_automated_reporting(comparison: Optional[Any] = None) -> None:
 
 if __name__ == "__main__":
     from ngs_ai_integration_manager import NGSAIIntegrationManager
-    
+
     print(" nGS Trading Strategy with AI SELECTION ENABLED")
     print("=" * 70)
     print(f"Data Retention: {RETENTION_DAYS} days (6 months)")

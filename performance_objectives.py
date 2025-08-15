@@ -4,10 +4,11 @@ Defines different performance goals that AI can optimize trading strategies for
 Each objective generates completely different trading logic
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Callable, Any
 from abc import ABC, abstractmethod
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 
 class PerformanceObjective(ABC):
@@ -40,7 +41,9 @@ class LinearEquityObjective(PerformanceObjective):
     Prioritizes consistency and steady growth over maximum returns
     """
 
-    def __init__(self, smoothness_weight: float = 0.7, growth_weight: float = 0.3) -> None:
+    def __init__(
+        self, smoothness_weight: float = 0.7, growth_weight: float = 0.3
+    ) -> None:
         self.smoothness_weight = smoothness_weight
         self.growth_weight = growth_weight
 
@@ -355,7 +358,9 @@ class CustomObjective(PerformanceObjective):
     def __init__(
         self,
         name: str,
-        fitness_function: Callable[[List[Dict[str, Any]], pd.Series, Optional[Dict[str, Any]]], float],
+        fitness_function: Callable[
+            [List[Dict[str, Any]], pd.Series, Optional[Dict[str, Any]]], float
+        ],
         strategy_preferences: Dict[str, Any],
         description: str,
     ) -> None:
@@ -372,7 +377,9 @@ class CustomObjective(PerformanceObjective):
     ) -> float:
         """Use custom fitness function"""
         try:
-            return float(self.fitness_function(trades, equity_curve, additional_metrics))
+            return float(
+                self.fitness_function(trades, equity_curve, additional_metrics)
+            )
         except Exception:
             return 0.0
 
@@ -403,9 +410,7 @@ class ObjectiveManager:
             "sharpe_ratio": SharpeRatioObjective(),
         }
 
-        print(
-            f" Objective Manager initialized with {len(self.objectives)} objectives"
-        )
+        print(f" Objective Manager initialized with {len(self.objectives)} objectives")
 
     def get_objective(self, name: str) -> PerformanceObjective:
         """Get objective by name"""
@@ -417,19 +422,23 @@ class ObjectiveManager:
 
     def list_objectives(self) -> Dict[str, str]:
         """List all available objectives with descriptions"""
-        return {name: obj.get_objective_description()
-                for name, obj in self.objectives.items()}
+        return {
+            name: obj.get_objective_description()
+            for name, obj in self.objectives.items()
+        }
 
     def get_primary_objective(self) -> str:
         """Return the name of the first objective as the primary objective."""
-        if not hasattr(self, 'objectives') or not self.objectives:
+        if not hasattr(self, "objectives") or not self.objectives:
             raise ValueError("No objectives available in ObjectiveManager")
         return next(iter(self.objectives))
 
     def add_custom_objective(
         self,
         name: str,
-        fitness_function: Callable[[List[Dict[str, Any]], pd.Series, Optional[Dict[str, Any]]], float],
+        fitness_function: Callable[
+            [List[Dict[str, Any]], pd.Series, Optional[Dict[str, Any]]], float
+        ],
         strategy_preferences: Dict[str, Any],
         description: str,
     ) -> None:

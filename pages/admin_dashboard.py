@@ -1,4 +1,5 @@
 import subprocess
+
 import streamlit as st
 
 
@@ -9,6 +10,7 @@ def is_admin(password: str) -> bool:
     """
     ADMIN_PASSWORD = "4250Galt"
     return password == ADMIN_PASSWORD
+
 
 def run_repair() -> str:
     """
@@ -73,7 +75,9 @@ def admin_dashboard():
                 else:
                     st.info("Review repairs before committing.")
             else:
-                st.warning("No repairs were needed or an error occurred during the repair process.")
+                st.warning(
+                    "No repairs were needed or an error occurred during the repair process."
+                )
     else:
         st.warning("Admin access required.")
 
