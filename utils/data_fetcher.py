@@ -1,9 +1,11 @@
-import os
-import pandas as pd
-from datetime import datetime, timedelta
-import time
-import logging
 import json
+import logging
+import os
+import time
+from datetime import datetime, timedelta
+
+import pandas as pd
+
 from utils.polygon_api import PolygonClient
 
 # Set up logging
@@ -182,5 +184,3 @@ class DataFetcher:
                 )
         except Exception as e:
             logger.error(f"Error saving data for {symbol}: {e}")
-
-

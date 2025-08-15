@@ -1,8 +1,9 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import datetime
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import streamlit as st
 
 # Set page config
 st.set_page_config(page_title="Daily Trading System", layout="wide")
@@ -23,6 +24,4 @@ Check back for updates.
 
 # Go back to main dashboard button
 if st.button("← Back to Dashboard"):
-    st.switch_page("app.py")
-
-
+    st.switch_page("ngs_ai_performance_comparator")

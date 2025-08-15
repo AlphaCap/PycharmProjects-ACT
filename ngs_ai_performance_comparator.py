@@ -6,8 +6,9 @@ def calculate_advanced_metrics(daily_returns, benchmark_returns, equity_curve):
     # Example: Calculate additional metrics
     return {
         "excess_return": (daily_returns.mean() - benchmark_returns.mean()) * 100,
-        "return_to_volatility": daily_returns.mean() / daily_returns.std()
-        if daily_returns.std() > 0 else 0,
+        "return_to_volatility": (
+            daily_returns.mean() / daily_returns.std() if daily_returns.std() > 0 else 0
+        ),
     }
 
 
@@ -188,7 +189,8 @@ class NGSAIPerformanceComparator:
             "recommended_allocation": {best_strategy_name: 100.0},
             "original_metrics": comparison_results[0][1],  # Assuming first is the base
             "ai_metrics": [result[1] for result in comparison_results],
-            "return_difference_significant": best_score > comparison_results[0][2] * 1.2,
+            "return_difference_significant": best_score
+            > comparison_results[0][2] * 1.2,
         }
 
     def _calculate_score(self, metrics: PerformanceMetrics, objectives: list) -> float:

@@ -1,12 +1,13 @@
-import pandas as pd
 import os
 from pathlib import Path
+
+import pandas as pd
 
 # Daily data with price + indicator columns
 DAILY_COLUMNS = [
     "Date",
     "Open",
-    "High", 
+    "High",
     "Low",
     "Close",
     "Volume",
@@ -15,7 +16,7 @@ DAILY_COLUMNS = [
     "UpperBB",
     "LowerBB",
     "High_Low",
-    "High_Close", 
+    "High_Close",
     "Low_Close",
     "TR",
     "ATR",
@@ -30,7 +31,7 @@ DAILY_COLUMNS = [
     "oLRIntercept",
     "TSF",
     "oLRSlope2",
-    "oLRAngle2", 
+    "oLRAngle2",
     "oLRIntercept2",
     "TSF5",
     "Value1",
@@ -48,7 +49,7 @@ directories = [
     "data/daily",
     "data/trades",
     "data/etf_historical",  # Added ETF historical directory
-    "data/cache"
+    "data/cache",
 ]
 
 for directory in directories:
@@ -82,4 +83,3 @@ if not os.path.exists(trade_file):
     print(f"Created {trade_file}")
 else:
     print(f"{trade_file} already exists.")
-

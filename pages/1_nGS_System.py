@@ -1,5 +1,6 @@
 import os
 import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -10,7 +11,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from ngs_ai_integration_manager import NGSAIIntegrationManager
-    
+
 # Optional dependencies
 try:
     import requests  # noqa: F401
@@ -28,11 +29,12 @@ except Exception:
 
 import re
 from datetime import datetime
-from ngs_ai_performance_comparator import PerformanceMetrics
-from ngs_ai_integration_manager import NGSAIIntegrationManager
 
 import matplotlib.pyplot as plt
 import streamlit.errors
+
+from ngs_ai_integration_manager import NGSAIIntegrationManager
+from ngs_ai_performance_comparator import PerformanceMetrics
 
 # Optional imports with fallbacks
 try:
@@ -77,7 +79,7 @@ from ngs_ai_integration_manager import NGSAIIntegrationManager
 st.set_page_config(
     page_title="Home",  # Title needs to match what you're trying to switch to
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 hide_streamlit_style = """
@@ -103,8 +105,12 @@ with st.sidebar:
     st.title("nGS Trading System")
 
     # Navigation button to Historical Performance page
-    if st.button("Historical Performance", use_container_width=True, key="historical_page_btn"):
-        st.switch_page("1_nGS_System")  # Match the file's name (1_nGS_System.py) in the pages/ directory
+    if st.button(
+        "Historical Performance", use_container_width=True, key="historical_page_btn"
+    ):
+        st.switch_page(
+            "1_nGS_System"
+        )  # Match the file's name (1_nGS_System.py) in the pages/ directory
 
     st.markdown("---")
     st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
@@ -255,7 +261,9 @@ def get_barclay_ls_index() -> str:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
-        def get_detailed_performance_metrics(trades_df: pd.DataFrame, equity_curve: pd.Series) -> pd.DataFrame:
+        def get_detailed_performance_metrics(
+            trades_df: pd.DataFrame, equity_curve: pd.Series
+        ) -> pd.DataFrame:
             """
             Calculate detailed performance metrics using PerformanceMetrics.
 
@@ -271,9 +279,15 @@ def get_barclay_ls_index() -> str:
                 class BacktestResult:
                     daily_returns = equity_curve.pct_change().dropna()
                     equity_curve = equity_curve
-                    benchmark_returns = pd.Series(np.random.normal(0, 0.01, len(daily_returns)))  # Placeholder
-                    total_return_pct = (equity_curve.iloc[-1] / equity_curve.iloc[0] - 1) * 100
-                    annualized_return_pct = total_return_pct / (len(daily_returns) / 252)
+                    benchmark_returns = pd.Series(
+                        np.random.normal(0, 0.01, len(daily_returns))
+                    )  # Placeholder
+                    total_return_pct = (
+                        equity_curve.iloc[-1] / equity_curve.iloc[0] - 1
+                    ) * 100
+                    annualized_return_pct = total_return_pct / (
+                        len(daily_returns) / 252
+                    )
 
                 # Use PerformanceMetrics to calculate metrics
                 metrics = PerformanceMetrics.calculate_detailed_metrics(
@@ -291,14 +305,22 @@ def get_barclay_ls_index() -> str:
                     "Omega Ratio": metrics_dict.get("omega_ratio"),
                     "Sharpe Ratio": metrics_dict.get("sharpe_ratio"),
                     "Max Drawdown (%)": metrics_dict.get("max_drawdown_pct"),
-                    "Win Rate (%)": metrics_dict.get("win_rate") * 100 if metrics_dict.get("win_rate") else None,
+                    "Win Rate (%)": (
+                        metrics_dict.get("win_rate") * 100
+                        if metrics_dict.get("win_rate")
+                        else None
+                    ),
                     "Total Trades": metrics_dict.get("total_trades"),
                     "Profit Factor": metrics_dict.get("profit_factor"),
                     "Average Trade Return (%)": metrics_dict.get("avg_trade_pct"),
-                    "Avg Trade Duration (Days)": metrics_dict.get("avg_trade_duration_days"),
+                    "Avg Trade Duration (Days)": metrics_dict.get(
+                        "avg_trade_duration_days"
+                    ),
                 }
 
-                return pd.DataFrame(displayable_metrics.items(), columns=["Metric", "Value"])
+                return pd.DataFrame(
+                    displayable_metrics.items(), columns=["Metric", "Value"]
+                )
 
             except Exception as e:
                 st.error(f"Error calculating detailed performance metrics: {e}")
@@ -675,6 +697,7 @@ with col2:
         plot_me_ratio_history(trades_df, initial_value)
     except Exception as e:
         st.error(f"Error creating M/E chart: {e}")
+
 
 def plot_me_ratio_history(trades_df: pd.DataFrame, initial_value: int) -> None:
     """

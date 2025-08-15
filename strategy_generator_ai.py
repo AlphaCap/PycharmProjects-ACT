@@ -51,8 +51,10 @@ class TradingStrategy:
         try:
             print(f" Executing strategy {self.strategy_id} on {len(df)} bars of data")
             position_size_config = self.config.get("position_sizing", {})
-            position_size = position_size_config.get("size", 5000)  # Default size to $5000
-            print(f"DEBUG: Using position size for execution 
+            position_size = position_size_config.get(
+                "size", 5000
+            )  # Default size to $5000
+            print(f"DEBUG: Using position size for execution: {position_size}")
 
             # CRITICAL: Ensure data has minimum required length
             if len(df) < 50:
@@ -235,7 +237,7 @@ class TradingStrategy:
     # File: strategy_generator_ai.py
     # _generate_signals
     def _generate_signals(
-            self, df: pd.DataFrame, indicators: Dict[str, pd.Series]
+        self, df: pd.DataFrame, indicators: Dict[str, pd.Series]
     ) -> pd.Series:
         signals = pd.Series(0, index=df.index)  # Default: Hold (0)
         entry_logic = self.config["entry_logic"]
@@ -245,7 +247,9 @@ class TradingStrategy:
 
         for i in range(50, len(df)):  # Starting after a warmup period
             try:
-                print(f"[Row {i}] Current Price Data: {df.iloc[i].to_dict()}")  # Debug log
+                print(
+                    f"[Row {i}] Current Price Data: {df.iloc[i].to_dict()}"
+                )  # Debug log
 
                 if not in_position:
                     if self._evaluate_entry_conditions(i, df, indicators, entry_logic):
@@ -261,24 +265,27 @@ class TradingStrategy:
                 print(f"[Row {i}] Error during signal evaluation: {e}")  # Debug log
 
         print(
-            f"Signal generation complete. Total Buy Signals: {(signals == 1).sum()}, Total Sell Signals: {(signals == -1).sum()}")  # Summary log
+            f"Signal generation complete. Total Buy Signals: {(signals == 1).sum()}, Total Sell Signals: {(signals == -1).sum()}"
+        )  # Summary log
         return signals
 
     # File: strategy_generator_ai.py
     # _evaluate_entry_conditions
     def _evaluate_entry_conditions(
-            self,
-            i: int,
-            df: pd.DataFrame,
-            indicators: Dict[str, pd.Series],
-            entry_logic: Dict[str, Any],
+        self,
+        i: int,
+        df: pd.DataFrame,
+        indicators: Dict[str, pd.Series],
+        entry_logic: Dict[str, Any],
     ) -> bool:
         try:
             conditions_met = 0
             total_conditions = len(entry_logic["conditions"])
             required_ratio = entry_logic.get("confirmation_ratio", 0.6)
 
-            print(f"  Evaluating entry conditions at row {i}: Total Conditions = {total_conditions}")  # Debug log
+            print(
+                f"  Evaluating entry conditions at row {i}: Total Conditions = {total_conditions}"
+            )  # Debug log
 
             for condition in entry_logic["conditions"]:
                 try:
@@ -292,7 +299,8 @@ class TradingStrategy:
 
             result = (conditions_met / total_conditions) >= required_ratio
             print(
-                f"  Entry conditions result at row {i}: {result} (Met {conditions_met}/{total_conditions})")  # Debug log
+                f"  Entry conditions result at row {i}: {result} (Met {conditions_met}/{total_conditions})"
+            )  # Debug log
             return result
 
         except Exception as e:
@@ -302,11 +310,11 @@ class TradingStrategy:
     # File: strategy_generator_ai.py
     # _evaluate_exit_conditions
     def _evaluate_exit_conditions(
-            self,
-            i: int,
-            df: pd.DataFrame,
-            indicators: Dict[str, pd.Series],
-            exit_logic: Dict[str, Any],
+        self,
+        i: int,
+        df: pd.DataFrame,
+        indicators: Dict[str, pd.Series],
+        exit_logic: Dict[str, Any],
     ) -> bool:
         try:
             print(f"  Evaluating exit conditions at row {i}")  # Debug log
@@ -329,11 +337,11 @@ class TradingStrategy:
     # File: strategy_generator_ai.py
     # _check_condition
     def _check_condition(
-            self,
-            i: int,
-            df: pd.DataFrame,
-            indicators: Dict[str, pd.Series],
-            condition: Dict[str, Any],
+        self,
+        i: int,
+        df: pd.DataFrame,
+        indicators: Dict[str, pd.Series],
+        condition: Dict[str, Any],
     ) -> bool:
         try:
             indicator_name = condition["indicator"]
@@ -351,7 +359,8 @@ class TradingStrategy:
 
             # Log condition details
             print(
-                f"    Checking condition: {indicator_name} {operator} {threshold} (Value: {current_value})")  # Debug log
+                f"    Checking condition: {indicator_name} {operator} {threshold} (Value: {current_value})"
+            )  # Debug log
 
             # Evaluate the condition
             if operator == ">":
@@ -363,13 +372,19 @@ class TradingStrategy:
             elif operator == "<=":
                 return float(current_value) <= float(threshold)
             elif operator == "between":
-                return float(threshold[0]) <= float(current_value) <= float(threshold[1])
+                return (
+                    float(threshold[0]) <= float(current_value) <= float(threshold[1])
+                )
             elif operator == "crossover":
                 prev_value = indicators[indicator_name].iloc[i - 1] if i > 0 else None
-                return prev_value is not None and float(prev_value) <= float(threshold) < float(current_value)
+                return prev_value is not None and float(prev_value) <= float(
+                    threshold
+                ) < float(current_value)
             elif operator == "crossunder":
                 prev_value = indicators[indicator_name].iloc[i - 1] if i > 0 else None
-                return prev_value is not None and float(prev_value) >= float(threshold) > float(current_value)
+                return prev_value is not None and float(prev_value) >= float(
+                    threshold
+                ) > float(current_value)
 
             print(f"    Unknown operator {operator}")  # Debug log
             return False
@@ -377,7 +392,6 @@ class TradingStrategy:
         except Exception as e:
             print(f"    Error checking condition: {condition} ({e})")  # Debug log
             return False
-
 
         except Exception:
             return False
@@ -468,13 +482,17 @@ class TradingStrategy:
         try:
             method = config.get("method", "fixed")
             size = config.get("size", 5000)  # Fallback to $5000
-            print(f"DEBUG: Calculating position size -> method='{method}', size={size}")  # Debug print
+            print(
+                f"DEBUG: Calculating position size -> method='{method}', size={size}"
+            )  # Debug print
 
             if method == "fixed":
                 return float(size)
             elif method == "volatility_adjusted":
                 base_size = float(config.get("base_size", 0.1))
-                volatility_factor = max(float(config.get("volatility_factor", 1.0)), 0.5)
+                volatility_factor = max(
+                    float(config.get("volatility_factor", 1.0)), 0.5
+                )
                 return base_size / volatility_factor
             else:
                 return 0.1
@@ -568,9 +586,9 @@ class ObjectiveAwareStrategyGenerator:
     ) -> None:
         self.indicator_lib: ComprehensiveIndicatorLibrary = indicator_library
         self.objective_manager: ObjectiveManager = objective_manager
-        self.strategy_templates: Dict[
-            str, Dict[str, Any]
-        ] = self._create_strategy_templates()
+        self.strategy_templates: Dict[str, Dict[str, Any]] = (
+            self._create_strategy_templates()
+        )
         self.generated_strategies: Dict[str, TradingStrategy] = {}
 
         print(" Objective-Aware Strategy Generator AI initialized")
@@ -731,9 +749,11 @@ class ObjectiveAwareStrategyGenerator:
         }
 
         # Debug print to confirm fallback strategy configuration
-        print(f"DEBUG: Fallback strategy for {objective_name} -> position_sizing={config['position_sizing']}")
+        print(
+            f"DEBUG: Fallback strategy for {objective_name} -> position_sizing={config['position_sizing']}"
+        )
 
-        return TradingStrategy(strategy_id, objective_name, c
+        return TradingStrategy(strategy_id, objective_name, config)
 
     def _generate_adaptive_logic(
         self,
@@ -1041,12 +1061,14 @@ class ObjectiveAwareStrategyGenerator:
             )
 
     def _generate_position_sizing(
-            self, objective_prefs: Dict[str, Any]
+        self, objective_prefs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Generate position sizing rules based on objective"""
 
         risk_tolerance = objective_prefs.get("risk_tolerance", "moderate")
-        print(f"DEBUG: Generating position sizing for risk_tolerance='{risk_tolerance}'")  # Debug print
+        print(
+            f"DEBUG: Generating position sizing for risk_tolerance='{risk_tolerance}'"
+        )  # Debug print
 
         if risk_tolerance == "minimal":
             return {"method": "fixed", "size": 0.02}

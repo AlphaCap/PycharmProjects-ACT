@@ -1,11 +1,11 @@
 # Python
 from __future__ import annotations
 
-import os
 import json
 import logging
+import os
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -15,13 +15,18 @@ from performance_objectives import ObjectiveManager
 
 # Safe import: prefer combined module, fallback to underlying modules if needed
 try:
-    from ngs_integrated_ai_system import NGSIndicatorLibrary, NGSAwareStrategyGenerator
+    from ngs_integrated_ai_system import NGSAwareStrategyGenerator, NGSIndicatorLibrary
 except Exception:
-    from comprehensive_indicator_library import ComprehensiveIndicatorLibrary as NGSIndicatorLibrary
-    from strategy_generator_ai import ObjectiveAwareStrategyGenerator as NGSAwareStrategyGenerator
+    from comprehensive_indicator_library import (
+        ComprehensiveIndicatorLibrary as NGSIndicatorLibrary,
+    )
+    from strategy_generator_ai import (
+        ObjectiveAwareStrategyGenerator as NGSAwareStrategyGenerator,
+    )
 
 # Persist using data_manager
-from data_manager import save_trades as dm_save_trades, save_positions as dm_save_positions
+from data_manager import save_positions as dm_save_positions
+from data_manager import save_trades as dm_save_trades
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -43,7 +48,9 @@ class NGSAIIntegrationManager:
         # AI components
         self.ngs_indicator_lib = NGSIndicatorLibrary()
         self.objective_manager = ObjectiveManager()
-        self.ai_generator = NGSAwareStrategyGenerator(self.ngs_indicator_lib, self.objective_manager)
+        self.ai_generator = NGSAwareStrategyGenerator(
+            self.ngs_indicator_lib, self.objective_manager
+        )
 
         # State
         self.active_strategies: Dict[str, Any] = {}
@@ -62,7 +69,7 @@ class NGSAIIntegrationManager:
         # Execution config
         self.execution_config = {
             "commission_per_trade": 1.0,  # $1 commission per closed trade
-            "slippage_pct": 0.05,         # 0.05% slippage
+            "slippage_pct": 0.05,  # 0.05% slippage
         }
 
         # Output
@@ -85,7 +92,9 @@ class NGSAIIntegrationManager:
         self.operating_mode = mode
         logger.info(f"Operating mode set to: {mode}")
 
-    def evaluate_linear_equity(self, equity_curve: Optional[pd.Series] | Optional[list]) -> float:
+    def evaluate_linear_equity(
+        self, equity_curve: Optional[pd.Series] | Optional[list]
+    ) -> float:
         """
         R² of a linear fit to the equity curve (0..1). Returns 0 if not enough data.
         """
@@ -107,7 +116,9 @@ class NGSAIIntegrationManager:
             logger.warning(f"evaluate_linear_equity failed: {e}")
             return 0.0
 
-    def create_ai_strategy_set(self, data: Dict[str, pd.DataFrame], objective: str) -> Dict[str, Any]:
+    def create_ai_strategy_set(
+        self, data: Dict[str, pd.DataFrame], objective: str
+    ) -> Dict[str, Any]:
         """
         Create per-symbol AI strategies for the selected objective.
         """
@@ -123,7 +134,9 @@ class NGSAIIntegrationManager:
                 logger.error(f"Failed to generate strategy for {symbol}: {e}")
         return strategies
 
-    def run_integrated_strategy(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, Any]]:
+    def run_integrated_strategy(
+        self, data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Executes AI strategies only, per symbol.
         Returns:
@@ -173,7 +186,9 @@ class NGSAIIntegrationManager:
         self.active_strategies = self.create_ai_strategy_set(data, objective)
         logger.info("Portfolio rebalanced based on AI strategy configuration")
 
-    def save_integration_session(self, results: Dict[str, Any], filename: str = "integration_results.json") -> None:
+    def save_integration_session(
+        self, results: Dict[str, Any], filename: str = "integration_results.json"
+    ) -> None:
         """
         Save results JSON under data/integration_results/
         """
@@ -197,7 +212,9 @@ class NGSAIIntegrationManager:
         except Exception:
             return "linear_equity"
 
-    def _execute_symbol_ai(self, symbol: str, strategy: Any, all_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+    def _execute_symbol_ai(
+        self, symbol: str, strategy: Any, all_data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, Any]:
         """
         Execute an AI strategy on the symbol's data. Builds closed trades and positions,
         computes performance, and saves via data_manager.
@@ -212,7 +229,11 @@ class NGSAIIntegrationManager:
             }
 
         # Normalize index/time
-        idx = pd.to_datetime(df["Date"]) if "Date" in df.columns else pd.to_datetime(df.index)
+        idx = (
+            pd.to_datetime(df["Date"])
+            if "Date" in df.columns
+            else pd.to_datetime(df.index)
+        )
 
         # Position sizing (divide capital across symbols)
         per_symbol_budget = max(self.account_size / max(len(all_data), 1), 1.0)
@@ -229,7 +250,11 @@ class NGSAIIntegrationManager:
         for i in range(len(df)):
             row = df.iloc[i]
             ts = idx[i]
-            price = float(row["Close"]) if "Close" in df.columns else float(row.get("close", np.nan))
+            price = (
+                float(row["Close"])
+                if "Close" in df.columns
+                else float(row.get("close", np.nan))
+            )
             if np.isnan(price):
                 equity_vals.append(equity if equity_vals else per_symbol_budget)
                 continue
@@ -258,22 +283,26 @@ class NGSAIIntegrationManager:
                 pnl = gross - self.execution_config["commission_per_trade"]
 
                 # Handle entry_time None for strftime
-                entry_date_str = entry_time.strftime("%Y-%m-%d") if entry_time is not None else ""
+                entry_date_str = (
+                    entry_time.strftime("%Y-%m-%d") if entry_time is not None else ""
+                )
                 exit_date_str = ts.strftime("%Y-%m-%d") if ts is not None else ""
 
-                closed_trades.append({
-                    "symbol": symbol,
-                    "type": "long",
-                    "entry_date": entry_date_str,
-                    "exit_date": exit_date_str,
-                    "entry_price": round(entry_price, 6),
-                    "exit_price": round(sell_px, 6),
-                    "shares": int(open_shares),
-                    "profit": float(pnl),
-                    "exit_reason": "signal",
-                    "side": "long",
-                    "strategy": getattr(strategy, "strategy_id", "ai_strategy"),
-                })
+                closed_trades.append(
+                    {
+                        "symbol": symbol,
+                        "type": "long",
+                        "entry_date": entry_date_str,
+                        "exit_date": exit_date_str,
+                        "entry_price": round(entry_price, 6),
+                        "exit_price": round(sell_px, 6),
+                        "shares": int(open_shares),
+                        "profit": float(pnl),
+                        "exit_reason": "signal",
+                        "side": "long",
+                        "strategy": getattr(strategy, "strategy_id", "ai_strategy"),
+                    }
+                )
 
                 equity += pnl
                 open_shares = 0
@@ -299,7 +328,7 @@ class NGSAIIntegrationManager:
             except Exception as e:
                 logger.warning(f"Failed to save positions for {symbol}: {e}")
 
-        equity_curve = pd.Series(equity_vals, index=idx[:len(equity_vals)]).dropna()
+        equity_curve = pd.Series(equity_vals, index=idx[: len(equity_vals)]).dropna()
         perf = self._calculate_performance(closed_trades, df)  # retain original metrics
 
         return {
@@ -315,7 +344,9 @@ class NGSAIIntegrationManager:
             return price * (1.0 + slip)
         return price * (1.0 - slip)
 
-    def _calculate_positions_from_closed_trades(self, symbol: str, trades: List[Dict]) -> List[Dict]:
+    def _calculate_positions_from_closed_trades(
+        self, symbol: str, trades: List[Dict]
+    ) -> List[Dict]:
         """
         Convert closed trades to positions records expected by data_manager.save_positions.
         """
@@ -328,24 +359,39 @@ class NGSAIIntegrationManager:
                 exit_px = float(t["exit_price"])
                 shares = int(t["shares"])
                 pnl = float(t["profit"])
-                positions.append({
-                    "symbol": symbol,
-                    "shares": shares,
-                    "entry_price": entry_px,
-                    "entry_date": entry_dt,
-                    "current_price": exit_px,
-                    "current_value": exit_px * shares,
-                    "profit": pnl,
-                    "profit_pct": ((exit_px / entry_px) - 1.0) * 100.0 if entry_px > 0 else 0.0,
-                    "days_held": int(max((pd.to_datetime(exit_dt) - pd.to_datetime(entry_dt)).days, 0)),
-                    "side": "long",
-                    "strategy": t.get("strategy", "ai_strategy"),
-                })
+                positions.append(
+                    {
+                        "symbol": symbol,
+                        "shares": shares,
+                        "entry_price": entry_px,
+                        "entry_date": entry_dt,
+                        "current_price": exit_px,
+                        "current_value": exit_px * shares,
+                        "profit": pnl,
+                        "profit_pct": (
+                            ((exit_px / entry_px) - 1.0) * 100.0
+                            if entry_px > 0
+                            else 0.0
+                        ),
+                        "days_held": int(
+                            max(
+                                (
+                                    pd.to_datetime(exit_dt) - pd.to_datetime(entry_dt)
+                                ).days,
+                                0,
+                            )
+                        ),
+                        "side": "long",
+                        "strategy": t.get("strategy", "ai_strategy"),
+                    }
+                )
             except Exception as e:
                 logger.debug(f"Failed to create position from trade for {symbol}: {e}")
         return positions
 
-    def _calculate_performance(self, trades: List[Dict], data: pd.DataFrame) -> Dict[str, float]:
+    def _calculate_performance(
+        self, trades: List[Dict], data: pd.DataFrame
+    ) -> Dict[str, float]:
         """
         Retains original performance output structure: Sharpe and total_return.
         """

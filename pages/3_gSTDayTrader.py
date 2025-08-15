@@ -1,10 +1,11 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import os
 import datetime
+import os
 import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import streamlit as st
 
 # Import API key from config
 from config import POLYGON_API_KEY
@@ -85,6 +86,4 @@ Once API setup is complete, this page will display the Intraday Trading System d
 
 # Go back to main dashboard button
 if st.button("← Back to Dashboard"):
-    st.switch_page("app.py")
-
-
+    st.switch_page("ngs_ai_performance_comparator")

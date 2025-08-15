@@ -1,9 +1,8 @@
 import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
-
 
 # Project root is dynamically resolved
 PROJECT_ROOT = Path(__file__).parent.resolve()
@@ -36,7 +35,9 @@ def fix_navigation_logic(file_path: Path):
         for line in content:
             if "st.switch_page" in line:
                 # Extract target page name
-                start = line.find("(") + 2  # Finds the start of `st.switch_page(` argument
+                start = (
+                    line.find("(") + 2
+                )  # Finds the start of `st.switch_page(` argument
                 end = line.rfind(")") - 1
                 target_page = line[start:end] if start < end else None
 
