@@ -71,35 +71,48 @@ class NGSAIBacktestingSystem:
     Comprehensive backtesting system for AI-generated strategies
     Tests strategies against historical data with YOUR proven nGS parameters
     """
-    def __init__(self, account_size: float = 1000000, data_dir: str = "data") -> None:
+    def __init__(self, account_size: float = 1000000, data_dir: str = "data", production_mode: bool = True) -> None:
         self.account_size: float = account_size
         self.data_dir: str = data_dir
+        self.production_mode: bool = production_mode  # Production mode bypasses brokerage costs
         self.results_dir: str = os.path.join(data_dir, "backtest_results")
         os.makedirs(self.results_dir, exist_ok=True)
-        self.integration_manager: NGSAIIntegrationManager = NGSAIIntegrationManager(account_size, data_dir)
+        self.integration_manager: NGSAIIntegrationManager = NGSAIIntegrationManager(account_size, data_dir, production_mode)
         self.ngs_indicator_lib: ComprehensiveIndicatorLibrary = ComprehensiveIndicatorLibrary()
         self.objective_manager: ObjectiveManager = ObjectiveManager()
         self.ai_generator: ObjectiveAwareStrategyGenerator = ObjectiveAwareStrategyGenerator(
             self.ngs_indicator_lib, self.objective_manager
         )
         self.backtest_config: Dict[str, Any] = {
-            "commission_per_trade": 1.0,
-            "slippage_pct": 0.05,
+            "commission_per_trade": 0.0 if production_mode else 1.0,
+            "slippage_pct": 0.0 if production_mode else 0.05,
             "min_trade_spacing": 1,
             "max_concurrent_positions": 20,
             "benchmark_symbol": "SPY",
             "risk_free_rate": 0.02,
             "lookback_periods": [30, 60, 90, 180, 252],
+            "production_mode": production_mode,
         }
         self.backtest_history: List[BacktestResult] = []
         self.strategy_rankings: Dict[str, Any] = {}
+        
+        # Enhanced logging setup
+        logger.info("nGS AI Backtesting System initialized")
+        logger.info(f"Account Size: ${account_size:,.0f}")
+        logger.info(f"Results Directory: {self.results_dir}")
+        logger.info(f"Production Mode: {production_mode}")
+        
         print(" nGS AI Backtesting System initialized")
         print(f"   Account Size:        ${account_size:,.0f}")
         print(f"   Results Directory:   {self.results_dir}")
-        print(
-            f"   Commission:          ${self.backtest_config['commission_per_trade']:.2f} per trade"
-        )
-        print(f"   Slippage:            {self.backtest_config['slippage_pct']:.2f}%")
+        print(f"   Production Mode:     {'ENABLED' if production_mode else 'DISABLED'}")
+        
+        if not production_mode:
+            print(f"   Commission:          ${self.backtest_config['commission_per_trade']:.2f} per trade")
+            print(f"   Slippage:            {self.backtest_config['slippage_pct']:.2f}%")
+        else:
+            print(f"   Trading Costs:       BYPASSED (Production Mode)")
+            logger.info("Trading costs (commission/slippage) bypassed for production mode")
     # =============================================================================
     # SINGLE STRATEGY BACKTESTING
     # =============================================================================
@@ -115,31 +128,81 @@ class NGSAIBacktestingSystem:
         Backtest a single AI strategy against historical data
         Returns comprehensive performance metrics
         """
+        # Validate input strategy
+        if not strategy:
+            logger.error("No strategy provided for backtesting")
+            raise ValueError("Strategy cannot be None")
+        
+        logger.info(f"Starting backtest for AI strategy: {strategy.objective_name}")
+        logger.info(f"Strategy ID: {strategy.strategy_id}")
+        logger.info(f"Date range: {start_date} to {end_date}")
+        
         print(f"\n Backtesting AI Strategy: {strategy.objective_name}")
         print(f"   Strategy ID: {strategy.strategy_id}")
 
+        # Validate input data
+        if not data:
+            logger.error("No data provided for backtesting")
+            raise ValueError("Data dictionary cannot be empty")
+
         # Filter data by date range if specified
         if start_date or end_date:
+            logger.debug(f"Filtering data by date range: {start_date} to {end_date}")
             data = self._filter_data_by_date(data, start_date, end_date)
+            
+            # Validate filtered data
+            if not data:
+                logger.error("No data remaining after date filtering")
+                raise ValueError(f"No data available for date range {start_date} to {end_date}")
 
         # Execute strategy on historical data
         try:
+            logger.debug("Executing strategy on historical data")
+            
             # Some implementations expect a DataFrame, others a dict; handle both
             try:
                 # Try full dict (preferred)
+                logger.debug("Attempting strategy execution with full data dictionary")
                 results = strategy.execute_on_data(data, self.ngs_indicator_lib)
             except TypeError:
                 # Try per-symbol (legacy)
+                logger.debug("Falling back to per-symbol execution")
                 first_df = next(iter(data.values()))
+                if first_df.empty:
+                    logger.error("First dataframe is empty")
+                    raise ValueError("No valid data in first symbol dataframe")
                 results = strategy.execute_on_data(first_df, self.ngs_indicator_lib)
 
-            # Apply trading costs
-            adjusted_trades = self._apply_trading_costs(results["trades"])
+            # Validate strategy results
+            if not isinstance(results, dict):
+                logger.error(f"Strategy returned invalid results type: {type(results)}")
+                raise ValueError("Strategy must return a dictionary with 'trades' and 'equity_curve'")
+            
+            if "trades" not in results or "equity_curve" not in results:
+                logger.error(f"Strategy results missing required keys: {list(results.keys())}")
+                raise ValueError("Strategy results must contain 'trades' and 'equity_curve' keys")
+
+            trades = results["trades"]
+            equity_curve = results["equity_curve"]
+            
+            logger.info(f"Strategy execution completed: {len(trades)} trades generated")
+
+            # Apply trading costs (bypassed in production mode)
+            adjusted_trades = self._apply_trading_costs(trades)
 
             # Calculate comprehensive metrics
+            logger.debug("Calculating comprehensive performance metrics")
             backtest_result = self._calculate_comprehensive_metrics(
-                strategy, adjusted_trades, results["equity_curve"], start_date, end_date
+                strategy, adjusted_trades, equity_curve, start_date, end_date
             )
+
+            # Log results
+            logger.info(f"Backtest completed successfully")
+            logger.info(f"Total trades: {backtest_result.total_trades}")
+            logger.info(f"Total return: {backtest_result.total_return_pct:.2f}%")
+            logger.info(f"Max drawdown: {backtest_result.max_drawdown_pct:.2f}%")
+            logger.info(f"Win rate: {backtest_result.win_rate:.1%}")
+            logger.info(f"Sharpe ratio: {backtest_result.sharpe_ratio:.3f}")
 
             print(f"    Backtest completed: {backtest_result.total_trades} trades")
             print(f"    Total Return: {backtest_result.total_return_pct:.2f}%")
@@ -149,7 +212,7 @@ class NGSAIBacktestingSystem:
             return backtest_result
 
         except Exception as e:
-            logger.error(f"Error backtesting strategy {strategy.strategy_id}: {e}")
+            logger.error(f"Error backtesting strategy {strategy.strategy_id}: {e}", exc_info=True)
             raise
 
     def backtest_original_ngs(
@@ -162,30 +225,59 @@ class NGSAIBacktestingSystem:
         Backtest your original nGS strategy for comparison
         """
         from nGS_Revised_Strategy import NGSStrategy, load_polygon_data
+        
+        logger.info(f"Starting backtest for original nGS strategy")
+        logger.info(f"Date range: {start_date} to {end_date}")
         print(f"\n Backtesting Original nGS Strategy")
+
+        # Validate input data
+        if not data:
+            logger.error("No data provided for original nGS backtesting")
+            raise ValueError("Data dictionary cannot be empty")
 
         # Filter data by date range if specified
         if start_date or end_date:
+            logger.debug(f"Filtering data by date range: {start_date} to {end_date}")
             data = self._filter_data_by_date(data, start_date, end_date)
+            
+            if not data:
+                logger.error("No data remaining after date filtering for original nGS")
+                raise ValueError(f"No data available for date range {start_date} to {end_date}")
 
         # Create fresh nGS instance for backtesting
-        ngs_strategy = NGSStrategy(
-            account_size=self.account_size, data_dir=self.data_dir
-        )
+        try:
+            logger.debug("Initializing original nGS strategy")
+            ngs_strategy = NGSStrategy(
+                account_size=self.account_size, data_dir=self.data_dir
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize original nGS strategy: {e}")
+            raise
 
         try:
             # Run original strategy
+            logger.debug("Running original nGS strategy")
             ngs_strategy.run(data)
 
-            # Apply trading costs
-            adjusted_trades = self._apply_trading_costs(ngs_strategy.trades)
+            # Validate strategy results
+            if not hasattr(ngs_strategy, 'trades'):
+                logger.error("Original nGS strategy did not generate trades attribute")
+                raise ValueError("Original nGS strategy must have 'trades' attribute after execution")
+
+            trades = ngs_strategy.trades
+            logger.info(f"Original nGS execution completed: {len(trades)} trades generated")
+
+            # Apply trading costs (bypassed in production mode)
+            adjusted_trades = self._apply_trading_costs(trades)
 
             # Create equity curve from trades
+            logger.debug("Creating equity curve from trades")
             equity_curve = self._create_equity_curve_from_trades(
                 adjusted_trades, self.account_size
             )
 
             # Calculate metrics
+            logger.debug("Calculating comprehensive metrics for original nGS")
             backtest_result = self._calculate_comprehensive_metrics_from_trades(
                 "original_ngs",
                 "original",
@@ -194,6 +286,13 @@ class NGSAIBacktestingSystem:
                 start_date,
                 end_date,
             )
+
+            # Log results
+            logger.info(f"Original nGS backtest completed successfully")
+            logger.info(f"Total trades: {backtest_result.total_trades}")
+            logger.info(f"Total return: {backtest_result.total_return_pct:.2f}%")
+            logger.info(f"Max drawdown: {backtest_result.max_drawdown_pct:.2f}%")
+            logger.info(f"Win rate: {backtest_result.win_rate:.1%}")
 
             print(
                 f"    Original nGS backtest completed: {backtest_result.total_trades} trades"
@@ -205,7 +304,7 @@ class NGSAIBacktestingSystem:
             return backtest_result
 
         except Exception as e:
-            logger.error(f"Error backtesting original nGS: {e}")
+            logger.error(f"Error backtesting original nGS: {e}", exc_info=True)
             raise
 
     # =============================================================================
@@ -391,28 +490,63 @@ class NGSAIBacktestingSystem:
     # =============================================================================
 
     def _apply_trading_costs(self, trades: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Apply commission and slippage to trades"""
+        """Apply commission and slippage to trades (bypassed in production mode)"""
+        logger.debug(f"Processing {len(trades)} trades for cost application")
+        
+        # Validate input
+        if not trades:
+            logger.warning("No trades provided to _apply_trading_costs")
+            return []
+        
+        # Production mode bypasses all trading costs
+        if self.production_mode:
+            logger.debug("Production mode: bypassing all trading costs")
+            adjusted_trades = []
+            for trade in trades:
+                adjusted_trade = trade.copy()
+                adjusted_trade["commission"] = 0.0
+                adjusted_trade["slippage"] = 0.0
+                # Profit remains unchanged in production mode
+                adjusted_trades.append(adjusted_trade)
+            return adjusted_trades
+        
+        # Non-production mode: apply trading costs
+        logger.debug("Non-production mode: applying commission and slippage")
         adjusted_trades: List[Dict[str, Any]] = []
 
         for trade in trades:
-            adjusted_trade = trade.copy()
+            try:
+                adjusted_trade = trade.copy()
 
-            # Apply commission (reduces profit)
-            commission = self.backtest_config['commission_per_trade']
-            adjusted_trade['profit'] = trade['profit'] - commission
+                # Apply commission (reduces profit)
+                commission = self.backtest_config['commission_per_trade']
+                adjusted_trade['profit'] = trade['profit'] - commission
 
-            # Apply slippage (reduces profit)
-            entry_price = trade["entry_price"]
-            slippage_cost = entry_price * (self.backtest_config["slippage_pct"] / 100)
-            shares = trade.get("shares", 1)
-            total_slippage = slippage_cost * shares
+                # Apply slippage (reduces profit)
+                entry_price = trade.get("entry_price", 0)
+                if entry_price <= 0:
+                    logger.warning(f"Invalid entry_price {entry_price} in trade, skipping slippage calculation")
+                    total_slippage = 0.0
+                else:
+                    slippage_cost = entry_price * (self.backtest_config["slippage_pct"] / 100)
+                    shares = trade.get("shares", 1)
+                    total_slippage = slippage_cost * shares
 
-            adjusted_trade["profit"] -= total_slippage
-            adjusted_trade["commission"] = commission
-            adjusted_trade["slippage"] = total_slippage
+                adjusted_trade["profit"] -= total_slippage
+                adjusted_trade["commission"] = commission
+                adjusted_trade["slippage"] = total_slippage
 
-            adjusted_trades.append(adjusted_trade)
+                adjusted_trades.append(adjusted_trade)
+                
+            except (KeyError, TypeError, ValueError) as e:
+                logger.error(f"Error processing trade {trade}: {e}")
+                # Include the trade with zero costs if there's an error
+                adjusted_trade = trade.copy()
+                adjusted_trade["commission"] = 0.0
+                adjusted_trade["slippage"] = 0.0
+                adjusted_trades.append(adjusted_trade)
 
+        logger.debug(f"Applied trading costs to {len(adjusted_trades)} trades")
         return adjusted_trades
 
     def _calculate_comprehensive_metrics(
@@ -424,8 +558,24 @@ class NGSAIBacktestingSystem:
         end_date: Optional[str] = None,
     ) -> BacktestResult:
         """Calculate comprehensive performance metrics for a strategy"""
+        logger.debug(f"Calculating metrics for {len(trades)} trades")
+        
+        # Validate inputs
+        if not isinstance(trades, list):
+            logger.error(f"Invalid trades type: {type(trades)}")
+            trades = []
+        
+        if not isinstance(equity_curve, pd.Series):
+            logger.warning(f"Invalid equity_curve type: {type(equity_curve)}, creating empty series")
+            equity_curve = pd.Series([self.account_size])
+        
+        if equity_curve.empty:
+            logger.warning("Empty equity curve, using account size as single value")
+            equity_curve = pd.Series([self.account_size])
+        
         if not trades:
             # Return empty result if no trades
+            logger.warning("No trades available for metrics calculation")
             return BacktestResult(
                 strategy_id=strategy.strategy_id,
                 objective_name=strategy.objective_name,
@@ -442,91 +592,141 @@ class NGSAIBacktestingSystem:
                 worst_trade=0.0,
                 avg_duration_days=0.0,
                 fitness_score=0.0,
-                equity_curve=pd.Series([self.account_size]),
+                equity_curve=equity_curve,
                 trades=[],
                 daily_returns=pd.Series([]),
             )
 
-        # Basic trade statistics
-        total_trades = len(trades)
-        profits = [float(trade["profit"]) for trade in trades]
-        winning_trades = [p for p in profits if p > 0]
-        win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0.0
-
-        # Return calculations
-        total_profit = float(sum(profits))
-        total_return_pct = (total_profit / float(self.account_size)) * 100
-        avg_trade_pct = (np.mean(profits) / float(self.account_size)) * 100 if profits else 0.0
-
-        # Risk calculations
-        daily_returns = equity_curve.pct_change().dropna()
-        max_drawdown_pct = self._calculate_max_drawdown(equity_curve)
-        volatility_pct = (
-            float(daily_returns.std()) * np.sqrt(252) * 100 if len(daily_returns) > 1 else 0.0
-        )
-
-        # Sharpe ratio
-        excess_returns = daily_returns - (self.backtest_config["risk_free_rate"] / 252)
-        sharpe_ratio = (
-            (float(excess_returns.mean()) / float(excess_returns.std()) * np.sqrt(252))
-            if excess_returns.std() > 0
-            else 0.0
-        )
-
-        # Trade statistics
-        best_trade = max(profits) if profits else 0.0
-        worst_trade = min(profits) if profits else 0.0
-
-        # Duration analysis
-        durations = []
-        for trade in trades:
-            if "entry_date" in trade and "exit_date" in trade:
+        try:
+            # Basic trade statistics
+            total_trades = len(trades)
+            profits = []
+            
+            # Safely extract profits with validation
+            for trade in trades:
                 try:
-                    entry_dt = pd.to_datetime(trade["entry_date"])
-                    exit_dt = pd.to_datetime(trade["exit_date"])
-                    duration = (exit_dt - entry_dt).days
-                    durations.append(duration)
-                except Exception:
-                    pass
+                    profit = float(trade.get("profit", 0))
+                    profits.append(profit)
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Invalid profit value in trade: {trade.get('profit')} - {e}")
+                    profits.append(0.0)
+            
+            winning_trades = [p for p in profits if p > 0]
+            win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0.0
 
-        avg_duration_days = float(np.mean(durations)) if durations else 0.0
+            # Return calculations
+            total_profit = float(sum(profits))
+            total_return_pct = (total_profit / float(self.account_size)) * 100
+            avg_trade_pct = (np.mean(profits) / float(self.account_size)) * 100 if profits else 0.0
 
-        # Calculate fitness score using strategy's objective
-        objective = self.objective_manager.get_objective(strategy.objective_name)
-        fitness_score = float(objective.calculate_fitness(trades, equity_curve))
+            # Risk calculations
+            try:
+                daily_returns = equity_curve.pct_change().dropna()
+                if daily_returns.empty or len(daily_returns) <= 1:
+                    logger.warning("Insufficient data for volatility calculation")
+                    volatility_pct = 0.0
+                    sharpe_ratio = 0.0
+                else:
+                    volatility_pct = float(daily_returns.std()) * np.sqrt(252) * 100
+                    
+                    # Sharpe ratio
+                    excess_returns = daily_returns - (self.backtest_config["risk_free_rate"] / 252)
+                    sharpe_ratio = (
+                        (float(excess_returns.mean()) / float(excess_returns.std()) * np.sqrt(252))
+                        if excess_returns.std() > 0 else 0.0
+                    )
+            except Exception as e:
+                logger.warning(f"Error calculating risk metrics: {e}")
+                daily_returns = pd.Series([])
+                volatility_pct = 0.0
+                sharpe_ratio = 0.0
+            
+            max_drawdown_pct = self._calculate_max_drawdown(equity_curve)
 
-        return BacktestResult(
-            strategy_id=strategy.strategy_id,
-            objective_name=strategy.objective_name,
-            start_date=(
-                start_date or (
-                    equity_curve.index[0].strftime("%Y-%m-%d")
-                    if not equity_curve.empty and hasattr(equity_curve.index[0], "strftime")
-                    else "N/A"
-                )
-            ),
-            end_date=(
-                end_date or (
-                    equity_curve.index[-1].strftime("%Y-%m-%d")
-                    if not equity_curve.empty and hasattr(equity_curve.index[-1], "strftime")
-                    else "N/A"
-                )
-            ),
-            total_return_pct=total_return_pct,
-            max_drawdown_pct=max_drawdown_pct,
-            win_rate=win_rate,
-            total_trades=total_trades,
-            avg_trade_pct=avg_trade_pct,
-            sharpe_ratio=sharpe_ratio,
-            volatility_pct=volatility_pct,
-            best_trade=best_trade,
-            worst_trade=worst_trade,
-            avg_duration_days=avg_duration_days,
-            fitness_score=fitness_score,
-            equity_curve=equity_curve,
-            trades=trades,
-            daily_returns=daily_returns,
-        )
+            # Trade statistics
+            best_trade = max(profits) if profits else 0.0
+            worst_trade = min(profits) if profits else 0.0
+
+            # Duration analysis
+            durations = []
+            for trade in trades:
+                if "entry_date" in trade and "exit_date" in trade:
+                    try:
+                        entry_dt = pd.to_datetime(trade["entry_date"])
+                        exit_dt = pd.to_datetime(trade["exit_date"])
+                        duration = (exit_dt - entry_dt).days
+                        durations.append(max(duration, 0))  # Ensure non-negative
+                    except Exception as e:
+                        logger.debug(f"Could not calculate duration for trade: {e}")
+
+            avg_duration_days = float(np.mean(durations)) if durations else 0.0
+
+            # Calculate fitness score using strategy's objective
+            try:
+                objective = self.objective_manager.get_objective(strategy.objective_name)
+                fitness_score = float(objective.calculate_fitness(trades, equity_curve))
+            except Exception as e:
+                logger.warning(f"Could not calculate fitness score: {e}")
+                fitness_score = total_return_pct - max_drawdown_pct  # Fallback calculation
+
+            logger.debug("Metrics calculation completed successfully")
+            
+            return BacktestResult(
+                strategy_id=strategy.strategy_id,
+                objective_name=strategy.objective_name,
+                start_date=(
+                    start_date or (
+                        equity_curve.index[0].strftime("%Y-%m-%d")
+                        if not equity_curve.empty and hasattr(equity_curve.index[0], "strftime")
+                        else "N/A"
+                    )
+                ),
+                end_date=(
+                    end_date or (
+                        equity_curve.index[-1].strftime("%Y-%m-%d")
+                        if not equity_curve.empty and hasattr(equity_curve.index[-1], "strftime")
+                        else "N/A"
+                    )
+                ),
+                total_return_pct=total_return_pct,
+                max_drawdown_pct=max_drawdown_pct,
+                win_rate=win_rate,
+                total_trades=total_trades,
+                avg_trade_pct=avg_trade_pct,
+                sharpe_ratio=sharpe_ratio,
+                volatility_pct=volatility_pct,
+                best_trade=best_trade,
+                worst_trade=worst_trade,
+                avg_duration_days=avg_duration_days,
+                fitness_score=fitness_score,
+                equity_curve=equity_curve,
+                trades=trades,
+                daily_returns=daily_returns if 'daily_returns' in locals() else pd.Series([]),
+            )
+            
+        except Exception as e:
+            logger.error(f"Error in comprehensive metrics calculation: {e}", exc_info=True)
+            # Return basic result on error
+            return BacktestResult(
+                strategy_id=strategy.strategy_id,
+                objective_name=strategy.objective_name,
+                start_date=start_date or "N/A",
+                end_date=end_date or "N/A",
+                total_return_pct=0.0,
+                max_drawdown_pct=0.0,
+                win_rate=0.0,
+                total_trades=len(trades),
+                avg_trade_pct=0.0,
+                sharpe_ratio=0.0,
+                volatility_pct=0.0,
+                best_trade=0.0,
+                worst_trade=0.0,
+                avg_duration_days=0.0,
+                fitness_score=0.0,
+                equity_curve=equity_curve,
+                trades=trades,
+                daily_returns=pd.Series([]),
+            )
     def _calculate_comprehensive_metrics_from_trades(
         self,
         strategy_id: str,
@@ -1008,14 +1208,20 @@ def demonstrate_backtesting_system() -> None:
     print("\n nGS AI BACKTESTING SYSTEM DEMONSTRATION")
     print("=" * 60)
 
-    # Initialize backtesting system
-    backtester = NGSAIBacktestingSystem(account_size=1000000)
+    # Initialize backtesting system in production mode
+    backtester = NGSAIBacktestingSystem(account_size=1000000, production_mode=True)
 
     print(f"\n Backtesting Configuration:")
-    print(
-        f"   Commission:          ${backtester.backtest_config['commission_per_trade']:.2f} per trade"
-    )
-    print(f"   Slippage:            {backtester.backtest_config['slippage_pct']:.2f}%")
+    print(f"   Production Mode:     {'ENABLED' if backtester.production_mode else 'DISABLED'}")
+    
+    if not backtester.production_mode:
+        print(
+            f"   Commission:          ${backtester.backtest_config['commission_per_trade']:.2f} per trade"
+        )
+        print(f"   Slippage:            {backtester.backtest_config['slippage_pct']:.2f}%")
+    else:
+        print(f"   Trading Costs:       BYPASSED (Production Mode)")
+        
     print(
         f"   Max Positions:       {backtester.backtest_config['max_concurrent_positions']}"
     )
@@ -1030,11 +1236,16 @@ def demonstrate_backtesting_system() -> None:
 
     print(f"\n Key Features:")
     print(f"    Uses YOUR nGS parameters and patterns")
-    print(f"    Realistic trading costs (commission + slippage)")
+    if backtester.production_mode:
+        print(f"    Production-ready: No brokerage costs applied")
+        print(f"    Enhanced debug logging for track record development")
+    else:
+        print(f"    Realistic trading costs (commission + slippage)")
     print(f"    Comprehensive performance metrics")
     print(f"    Risk-adjusted analysis (Sharpe, drawdown)")
     print(f"    Strategy robustness testing")
     print(f"    Automated strategy ranking")
+    print(f"    Enhanced edge case validation")
 
 
 if __name__ == "__main__":

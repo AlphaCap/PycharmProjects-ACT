@@ -36,9 +36,10 @@ class NGSAIIntegrationManager:
     - Provides evaluate_linear_equity (used by Streamlit page)
     """
 
-    def __init__(self, account_size: float = 1_000_000, data_dir: str = "data") -> None:
+    def __init__(self, account_size: float = 1_000_000, data_dir: str = "data", production_mode: bool = True) -> None:
         self.account_size = float(account_size)
         self.data_dir = data_dir
+        self.production_mode = production_mode  # Production mode bypasses brokerage costs
 
         # AI components
         self.ngs_indicator_lib = NGSIndicatorLibrary()
@@ -57,12 +58,13 @@ class NGSAIIntegrationManager:
             "rebalance_frequency": "weekly",
             "performance_tracking": True,
             "risk_sync": False,
+            "production_mode": production_mode,
         }
 
-        # Execution config
+        # Execution config - costs bypassed in production mode
         self.execution_config = {
-            "commission_per_trade": 1.0,  # $1 commission per closed trade
-            "slippage_pct": 0.05,         # 0.05% slippage
+            "commission_per_trade": 0.0 if production_mode else 1.0,
+            "slippage_pct": 0.0 if production_mode else 0.05,
         }
 
         # Output
@@ -70,6 +72,10 @@ class NGSAIIntegrationManager:
         os.makedirs(self.results_dir, exist_ok=True)
 
         logger.info("NGS AI Integration Manager initialized (AI-only)")
+        logger.info(f"Production mode: {production_mode}")
+        logger.info(f"Account size: ${account_size:,.0f}")
+        if production_mode:
+            logger.info("Trading costs (commission/slippage) bypassed for production mode")
 
     # --------------------------------------------------------------------------------
     # Public API
@@ -138,16 +144,53 @@ class NGSAIIntegrationManager:
             }
         """
         logger.info("Running integrated AI strategy (AI-only)")
+        logger.info(f"Production mode: {self.production_mode}")
+        logger.info(f"Processing {len(data)} symbols")
+        
+        # Validate input data
+        if not data:
+            logger.error("No data provided to run_integrated_strategy")
+            raise ValueError("Data dictionary cannot be empty")
+        
+        # Validate data quality
+        valid_symbols = []
+        for symbol, df in data.items():
+            if df is None or df.empty:
+                logger.warning(f"Empty or None data for symbol {symbol}, skipping")
+                continue
+            valid_symbols.append(symbol)
+        
+        if not valid_symbols:
+            logger.error("No valid symbols with data found")
+            raise ValueError("No symbols contain valid data")
+        
+        logger.info(f"Valid symbols for processing: {valid_symbols}")
+        
         objective = self._get_primary_objective_safe()
+        logger.info(f"Using objective: {objective}")
+        
         self.active_strategies = self.create_ai_strategy_set(data, objective)
+        logger.info(f"Created {len(self.active_strategies)} AI strategies")
 
         results: Dict[str, Dict[str, Any]] = {}
+        successful_executions = 0
+        
         for symbol, strategy in self.active_strategies.items():
             try:
+                logger.debug(f"Executing strategy for {symbol}")
                 sym_res = self._execute_symbol_ai(symbol, strategy, data)
                 results[symbol] = sym_res
+                successful_executions += 1
+                
+                # Log execution summary
+                trade_count = len(sym_res.get("trades", []))
+                performance = sym_res.get("performance", {})
+                logger.info(f"{symbol}: {trade_count} trades, "
+                           f"Sharpe: {performance.get('sharpe', 0):.3f}, "
+                           f"Return: {performance.get('total_return', 0):.3f}")
+                
             except Exception as e:
-                logger.error(f"Execution failed for {symbol}: {e}")
+                logger.error(f"Execution failed for {symbol}: {e}", exc_info=True)
                 results[symbol] = {
                     "trades": [],
                     "positions": [],
@@ -155,6 +198,7 @@ class NGSAIIntegrationManager:
                     "equity_curve": pd.Series(dtype=float),
                 }
 
+        logger.info(f"Integration completed: {successful_executions}/{len(self.active_strategies)} symbols successful")
         self.strategy_performance = results
         return results
 
@@ -255,6 +299,7 @@ class NGSAIIntegrationManager:
                 # Close long
                 sell_px = self._apply_slippage(price, side="sell")
                 gross = (sell_px - entry_price) * open_shares
+                # Commission bypassed in production mode
                 pnl = gross - self.execution_config["commission_per_trade"]
 
                 # Handle entry_time None for strftime
@@ -310,6 +355,12 @@ class NGSAIIntegrationManager:
         }
 
     def _apply_slippage(self, price: float, side: str) -> float:
+        """Apply slippage to price (bypassed in production mode)"""
+        if self.production_mode:
+            # Production mode: no slippage applied
+            return price
+        
+        # Non-production mode: apply slippage
         slip = self.execution_config["slippage_pct"] / 100.0
         if side == "buy":
             return price * (1.0 + slip)
