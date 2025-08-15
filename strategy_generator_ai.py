@@ -52,7 +52,7 @@ class TradingStrategy:
             print(f" Executing strategy {self.strategy_id} on {len(df)} bars of data")
             position_size_config = self.config.get("position_sizing", {})
             position_size = position_size_config.get("size", 5000)  # Default size to $5000
-            print(f"DEBUG: Using position size for execution 
+            print(f"DEBUG: Using position size for execution {position_size}")
 
             # CRITICAL: Ensure data has minimum required length
             if len(df) < 50:
@@ -733,7 +733,7 @@ class ObjectiveAwareStrategyGenerator:
         # Debug print to confirm fallback strategy configuration
         print(f"DEBUG: Fallback strategy for {objective_name} -> position_sizing={config['position_sizing']}")
 
-        return TradingStrategy(strategy_id, objective_name, c
+        return TradingStrategy(strategy_id, objective_name, config)
 
     def _generate_adaptive_logic(
         self,
