@@ -5,18 +5,19 @@ Same indicators + Different objectives = Totally different trading logic!
 FIXED: Better error handling and data format compatibility
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any, Union
 import random
-from datetime import datetime
 import warnings
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 warnings.filterwarnings("ignore")
 
 # Import your previous components
 from comprehensive_indicator_library import ComprehensiveIndicatorLibrary
-from performance_objectives import ObjectiveManager, PerformanceObjective
+from performance_objectives import ObjectiveManager
 
 
 class TradingStrategy:
@@ -141,6 +142,7 @@ class TradingStrategy:
 
             traceback.print_exc()
             return self._return_empty_results()
+
     def _validate_data_format(self, df: pd.DataFrame) -> bool:
         """Validate that data has required columns"""
         required_cols = ["Close", "High", "Low", "Open"]  # After standardization
@@ -227,108 +229,128 @@ class TradingStrategy:
         except Exception as e:
             print(f"  Error updating conditions: {e}")
 
-    def _generate_signals(self, df: pd.DataFrame, indicators: Dict[str, pd.Series]) -> pd.Series:
-        """Generate buy/sell signals based on strategy logic - ENHANCED error handling"""
-        signals = pd.Series(0, index=df.index)  # 0=hold, 1=buy, -1=sell
+    # File: strategy_generator_ai.py
+    # _generate_signals
+    def _generate_signals(
+            self, df: pd.DataFrame, indicators: Dict[str, pd.Series]
+    ) -> pd.Series:
+        signals = pd.Series(0, index=df.index)  # Default: Hold (0)
+        entry_logic = self.config["entry_logic"]
+        exit_logic = self.config["exit_logic"]
+        in_position = False
+        print(f"Starting signal generation for {df.shape[0]} rows...")  # Debug log
 
-        try:
-            entry_logic = self.config["entry_logic"]
-            exit_logic = self.config["exit_logic"]
+        for i in range(50, len(df)):  # Starting after a warmup period
+            try:
+                print(f"[Row {i}] Current Price Data: {df.iloc[i].to_dict()}")  # Debug log
 
-            in_position = False
+                if not in_position:
+                    if self._evaluate_entry_conditions(i, df, indicators, entry_logic):
+                        signals.iloc[i] = 1
+                        in_position = True
+                        print(f"[Row {i}] Buy Signal Generated!")  # Debug log
+                else:
+                    if self._evaluate_exit_conditions(i, df, indicators, exit_logic):
+                        signals.iloc[i] = -1
+                        in_position = False
+                        print(f"[Row {i}] Sell Signal Generated!")  # Debug log
+            except Exception as e:
+                print(f"[Row {i}] Error during signal evaluation: {e}")  # Debug log
 
-            for i in range(50, len(df)):  # Start after warmup period
-                try:
-                    if not in_position:
-                        # Check entry conditions
-                        if self._evaluate_entry_conditions(
-                            i, df, indicators, entry_logic
-                        ):
-                            signals.iloc[i] = 1
-                            in_position = True
-                    else:
-                        # Check exit conditions (if in position)
-                        if self._evaluate_exit_conditions(
-                            i, df, indicators, exit_logic
-                        ):
-                            signals.iloc[i] = -1
-                            in_position = False
-                except Exception:
-                    # Skip this bar if there's an error
-                    continue
-
-        except Exception as e:
-            print(f"  Error generating signals: {e}")
-
+        print(
+            f"Signal generation complete. Total Buy Signals: {(signals == 1).sum()}, Total Sell Signals: {(signals == -1).sum()}")  # Summary log
         return signals
 
+    # File: strategy_generator_ai.py
+    # _evaluate_entry_conditions
     def _evaluate_entry_conditions(
-        self, i: int, df: pd.DataFrame, indicators: Dict[str, pd.Series], entry_logic: Dict[str, Any]
+            self,
+            i: int,
+            df: pd.DataFrame,
+            indicators: Dict[str, pd.Series],
+            entry_logic: Dict[str, Any],
     ) -> bool:
-        """Evaluate if entry conditions are met - ENHANCED error handling"""
         try:
             conditions_met = 0
             total_conditions = len(entry_logic["conditions"])
+            required_ratio = entry_logic.get("confirmation_ratio", 0.6)
 
-            if total_conditions == 0:
-                return False
+            print(f"  Evaluating entry conditions at row {i}: Total Conditions = {total_conditions}")  # Debug log
 
             for condition in entry_logic["conditions"]:
                 try:
                     if self._check_condition(i, df, indicators, condition):
                         conditions_met += 1
-                except Exception:
-                    continue  # Skip failed condition checks
+                        print(f"    Condition met: {condition}")  # Debug log
+                    else:
+                        print(f"    Condition NOT met: {condition}")  # Debug log
+                except Exception as e:
+                    print(f"    Error in condition check: {e}")  # Debug log
 
-            # Check if enough conditions are met
-            required_ratio = entry_logic.get("confirmation_ratio", 0.6)
-            return (conditions_met / total_conditions) >= required_ratio
+            result = (conditions_met / total_conditions) >= required_ratio
+            print(
+                f"  Entry conditions result at row {i}: {result} (Met {conditions_met}/{total_conditions})")  # Debug log
+            return result
 
-        except Exception:
+        except Exception as e:
+            print(f"Error in entry conditions at row {i}: {e}")  # Debug log
             return False
 
+    # File: strategy_generator_ai.py
+    # _evaluate_exit_conditions
     def _evaluate_exit_conditions(
-        self, i: int, df: pd.DataFrame, indicators: Dict[str, pd.Series], exit_logic: Dict[str, Any]
+            self,
+            i: int,
+            df: pd.DataFrame,
+            indicators: Dict[str, pd.Series],
+            exit_logic: Dict[str, Any],
     ) -> bool:
-        """Evaluate if exit conditions are met with robust error handling."""
         try:
-            conditions = exit_logic.get("conditions", [])
-            if not conditions:
-                return False
+            print(f"  Evaluating exit conditions at row {i}")  # Debug log
 
-            for condition in conditions:
+            for condition in exit_logic.get("conditions", []):
                 try:
                     if self._check_condition(i, df, indicators, condition):
+                        print(f"    Exit Condition met: {condition}")  # Debug log
                         return True
-                except Exception:
-                    continue
+                except Exception as e:
+                    print(f"    Error in exit condition check: {e}")  # Debug log
 
-            return False
-        except Exception:
+            print(f"  Exit conditions NOT met at row {i}")  # Debug log
             return False
 
+        except Exception as e:
+            print(f"Error in exit conditions at row {i}: {e}")  # Debug log
+            return False
+
+    # File: strategy_generator_ai.py
+    # _check_condition
     def _check_condition(
-        self, i: int, df: pd.DataFrame, indicators: Dict[str, pd.Series], condition: Dict[str, Any]
+            self,
+            i: int,
+            df: pd.DataFrame,
+            indicators: Dict[str, pd.Series],
+            condition: Dict[str, Any],
     ) -> bool:
-        """Check individual condition - ENHANCED error handling"""
         try:
             indicator_name = condition["indicator"]
             operator = condition["operator"]
             threshold = condition["threshold"]
 
             if indicator_name not in indicators:
-                return False
-
-            # Ensure we have enough data
-            if i >= len(indicators[indicator_name]):
+                print(f"    Indicator {indicator_name} not available")  # Debug log
                 return False
 
             current_value = indicators[indicator_name].iloc[i]
-
             if pd.isna(current_value):
+                print(f"    Indicator {indicator_name} NA at row {i}")  # Debug log
                 return False
 
-            # Apply operator with better error handling
+            # Log condition details
+            print(
+                f"    Checking condition: {indicator_name} {operator} {threshold} (Value: {current_value})")  # Debug log
+
+            # Evaluate the condition
             if operator == ">":
                 return float(current_value) > float(threshold)
             elif operator == "<":
@@ -338,34 +360,25 @@ class TradingStrategy:
             elif operator == "<=":
                 return float(current_value) <= float(threshold)
             elif operator == "between":
-                if isinstance(threshold, (list, tuple)) and len(threshold) == 2:
-                    return (
-                        float(threshold[0])
-                        <= float(current_value)
-                        <= float(threshold[1])
-                    )
-                return False
+                return float(threshold[0]) <= float(current_value) <= float(threshold[1])
             elif operator == "crossover":
-                if i > 0 and i < len(indicators[indicator_name]):
-                    prev_value = indicators[indicator_name].iloc[i - 1]
-                    if not pd.isna(prev_value):
-                        return (
-                            float(prev_value) <= float(threshold) < float(current_value)
-                        )
-                return False
+                prev_value = indicators[indicator_name].iloc[i - 1] if i > 0 else None
+                return prev_value is not None and float(prev_value) <= float(threshold) < float(current_value)
             elif operator == "crossunder":
-                if i > 0 and i < len(indicators[indicator_name]):
-                    prev_value = indicators[indicator_name].iloc[i - 1]
-                    if not pd.isna(prev_value):
-                        return (
-                            float(prev_value) >= float(threshold) > float(current_value)
-                        )
-                return False
+                prev_value = indicators[indicator_name].iloc[i - 1] if i > 0 else None
+                return prev_value is not None and float(prev_value) >= float(threshold) > float(current_value)
 
+            print(f"    Unknown operator {operator}")  # Debug log
             return False
+
+        except Exception as e:
+            print(f"    Error checking condition: {condition} ({e})")  # Debug log
+            return False
+
 
         except Exception:
             return False
+
     def _execute_trades(
         self, df: pd.DataFrame, signals: pd.Series
     ) -> Tuple[List[Dict[str, Any]], pd.Series]:
@@ -457,7 +470,9 @@ class TradingStrategy:
             elif method == "volatility_adjusted":
                 # Simple volatility adjustment
                 base_size = float(config.get("base_size", 0.1))
-                volatility_factor = max(float(config.get("volatility_factor", 1.0)), 0.5)
+                volatility_factor = max(
+                    float(config.get("volatility_factor", 1.0)), 0.5
+                )
                 return min(base_size / volatility_factor, 0.2)
             else:
                 return 0.1
@@ -497,7 +512,9 @@ class TradingStrategy:
             if len(daily_returns) > 1:
                 volatility = float(daily_returns.std()) * np.sqrt(252) * 100
                 avg_return = float(daily_returns.mean()) * 252
-                sharpe_ratio = avg_return / (volatility / 100) if volatility > 0 else 0.0
+                sharpe_ratio = (
+                    avg_return / (volatility / 100) if volatility > 0 else 0.0
+                )
             else:
                 volatility = 0.0
                 sharpe_ratio = 0.0
@@ -509,10 +526,14 @@ class TradingStrategy:
                 "max_drawdown_pct": max_drawdown,
                 "volatility_pct": volatility,
                 "avg_trade_pct": (
-                    float(np.mean([t.get("pnl_pct", 0.0) for t in self.trades])) if self.trades else 0.0
+                    float(np.mean([t.get("pnl_pct", 0.0) for t in self.trades]))
+                    if self.trades
+                    else 0.0
                 ),
                 "avg_duration_days": (
-                    float(np.mean([t.get("duration", 0.0) for t in self.trades])) if self.trades else 0.0
+                    float(np.mean([t.get("duration", 0.0) for t in self.trades]))
+                    if self.trades
+                    else 0.0
                 ),
                 "sharpe_ratio": sharpe_ratio,
             }
@@ -544,13 +565,16 @@ class ObjectiveAwareStrategyGenerator:
     ) -> None:
         self.indicator_lib: ComprehensiveIndicatorLibrary = indicator_library
         self.objective_manager: ObjectiveManager = objective_manager
-        self.strategy_templates: Dict[str, Dict[str, Any]] = self._create_strategy_templates()
+        self.strategy_templates: Dict[
+            str, Dict[str, Any]
+        ] = self._create_strategy_templates()
         self.generated_strategies: Dict[str, TradingStrategy] = {}
 
         print(" Objective-Aware Strategy Generator AI initialized")
         print(
             f" Ready to generate infinite strategies from {len(self.indicator_lib.indicators_catalog)} indicators"
         )
+
     def _create_strategy_templates(self) -> Dict[str, Dict[str, Any]]:
         """Create strategy templates for different objectives"""
         return {
@@ -679,7 +703,7 @@ class ObjectiveAwareStrategyGenerator:
                     },
                     {"indicator": "rsi", "operator": "<", "threshold": 40, "weight": 1},
                 ],
-                "confirmation_ratio": 0.5,
+                "confirmation_ratio": 0.5,  # Entry condition confirmation threshold
                 "style": "simple",
             },
             "exit_logic": {
@@ -693,7 +717,10 @@ class ObjectiveAwareStrategyGenerator:
                 ],
                 "style": "simple",
             },
-            "position_sizing": {"method": "fixed", "size": 0.05},
+            "position_sizing": {
+                "method": "fixed",
+                "size": 5000  # Updated default position sizing to $5000
+            },
             "objective_focus": "fallback",
             "indicator_params": {
                 "bb_position": {"length": 20, "deviation": 2.0},
@@ -705,7 +732,10 @@ class ObjectiveAwareStrategyGenerator:
         return TradingStrategy(strategy_id, objective_name, config)
 
     def _generate_adaptive_logic(
-        self, objective_prefs: Dict[str, Any], template: Dict[str, Any], complexity_level: str
+        self,
+        objective_prefs: Dict[str, Any],
+        template: Dict[str, Any],
+        complexity_level: str,
     ) -> Dict[str, Any]:
         """
         THE CORE AI LOGIC GENERATOR
@@ -754,8 +784,12 @@ class ObjectiveAwareStrategyGenerator:
             "objective_focus": template["focus"],
             "indicator_params": self._generate_indicator_params(selected_indicators),
         }
+
     def _generate_entry_logic(
-        self, objective_prefs: Dict[str, Any], template: Dict[str, Any], indicators: List[str]
+        self,
+        objective_prefs: Dict[str, Any],
+        template: Dict[str, Any],
+        indicators: List[str],
     ) -> Dict[str, Any]:
         """Generate entry conditions based on objective preferences"""
 
@@ -895,7 +929,10 @@ class ObjectiveAwareStrategyGenerator:
         }
 
     def _generate_exit_logic(
-        self, objective_prefs: Dict[str, Any], template: Dict[str, Any], indicators: List[str]
+        self,
+        objective_prefs: Dict[str, Any],
+        template: Dict[str, Any],
+        indicators: List[str],
     ) -> Dict[str, Any]:
         """Generate exit conditions based on objective preferences"""
 
@@ -999,7 +1036,9 @@ class ObjectiveAwareStrategyGenerator:
                 }
             )
 
-    def _generate_position_sizing(self, objective_prefs: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_position_sizing(
+        self, objective_prefs: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Generate position sizing rules based on objective"""
 
         risk_tolerance = objective_prefs.get("risk_tolerance", "moderate")
@@ -1104,6 +1143,8 @@ class ObjectiveAwareStrategyGenerator:
                 )
 
         return pd.DataFrame(results)
+
+
 def demonstrate_objective_aware_ai() -> None:
     """Demonstrate the AI generating different strategies for different objectives"""
     print("\n OBJECTIVE-AWARE AI DEMONSTRATION")
