@@ -2,7 +2,37 @@ import os
 import subprocess
 import sys
 
-import streamlit as st
+# Make Streamlit optional so tests can import this module without the package installed
+try:
+    import streamlit as st  # type: ignore
+except Exception:
+    class _DummySt:
+        def error(self, *args, **kwargs):
+            print(*args)
+
+        def info(self, *args, **kwargs):
+            print(*args)
+
+        def warning(self, *args, **kwargs):
+            print(*args)
+
+        def success(self, *args, **kwargs):
+            print(*args)
+
+        # UI-only methods used in admin_dashboard(); harmless no-ops under tests
+        def title(self, *args, **kwargs):
+            pass
+
+        def text(self, *args, **kwargs):
+            pass
+
+        def button(self, *args, **kwargs):
+            return False
+
+        def checkbox(self, *args, **kwargs):
+            return False
+
+    st = _DummySt()
 
 
 # Simple admin authentication (hard-coded by requirement)
@@ -63,7 +93,10 @@ def git_commit_and_push(dry_run: bool | None = None) -> bool:
         )
         if commit_proc.returncode != 0:
             # Common case: nothing to commit
-            if "nothing to commit" in (commit_proc.stderr or "").lower() or "nothing to commit" in (commit_proc.stdout or "").lower():
+            if (
+                "nothing to commit" in (commit_proc.stderr or "").lower()
+                or "nothing to commit" in (commit_proc.stdout or "").lower()
+            ):
                 st.info("No changes to commit. Skipping push.")
                 return True
             st.error(f"git commit failed:\n{commit_proc.stderr or commit_proc.stdout}")
@@ -100,7 +133,7 @@ def admin_dashboard():
     st.title("Admin Dashboard")
 
     # Verify admin access
-    password = st.text_input("Enter admin password:", type="password")
+    password = st.text_input("Enter admin password:", type="password") if hasattr(st, "text_input") else None
     if is_admin(password):
         # Perform automated repair action
         if st.button("Run Automated Repair"):
@@ -114,7 +147,9 @@ def admin_dashboard():
                 )
 
                 # Explicit authorization checkbox
-                approved = st.checkbox("I authorize commit and push to the remote repository")
+                approved = st.checkbox(
+                    "I authorize commit and push to the remote repository"
+                )
 
                 # Only show/enable the push button when approved
                 if st.button("Commit and Push Now", disabled=not approved):
@@ -126,7 +161,9 @@ def admin_dashboard():
                 else:
                     st.info("Review the repair output and approve before pushing.")
             else:
-                st.info("No repairs were needed or the repair process reported no changes.")
+                st.info(
+                    "No repairs were needed or the repair process reported no changes."
+                )
     else:
         st.warning("Admin access required.")
 
