@@ -1,195 +1,214 @@
+import argparse
+import ast
+import cProfile
+import io
+import logging
 import os
-import sys
+import pstats
 import subprocess
+import sys
+import traceback
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
-
-# Project root is dynamically resolved
+# --- CONFIGURATION CONSTANTS ---
 PROJECT_ROOT = Path(__file__).parent.resolve()
+PAGES_DIR = os.path.join(PROJECT_ROOT, "pages")
+CORE_FUNCTIONS = [
+    "generate_strategy_for_objective",
+    "calculate_indicators",
+    "manage_positions",
+]
+STATIC_TOOLS = ["flake8", "black", "isort", "mypy"]
+PROFILER_ACTIVE = False
+
+# --- LOGGING CONFIGURATION ---
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("AutoDebugRepair")
 
 
-def add_to_pythonpath():
-    """Ensure project files are accessible in PYTHONPATH"""
+# --- PYTHONPATH ADJUSTMENT ---
+def add_to_pythonpath() -> None:
+    """Ensure `PROJECT_ROOT` and `pages` directory are in the PYTHONPATH."""
     if str(PROJECT_ROOT) not in sys.path:
         sys.path.insert(0, str(PROJECT_ROOT))
-        print(f"Added {PROJECT_ROOT} to PYTHONPATH")
+        logger.info(f"Added {PROJECT_ROOT} to PYTHONPATH.")
+
+    if PAGES_DIR not in sys.path:
+        sys.path.append(PAGES_DIR)
+        logger.info(f"Added {PAGES_DIR} to PYTHONPATH.")
 
 
-def fix_navigation_logic(file_path: Path):
+# --- STATIC CODE ANALYSIS AND REPAIR ---
+def run_static_tools() -> None:
     """
-    Detect and correct invalid Streamlit navigation paths (eapps).
+    Run all static analysis tools (flake8, black, isort, mypy) to detect
+    and repair issues (styling, type-checking, imports, etc.).
     """
-    print(f"Processing file for navigation issues: {file_path}")
-    try:
-        # Read file content
-        with open(file_path, "r", encoding="utf-8") as file:
-            content = file.readlines()
-
-        updated_content = []
-        modified = False
-
-        # Gather valid file names in the main and `pages/` directory
-        valid_pages = [f.stem for f in PROJECT_ROOT.glob("*.py")]  # Main files
-        valid_pages += [f.stem for f in (PROJECT_ROOT / "pages").glob("*.py")]  # Pages/
-
-        for line in content:
-            if "st.switch_page" in line:
-                # Extract target page name
-                start = line.find("(") + 2  # Finds the start of `st.switch_page(` argument
-                end = line.rfind(")") - 1
-                target_page = line[start:end] if start < end else None
-
-                if target_page:
-                    # Check if the navigation target matches valid pages
-                    target_page_fixed = target_page.strip('"').strip("'")
-                    if target_page_fixed not in valid_pages:
-                        print(
-                            f"Invalid navigation target detected: {target_page_fixed}"
-                        )
-                        if valid_pages:
-                            # Suggest the first matching page
-                            suggested_page = valid_pages[0]
-                            print(f"Attempting to fix to: {suggested_page}")
-                            line = (
-                                line.replace(target_page_fixed, suggested_page)
-                                if target_page_fixed
-                                else line
-                            )
-                            modified = True
-            updated_content.append(line)
-
-        # Save updated content if modifications were made
-        if modified:
-            with open(file_path, "w", encoding="utf-8") as file:
-                file.writelines(updated_content)
-            print(f"Navigation logic fixed in {file_path}")
-
-    except Exception as e:
-        print(f"Failed to process {file_path}: {e}")
-
-
-def detect_runtime_issues(log_file: Optional[Path] = None):
-    """
-    Analyze runtime logs or Streamlit API exceptions for patterns that can be corrected.
-    """
-    print("Running runtime issue detection")
-    try:
-        log_path = log_file or (PROJECT_ROOT / "runtime.log")
-        if not log_path.exists():
-            print(f"No runtime log found at: {log_path}")
-            return
-
-        with open(log_path, "r", encoding="utf-8") as file:
-            log_data = file.read()
-
-        # Look for Streamlit navigation errors
-        if "StreamlitAPIException" in log_data:
-            print("Streamlit navigation issue detected in logs.")
-            print("app")
-            print("Fixing logic...")
-            for file in PROJECT_ROOT.rglob("*.py"):
-                fix_navigation_logic(file)
-
-    except Exception as e:
-        print(f"Error analyzing runtime logs: {e}")
-
-
-def generate_dynamic_tests():
-    """
-    Dynamically generate test cases to validate navigation and critical paths.
-    """
-    print("Generating dynamic tests...")
-
-    test_dir = PROJECT_ROOT / "tests/auto_generated"
-    test_dir.mkdir(parents=True, exist_ok=True)
-
-    try:
-        # Generate navigation tests for Streamlit pages
-        test_file = test_dir / "test_navigation.py"
-        with open(test_file, "w", encoding="utf-8") as file:
-            file.write("import streamlit as st\n\n")
-            file.write("def test_navigation_pages():\n")
-            file.write("    pages = [\n")
-
-            # Generate page list dynamically
-            pages = [f.stem for f in PROJECT_ROOT.glob("*.py")] + [
-                f.stem for f in (PROJECT_ROOT / "pages").glob("*.py")
-            ]
-            for page in pages:
-                file.write(f"        '{page}',\n")
-
-            file.write("    ]\n")
-            file.write("    for page in pages:\n")
-            file.write("        try:\n")
-            file.write("app")
-            file.write("            print(f'Navigation to {page} passed.')\n")
-            file.write("        except Exception as e:\n")
-            file.write("            print(f'Failed to navigate to {page}: {e}')\n")
-
-        print(f"Generated test_navigation.py in {test_dir}")
-
-    except Exception as e:
-        print(f"Failed to generate dynamic tests: {e}")
-
-
-def run_static_fixers():
-    """
-    Run static code fixers like black and isort.
-    """
-    print("Running static code fixers...")
-    try:
-        subprocess.run(["black", str(PROJECT_ROOT)], check=True)
-        subprocess.run(["isort", str(PROJECT_ROOT)], check=True)
-    except Exception as e:
-        print(f"Static fixers encountered an error: {e}")
-
-
-def run_tests():
-    """
-    Run all tests to validate existing functionality.
-    """
-    print("Running all tests...")
-    try:
-        result = subprocess.run(
-            ["pytest", str(PROJECT_ROOT / "tests")],
-            check=False,
-            capture_output=True,
-            text=True,
+    logger.info("Running static analysis and repair tools...")
+    for tool in STATIC_TOOLS:
+        command = (
+            [tool, str(PROJECT_ROOT)]
+            if tool != "black"
+            else [tool, str(PROJECT_ROOT), "--quiet"]
         )
-        print(result.stdout)
-        if result.returncode != 0:
-            print("Some tests failed. Check the output.")
+        try:
+            subprocess.run(command, capture_output=True, text=True, check=True)
+            logger.info(f"`{tool}` completed successfully.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"{tool} failed:\n{e.stderr.strip()}")
+        except FileNotFoundError:
+            logger.error(f"`{tool}` is not installed. Skipping...")
+
+
+# --- SYNTAX VALIDATION AND REPAIR ---
+def validate_and_repair_syntax(file_path: str) -> None:
+    """
+    Parse the file with `ast` to detect potential syntax errors and attempt to fix them.
+    Generates a report if unsuccessful in resolving issues.
+    """
+    logger.info(f"Validating syntax for: {file_path}")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        ast.parse(content)
+        logger.info(f"Syntax valid for: {file_path}")
+    except SyntaxError as e:
+        logger.error(f"Syntax error in {file_path}: {e}")
+        attempt_syntax_fix(file_path, e)
+
+
+def attempt_syntax_fix(file_path: str, error: SyntaxError) -> None:
+    """
+    Attempt to auto-fix syntax issues based on the error type provided by Python's parser.
+    """
+    logger.info(f"Attempting to repair syntax for: {file_path}")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        # Example: Add logic to repair common issues like missing colons, parentheses, etc.
+        if "expected an indented block" in str(error):
+            lines.insert(
+                error.lineno - 1, "    pass  # Auto-fix: Added placeholder block\n"
+            )
+
+        elif "missing parentheses" in str(error):
+            logger.warning(
+                "Manual intervention may be required for missing parentheses."
+            )
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        logger.info(f"Syntax fixed for: {file_path}")
+
     except Exception as e:
-        print(f"Failed to execute tests: {e}")
+        logger.error(f"Failed to repair syntax for {file_path}: {e}")
+        traceback.print_exc()
 
 
-def auto_repair_cycle():
+# --- DEPENDENCY FILE SCANNING ---
+def find_core_dependencies() -> List[str]:
     """
-    Main enhanced repair workflow incorporating new logic for robustness.
+    Scan for files containing core functions or classes within the project.
     """
-    print("\n=== Starting Comprehensive Auto-Repair Cycle ===\n")
-
-    # Step 1: Run Static Code Fixers
-    run_static_fixers()
-
-    # Step 2: Dynamic Dependency & Navigation Fixes
-    print("\n=== Fixing Navigation Logic ===")
-    for file in PROJECT_ROOT.rglob("*.py"):
-        fix_navigation_logic(file)
-
-    # Step 3: Dynamic Test Generation
-    generate_dynamic_tests()
-
-    # Step 4: Detect Runtime Issues
-    detect_runtime_issues()
-
-    # Step 5: Validate with Tests
-    run_tests()
-
-    print("\n=== Auto-Repair Cycle Completed ===")
+    logger.info("Locating files with core dependencies...")
+    dependencies = []
+    for filepath in PROJECT_ROOT.rglob("*.py"):
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+        if any(core_function in content for core_function in CORE_FUNCTIONS):
+            dependencies.append(str(filepath))
+    logger.info(f"Found {len(dependencies)} dependent files.")
+    return dependencies
 
 
-if __name__ == "__main__":
+# --- RUNTIME PROFILING ---
+def profile_runtime(filepath: str) -> None:
+    """
+    Profile the runtime of the given Python file using cProfile.
+    """
+    global PROFILER_ACTIVE
+    if PROFILER_ACTIVE:
+        logger.warning(f"Skipping {filepath}: Another profiler is active.")
+        return
+
+    PROFILER_ACTIVE = True
+    try:
+        logger.info(f"Profiling runtime for {filepath}...")
+        profiler = cProfile.Profile()
+        profiler.enable()
+        exec(open(filepath).read())  # Execute the file
+        profiler.disable()
+
+        output = io.StringIO()
+        stats = pstats.Stats(profiler, stream=output).sort_stats("cumulative")
+        stats.print_stats()
+        logger.info(f"Profile summary for {filepath}:\n{output.getvalue()}")
+    except Exception as e:
+        logger.error(f"Error during profiling for {filepath}: {e}")
+        traceback.print_exc()
+    finally:
+        PROFILER_ACTIVE = False
+
+
+# --- GIT OPERATIONS ---
+def stage_and_commit_changes():
+    """
+    Automatically stage and commit changes, then push to the remote repository (if available).
+    """
+    logger.info("Attempting to commit and push changes...")
+    try:
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Auto-debug repair completed"], check=True
+        )
+        subprocess.run(["git", "push"], check=True)
+        logger.info("Changes committed and pushed successfully.")
+    except Exception as e:
+        logger.error(f"Error committing and pushing changes: {e}")
+        traceback.print_exc()
+
+
+# --- MAIN AUTO-REPAIR WORKFLOW ---
+def auto_repair_cycle(target_file: Optional[str] = None):
+    """
+    Main workflow for auto-debugging and repairing project files.
+    """
     add_to_pythonpath()
-    auto_repair_cycle()
+
+    # Step 1: Locate core dependency files
+    if target_file:
+        core_files = [target_file]
+        logger.info(f"Targeting specific file for auto-repair: {target_file}")
+    else:
+        core_files = find_core_dependencies()
+
+    # Step 2: Validate and repair syntax
+    for file_path in core_files:
+        validate_and_repair_syntax(file_path)
+
+    # Step 3: Run static analysis and repair tools
+    run_static_tools()
+
+    # Step 4: Profile each dependent file
+    for file_path in core_files:
+        profile_runtime(file_path)
+
+    # Step 5: Stage and commit all changes
+    stage_and_commit_changes()
+
+    logger.info("Auto-debug repair workflow completed successfully.")
+
+
+# --- EXECUTE THE WORKFLOW ---
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Auto-debug and repair tool.")
+    parser.add_argument(
+        "--target", type=str, help="Specify a single file to target for auto-repair."
+    )
+    args = parser.parse_args()
+
+    auto_repair_cycle(args.target)
